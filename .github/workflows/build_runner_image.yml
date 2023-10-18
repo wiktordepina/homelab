@@ -18,6 +18,4 @@ jobs:
         uses: actions/checkout@v4
       - name: Build Image
         run: |
-          whoami
-          pwd
           docker build ./runner-toolbox/ -t runner-toolbox

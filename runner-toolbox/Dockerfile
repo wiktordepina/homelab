@@ -1,7 +1,7 @@
 ARG BASE_IMAGE_TAG=12.2
 ARG TERRAFORM_VERSION=1.6.1
 
-FROM debian:${BASE_IMAGE_TAG} AS baseline
+FROM debian:${BASE_IMAGE_TAG}
 
 RUN apt update && apt upgrade -y
 
