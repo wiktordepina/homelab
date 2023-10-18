@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - '.github/workflows/build_runner_image.yml'
       - 'runner-toolbox/**'
 
 concurrency: theres-only-one-runner
@@ -18,4 +19,4 @@ jobs:
         uses: actions/checkout@v4
       - name: Build Image
         run: |
-          docker build ./runner-toolbox/ -t runner-toolbox
+          DOCKER_BUILDKIT=1 docker build ./runner-toolbox/ -t runner-toolbox
