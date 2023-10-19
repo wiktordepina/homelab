@@ -1,0 +1,11 @@
+---
+container:
+  vmid: 201
+  hostname: bind9
+  ip_address: 10.20.1.201/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 4
+  memory: 2048
+  swap: 512
+  start_on_boot: true
+  rootfs_size: 20G

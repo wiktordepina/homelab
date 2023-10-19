@@ -1,0 +1,21 @@
+name: LXC 201
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/lxc_201.yml'
+      - 'config/lxc/201/**'
+
+concurrency: theres-only-one-runner
+
+jobs:
+  BuildRunnerImage:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Terraform
+        run: _pipeline/execute_runner run_terraform_lxc 201 plan

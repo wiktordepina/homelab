@@ -1,7 +1,9 @@
 ARG BASE_IMAGE_TAG=12.2
-ARG TERRAFORM_VERSION=1.6.1
 
 FROM debian:${BASE_IMAGE_TAG}
+
+ARG TERRAFORM_VERSION=1.6.2
+ARG HCLEDIT_VERSION='0.2.10'
 
 RUN apt update && apt upgrade -y
 RUN apt-get install -y jq yq
@@ -22,5 +24,9 @@ RUN git clone https://github.com/tfutils/tfenv.git ~/.tfenv && \
     tfenv install ${TERRAFORM_VERSION} && \
     tfenv use ${TERRAFORM_VERSION}
 
-COPY ./scripts /opt/scripts
-RUN echo 'for script in /opt/scripts/*.sh; do source "${script}"; done' > /root/.bashrc
+# hcledit
+RUN wget -O- https://github.com/minamijoyo/hcledit/releases/download/v${HCLEDIT_VERSION}/hcledit_${HCLEDIT_VERSION}_linux_amd64.tar.gz | tar -xz --directory /usr/local/bin \
+    && chmod 755 /usr/local/bin/hcledit
+                  
+COPY ./functions /opt/functions
+RUN echo 'for script in /opt/functions/*.sh; do source "${script}"; done' > /root/.bashrc

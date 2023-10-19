@@ -1,0 +1,11 @@
+#!/bin/bash
+
+docker run --rm -it \
+  --name runner \
+  -v /pve/terraform:/pve/terraform \
+  -v .:/build \
+  -w /build \
+  -e PM_USER="${PM_USER}" \
+  -e PM_PASS="${PM_PASS}" \
+  runner-toolbox \
+  "${@}"
