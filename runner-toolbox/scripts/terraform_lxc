@@ -1,9 +1,9 @@
 #!/bin/bash
 
-set -e
-
 for fnc in /opt/functions/*.sh; do 
   source "${fnc}"
 done
+
+set -e
 
 run_terraform_lxc "${1}" "${2}"
