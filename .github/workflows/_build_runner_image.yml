@@ -1,0 +1,14 @@
+name: Build Runner Image
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  BuildRunnerImage:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build Image
+        run: docker build runner-toolbox -t runner-toolbox:latest

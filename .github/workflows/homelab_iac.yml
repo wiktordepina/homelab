@@ -1,0 +1,25 @@
+name: HomeLab IAC
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency: homelab-iac
+
+jobs:
+  BuildRunnerImage:
+    uses: ./.github/workflows/_build_runner_image.yml
+  DeployLXCs:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        vmid:
+          - 201
+    uses: ./.github/workflows/_lxc.yml
+    with:
+      vmid: ${{ matrix.vmid }}
+      tf_action: plan
+    

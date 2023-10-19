@@ -1,0 +1,41 @@
+name: LXC Terraform
+
+on:
+  workflow_call:
+    inputs:
+      vmid:
+        type: string
+        required: true
+        description: lxc id
+      tf_action:
+        type: string
+        required: true
+        description: terraform action
+        default: plan
+  workflow_dispatch:
+    inputs:
+      vmid:
+        type: string
+        required: true
+        description: lxc id
+      tf_action:
+        type: choice
+        required: true
+        description: terraform action
+        default: plan
+        options:
+          - plan
+          - apply
+          - destroy_plan
+          - destroy
+
+concurrency: lxc
+
+jobs:
+  BuildRunnerImage:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Terraform
+        run: execute_runner terraform_lxc ${{ inputs.vmid }} ${{ inputs.tf_action }}
