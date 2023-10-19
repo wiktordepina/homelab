@@ -31,6 +31,10 @@ on:
 
 concurrency: lxc
 
+env:
+  PM_USER: ${{ secrets.PM_USER }}
+  PM_PASS: ${{ secrets.PM_PASS }}
+
 jobs:
   Terraform:
     runs-on: self-hosted
