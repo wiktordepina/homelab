@@ -18,5 +18,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build Image
-        run: |
-          _pipeline/execute build_image runner-toolbox runner-toolbox:latest
+        run: _pipeline/execute build_image runner-toolbox runner-toolbox:latest
