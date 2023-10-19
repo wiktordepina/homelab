@@ -37,13 +37,16 @@ run_terraform_lxc() {
   local tf_action="${2}" ; check_null tf_action "${2}"
 
   local tf_dir='terraform/lxc'
+  local tf_dir_absolute="$(pwd)/${tf_dir}"
   local tf_statefile="${TF_STATEFILE_BASEDIR}/lxc-${vmid}.tfstate"
 
   inject_tf_lxc_config "${vmid}" "${tf_dir}"
-  trap "rm -rf ${tf_dir}/terraform.tfvars ${tf_dir}/.terraform ${tf_dir}/.terraform.lock.hcl ${tf_dir}/tf_apply.plan ${tf_dir}/tf_destroy.plan" ERR RETURN
+  trap "rm -rf ${tf_dir_absolute}/terraform.tfvars ${tf_dir_absolute}/.terraform ${tf_dir_absolute}/.terraform.lock.hcl ${tf_dir_absolute}/tf_apply.plan ${tf_dir_absolute}/tf_destroy.plan" EXIT
 
   pushd "${tf_dir}" > /dev/null
   
+  set -e
+
   terraform init --backend-config=path="${tf_statefile}"
   terraform validate
 
