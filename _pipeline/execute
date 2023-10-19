@@ -1,0 +1,7 @@
+#!/bin/bash
+
+for script in _pipeline/functions/*.sh; do
+  source "${script}"
+done
+
+eval "${@}"
