@@ -9,7 +9,7 @@ on:
       - '.github/workflows/lxc_201.yml'
       - 'config/lxc/201/**'
 
-concurrency: theres-only-one-runner
+concurrency: lxc-201
 
 jobs:
   BuildRunnerImage:
