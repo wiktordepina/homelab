@@ -4,6 +4,7 @@ ARG TERRAFORM_VERSION=1.6.1
 FROM debian:${BASE_IMAGE_TAG}
 
 RUN apt update && apt upgrade -y
+RUN apt-get install -y jq yq
 
 # ansible
 RUN apt-get install -y python3-full python3-pip ansible
@@ -20,3 +21,6 @@ RUN git clone https://github.com/tfutils/tfenv.git ~/.tfenv && \
     ln -s ~/.tfenv/bin/* /usr/local/bin && \
     tfenv install ${TERRAFORM_VERSION} && \
     tfenv use ${TERRAFORM_VERSION}
+
+COPY ./scripts /opt/scripts
+RUN echo 'for script in /opt/scripts/*.sh; do source "${script}"; done' > /root/.bashrc
