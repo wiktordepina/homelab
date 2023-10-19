@@ -42,4 +42,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Terraform
-        run: ./execute_runner terraform_lxc ${{ inputs.vmid }} ${{ inputs.tf_action }}
+        run: ./run/execute_runner terraform_lxc ${{ inputs.vmid }} ${{ inputs.tf_action }}
