@@ -18,4 +18,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Terraform
-        run: _pipeline/execute_runner run_terraform_lxc 201 plan
+        run: _pipeline/execute_runner terraform_lxc 201 plan

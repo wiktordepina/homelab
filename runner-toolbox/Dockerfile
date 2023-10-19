@@ -29,4 +29,4 @@ RUN wget -O- https://github.com/minamijoyo/hcledit/releases/download/v${HCLEDIT_
     && chmod 755 /usr/local/bin/hcledit
                   
 COPY ./functions /opt/functions
-RUN echo 'for script in /opt/functions/*.sh; do source "${script}"; done' > /root/.bashrc
+COPY ./scripts /usr/bin
