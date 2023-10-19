@@ -1,6 +1,6 @@
 #!/bin/bash
 
-docker run --rm -it \
+docker run --rm \
   --name runner \
   -v /pve/terraform:/pve/terraform \
   -v .:/build \
