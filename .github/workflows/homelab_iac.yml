@@ -12,6 +12,8 @@ jobs:
   BuildRunnerImage:
     uses: ./.github/workflows/_build_runner_image.yml
   DeployLXCs:
+    needs:
+      - BuildRunnerImage
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -22,4 +24,3 @@ jobs:
     with:
       vmid: ${{ matrix.vmid }}
       tf_action: plan
-    
