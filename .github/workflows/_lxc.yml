@@ -32,7 +32,7 @@ on:
 concurrency: lxc
 
 jobs:
-  BuildRunnerImage:
+  Terraform:
     runs-on: self-hosted
     steps:
       - name: Checkout
