@@ -9,8 +9,8 @@ inject_tf_var_for_lxc() {
 
   local value
   local type
-  value=$(lxc_config "${vmid}" ".container.${var_name}")
-  type=$(lxc_config "${vmid}" ".container.${var_name} | type")
+  value=$(lxc_config "${vmid}" ".terraform.${var_name}")
+  type=$(lxc_config "${vmid}" ".terraform.${var_name} | type")
   [[ -n "${value}" && "${type}" == 'string' ]] && value="\"${value}\""
   [ -n "${value}" ] && echo "${var_name}=${value}" >> "${output_folder}/terraform.tfvars"
 }
@@ -20,7 +20,7 @@ inject_tf_lxc_config() {
   local output_folder="${2}" ; check_null output_folder "${2}"
 
   local keys
-  keys=$(lxc_config "${vmid}" '.container | keys | @csv' | tr -d '"')
+  keys=$(lxc_config "${vmid}" '.terraform | keys | @csv' | tr -d '"')
   IFS=',' read -ra keys <<< "${keys}"
   for key in "${keys[@]}"; do
     inject_tf_var_for_lxc "${vmid}" "${output_folder}" "${key}" 

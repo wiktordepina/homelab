@@ -1,5 +1,5 @@
 ---
-container:
+terraform:
   vmid: 201
   hostname: bind9
   ip_address: 10.20.1.201/16
