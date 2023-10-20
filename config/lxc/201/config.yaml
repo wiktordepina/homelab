@@ -9,3 +9,13 @@ terraform:
   swap: 512
   start_on_boot: true
   rootfs_size: 20G
+
+ansible:
+  roles:
+    - update_os
+  tasks:
+    - name: Ping my hosts
+      ansible.builtin.ping:
+    - name: Print message
+      ansible.builtin.debug:
+        msg: Hello world

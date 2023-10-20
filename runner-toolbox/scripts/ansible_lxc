@@ -1,0 +1,7 @@
+#!/bin/bash
+
+for fnc in /opt/functions/*.sh; do 
+  source "${fnc}"
+done
+
+run_ansible_lxc "${1}"
