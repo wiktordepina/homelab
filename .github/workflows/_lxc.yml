@@ -34,6 +34,7 @@ concurrency: lxc
 env:
   PM_USER: ${{ secrets.PM_USER }}
   PM_PASS: ${{ secrets.PM_PASS }}
+  DNS_TSIG_KEY: ${{ secrets.DNS_TSIG_KEY }}
 
 jobs:
   RunLXC:

@@ -1,0 +1,27 @@
+---
+- name: Install bind9
+  ansible.builtin.apt:
+    name:
+      - bind9
+      - bind9-utils
+
+- name: Bind9 config
+  ansible.builtin.copy:
+    src: named.conf
+    dest: /etc/bind/named.conf
+  notify:
+    - Restart bind9
+
+- name: DNS Tsig Key
+  ansible.builtin.template:
+    src: tsig-key.key.j2
+    dest: /etc/bind/tsig-key.key
+  notify:
+    - Restart bind9
+
+- name: home.matagoth.com zone
+  ansible.builtin.template:
+    src: home-matagoth-com.zone.j2
+    dest: /etc/bind/home-matagoth-com.zone
+  notify:
+    - Restart bind9

@@ -12,10 +12,8 @@ terraform:
 
 ansible:
   roles:
-    - update_os
-  tasks:
-    - name: Ping my hosts
-      ansible.builtin.ping:
-    - name: Print message
-      ansible.builtin.debug:
-        msg: Hello world
+    - base
+    - role: dns
+      vars:
+        tsig_key: "{{ lookup('ansible.builtin.env', 'DNS_TSIG_KEY') }}"
+        dns_ip: 10.20.1.201
