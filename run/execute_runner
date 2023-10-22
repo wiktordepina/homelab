@@ -8,5 +8,6 @@ docker run --rm \
   -w /build \
   -e PM_USER="${PM_USER}" \
   -e PM_PASS="${PM_PASS}" \
+  -e DNS_TSIG_KEY="${DNS_TSIG_KEY}" \
   runner-toolbox \
   "${@}"
