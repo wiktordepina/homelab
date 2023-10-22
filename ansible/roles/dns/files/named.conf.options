@@ -1,0 +1,7 @@
+options {
+  listen-on { localnets; };
+  allow-query { localnets; };
+  allow-query-cache { none; };
+  allow-recursion { none; };
+  dnssec-validation auto;
+};

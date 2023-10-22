@@ -5,10 +5,17 @@
       - bind9
       - bind9-utils
 
-- name: Bind9 config
+- name: Bind9 options
   ansible.builtin.copy:
-    src: named.conf
-    dest: /etc/bind/named.conf
+    src: named.conf.options
+    dest: /etc/bind/named.conf.options
+  notify:
+    - Restart bind9
+
+- name: Bind9 local
+  ansible.builtin.copy:
+    src: named.conf.local
+    dest: /etc/bind/named.conf.local
   notify:
     - Restart bind9
 
