@@ -2,9 +2,9 @@ name: HomeLab IAC
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  # push:
+  #   branches:
+  #     - main
 
 concurrency: homelab-iac
 
