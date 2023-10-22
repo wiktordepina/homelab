@@ -32,17 +32,6 @@ inject_tf_lxc_config() {
   } >> "${output_folder}/terraform.tfvars"
 }
 
-run_terraform_lxc() {
-  local vmid="${1}"      ; check_null vmid "${1}"
-  local tf_action="${2}" ; check_null tf_action "${2}"
-
-  local tf_dir='terraform/lxc'
-  local tf_statefile="${TF_STATEFILE_BASEDIR}/lxc-${vmid}.tfstate"
-
-  inject_tf_lxc_config "${vmid}" "${tf_dir}"
-  run_terraform "${tf_action}" "${tf_dir}" "${tf_statefile}"
-}
-
 run_terraform() {
   local tf_action="${1}"    ; check_null tf_action "${1}"
   local tf_dir="${2}"       ; check_null tf_dir "${2}"
@@ -80,4 +69,25 @@ run_terraform() {
   esac
 
   popd > /dev/null
+}
+
+run_terraform_lxc() {
+  local vmid="${1}"      ; check_null vmid "${1}"
+  local tf_action="${2}" ; check_null tf_action "${2}"
+
+  local tf_dir='terraform/lxc'
+  local tf_statefile="${TF_STATEFILE_BASEDIR}/lxc-${vmid}.tfstate"
+
+  inject_tf_lxc_config "${vmid}" "${tf_dir}"
+  run_terraform "${tf_action}" "${tf_dir}" "${tf_statefile}"
+}
+
+run_terraform_dns() {
+  local tf_action="${1}" ; check_null tf_action "${1}"
+
+  local tf_dir='terraform/dns'
+  local tf_statefile="${TF_STATEFILE_BASEDIR}/dns-records.tfstate"
+  echo "tsig_key=\"${DNS_TSIG_KEY}\"" > "${tf_dir}/terraform.tfvars"
+
+  run_terraform "${tf_action}" "${tf_dir}" "${tf_statefile}"
 }

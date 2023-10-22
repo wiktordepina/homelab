@@ -1,0 +1,36 @@
+name: DNS Terraform
+
+on:
+  workflow_call:
+    inputs:
+      tf_action:
+        type: string
+        required: true
+        description: terraform action
+        default: plan
+  workflow_dispatch:
+    inputs:
+      tf_action:
+        type: choice
+        required: true
+        description: terraform action
+        default: plan
+        options:
+          - plan
+          - apply
+          - destroy_plan
+          - destroy
+
+concurrency: dns
+
+env:
+  DNS_TSIG_KEY: ${{ secrets.DNS_TSIG_KEY }}
+
+jobs:
+  RunLXC:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: DNS
+        run: ./run/execute_runner terraform_dns ${{ inputs.tf_action }}
