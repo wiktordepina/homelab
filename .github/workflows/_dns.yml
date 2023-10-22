@@ -27,7 +27,7 @@ env:
   DNS_TSIG_KEY: ${{ secrets.DNS_TSIG_KEY }}
 
 jobs:
-  RunLXC:
+  RunDNS:
     runs-on: self-hosted
     steps:
       - name: Checkout
