@@ -37,10 +37,19 @@ run_terraform_lxc() {
   local tf_action="${2}" ; check_null tf_action "${2}"
 
   local tf_dir='terraform/lxc'
-  local tf_dir_absolute="$(pwd)/${tf_dir}"
   local tf_statefile="${TF_STATEFILE_BASEDIR}/lxc-${vmid}.tfstate"
 
   inject_tf_lxc_config "${vmid}" "${tf_dir}"
+  run_terraform "${tf_action}" "${tf_dir}" "${tf_statefile}"
+}
+
+run_terraform() {
+  local tf_action="${1}"    ; check_null tf_action "${1}"
+  local tf_dir="${2}"       ; check_null tf_dir "${2}"
+  local tf_statefile="${3}" ; check_null tf_statefile "${3}"
+
+  local tf_dir_absolute="$(pwd)/${tf_dir}"
+
   trap "rm -rf ${tf_dir_absolute}/terraform.tfvars ${tf_dir_absolute}/.terraform ${tf_dir_absolute}/.terraform.lock.hcl ${tf_dir_absolute}/tf_apply.plan ${tf_dir_absolute}/tf_destroy.plan" EXIT
 
   pushd "${tf_dir}" > /dev/null
@@ -65,6 +74,9 @@ run_terraform_lxc() {
       terraform plan -destroy -input=false --var-file terraform.tfvars -out tf_destroy.plan
       terraform apply --auto-approve -input=false tf_destroy.plan
       ;;
+    *)
+      echo "Unknown action - ${tf_action}"
+      exit 1
   esac
 
   popd > /dev/null
