@@ -5,6 +5,15 @@
       - bind9
       - bind9-utils
 
+- name: Bind9 log folder
+  ansible.builtin.file:
+    path: /var/log/bind
+    state: directory
+    owner: bind
+    group: bind
+  notify:
+    - Restart bind9
+
 - name: Bind9 options
   ansible.builtin.copy:
     src: named.conf.options
