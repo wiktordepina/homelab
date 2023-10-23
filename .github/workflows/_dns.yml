@@ -20,6 +20,11 @@ on:
           - apply
           - destroy_plan
           - destroy
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/dns/**'
 
 concurrency: dns
 
@@ -33,4 +38,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Terraform
-        run: ./run/execute_runner terraform_dns ${{ inputs.tf_action }}
+        run: ./run/execute_runner terraform_dns ${{ github.event_name == 'push' && 'apply' || inputs.tf_action }}

@@ -3,6 +3,11 @@ name: Build Runner Image
 on:
   workflow_dispatch:
   workflow_call:
+  push:
+    branches:
+      - main
+    paths:
+      - 'runner-toolbox/**'
 
 jobs:
   BuildRunnerImage:
