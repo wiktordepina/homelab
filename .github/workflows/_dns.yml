@@ -1,4 +1,4 @@
-name: DNS Terraform
+name: DNS
 
 on:
   workflow_call:
@@ -32,5 +32,5 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: DNS
+      - name: Terraform
         run: ./run/execute_runner terraform_dns ${{ inputs.tf_action }}
