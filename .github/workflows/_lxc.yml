@@ -1,4 +1,4 @@
-name: LXC Terraform
+name: LXC
 
 on:
   workflow_call:
