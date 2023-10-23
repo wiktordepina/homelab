@@ -1,0 +1,12 @@
+include "/etc/bind/tsig-key.key";
+
+controls {
+    inet {{ dns_ip }} port 953
+    allow { localnets; } keys { "tsig-key"; };
+};
+
+zone "home.matagoth.com" IN {
+  type master;
+  file "/etc/bind/home-matagoth-com.zone";
+  update-policy { grant tsig-key zonesub any; };
+};

@@ -1,7 +1,0 @@
-include "/etc/bind/tsig-key.key";
-
-zone "matagoth.com" {
-  type master;
-  file "/etc/bind/matagoth-com.zone";
-  update-policy { grant tsig-key zonesub any; };
-};
