@@ -8,3 +8,16 @@ options {
   allow-transfer { none; };
   dnssec-validation auto;
 };
+
+logging {
+  channel default_log {
+    file "/var/log/bind/default.log";
+    print-time yes;
+    print-category yes;
+    print-severity yes;
+    severity info;
+  };
+
+  category default { default_log; };
+  category queries { default_log; };
+};
