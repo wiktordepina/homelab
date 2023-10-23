@@ -84,6 +84,7 @@ run_terraform_lxc() {
 
 run_terraform_dns() {
   local tf_action="${1}" ; check_null tf_action "${1}"
+  check_null DNS_TSIG_KEY "${DNS_TSIG_KEY}"
 
   local tf_dir='terraform/dns'
   local tf_statefile="${TF_STATEFILE_BASEDIR}/dns-records.tfstate"
