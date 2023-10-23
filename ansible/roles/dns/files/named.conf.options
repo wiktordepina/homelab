@@ -1,9 +1,10 @@
 options {
   directory "/var/cache/bind";
   listen-on { localnets; };
-  allow-transfer { none; };
   allow-query { localnets; };
   allow-query-cache { none; };
+  auth-nxdomain no;
   recursion no;
+  allow-transfer { none; };
   dnssec-validation auto;
 };
