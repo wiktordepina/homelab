@@ -1,11 +1,6 @@
 $TTL	604800
-@	IN	SOA	home.matagoth.com. root.home.matagoth.com. (
-			      5		; Serial
-			 604800		; Refresh
-			  86400		; Retry
-			2419200		; Expire
-			 604800 )	; Negative Cache TTL
-;
-@	IN	NS	home.matagoth.com.
+$ORIGIN home.matagoth.com.
+$TTL 3600
+@	IN	SOA	@	matagoth.gmail.com.	( 5 7200 3600 1209600 3600 )
+@	IN	NS	@
 @	IN	A	{{ dns_ip }}
-@	IN	AAAA	::1
