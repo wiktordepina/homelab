@@ -26,7 +26,7 @@ on:
         options:
           - plan
           - apply
-          - destroy_plan
+          - plan_destroy
           - destroy
 
 concurrency: lxc
@@ -45,4 +45,5 @@ jobs:
       - name: Terraform
         run: ./run/execute_runner terraform_lxc ${{ inputs.vmid }} ${{ inputs.tf_action }}
       - name: Ansible
+        if: ${{ inputs.tf_action == 'apply' }}
         run: ./run/execute_runner ansible_lxc ${{ inputs.vmid }}
