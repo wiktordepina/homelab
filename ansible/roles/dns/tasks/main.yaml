@@ -13,8 +13,8 @@
     - Restart bind9
 
 - name: Bind9 local
-  ansible.builtin.template:
-    src: named.conf.local.j2
+  ansible.builtin.copy:
+    src: named.conf.local
     dest: /etc/bind/named.conf.local
   notify:
     - Restart bind9

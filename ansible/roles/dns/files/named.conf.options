@@ -11,7 +11,7 @@ options {
 
 logging {
   channel default_log {
-    file "/var/log/bind/default.log";
+    file "/var/log/bind/default.log" size 50M;
     print-time yes;
     print-category yes;
     print-severity yes;
