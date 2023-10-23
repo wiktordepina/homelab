@@ -29,6 +29,6 @@
 - name: home.matagoth.com zone
   ansible.builtin.template:
     src: matagoth-com.zone.j2
-    dest: /etc/bind/home-matagoth-com.zone
+    dest: /etc/bind/matagoth-com.zone
   notify:
     - Restart bind9
