@@ -88,7 +88,7 @@ run_terraform_dns() {
 
   local tf_dir='terraform/dns'
   local tf_statefile="${TF_STATEFILE_BASEDIR}/dns-records.tfstate"
-  echo "tsig_key=\"${DNS_TSIG_KEY}\"" > "${tf_dir}/terraform.tfvars"
+  echo "tsig_key=\"testtesttest${DNS_TSIG_KEY}\"" > "${tf_dir}/terraform.tfvars"
 
   run_terraform "${tf_action}" "${tf_dir}" "${tf_statefile}"
 }
