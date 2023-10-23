@@ -23,3 +23,10 @@ resource "dns_a_record_set" "accesspoint" {
   addresses = ["192.168.200.60"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "proxmox" {
+  zone      = "home.matagoth.com."
+  name      = "proxmox"
+  addresses = ["192.168.200.100"]
+  ttl       = 500
+}
