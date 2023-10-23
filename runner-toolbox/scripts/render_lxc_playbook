@@ -4,7 +4,7 @@ import sys, yaml
 
 vmid = sys.argv[1]
 
-lcx_conf_path = f'./config/lxc/{vmid}/config.yaml'
+lcx_conf_path = f'./config/lxc/{vmid}.yaml'
 with open(lcx_conf_path) as conf_file:
   lxc_conf = yaml.safe_load(conf_file)
 

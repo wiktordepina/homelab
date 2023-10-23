@@ -10,5 +10,5 @@ lxc_config() {
   local vmid="${1}"  ; check_null vmid "${1}"
   local query="${2}" ; check_null query "${2}"
 
-  yq -r "${query}" "config/lxc/${vmid}/config.yaml"
+  yq -r "${query}" "config/lxc/${vmid}.yaml"
 }

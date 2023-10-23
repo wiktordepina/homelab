@@ -1,0 +1,19 @@
+---
+terraform:
+  vmid: 201
+  hostname: bind9
+  ip_address: 10.20.1.201/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 4
+  memory: 2048
+  swap: 512
+  start_on_boot: true
+  rootfs_size: 20G
+
+ansible:
+  roles:
+    - base
+    - role: dns
+      vars:
+        tsig_key: "{{ lookup('ansible.builtin.env', 'DNS_TSIG_KEY') }}"
+        dns_ip: 10.20.1.201
