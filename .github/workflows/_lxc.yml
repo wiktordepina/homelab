@@ -53,7 +53,7 @@ jobs:
         if: always()
         run: |
           echo "### Linux Container LXC" >> $GITHUB_STEP_SUMMARY
-          echo 'Input parameters:' >> $GITHUB_STEP_SUMMARY
+          echo '#### Input parameters:' >> $GITHUB_STEP_SUMMARY
           echo "- Container ID ***vmid*** = \`${{ inputs.vmid }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Terraform action ***tf_action*** = \`${{ inputs.tf_action }}\`" >> $GITHUB_STEP_SUMMARY
           echo "#### Outcome:" >> $GITHUB_STEP_SUMMARY
