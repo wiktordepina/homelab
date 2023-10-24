@@ -43,12 +43,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Terraform
-        run: |
-          echo "### Terraform\nRunning terraform ${{ inputs.tf_action }} for LXC ${{ inputs.vmid }}." >> $GITHUB_STEP_SUMMARY
-          [[ '${{ inputs.tf_action }}'!='apply' ]] && echo 'Subsequent Ansible step will be skipped.' >> $GITHUB_STEP_SUMMARY
-          ./run/execute_runner terraform_lxc ${{ inputs.vmid }} ${{ inputs.tf_action }}
+        id: terraform
+        run: ./run/execute_runner terraform_lxc ${{ inputs.vmid }} ${{ inputs.tf_action }}
       - name: Ansible
+        id: ansible
         if: ${{ inputs.tf_action == 'apply' }}
+        run: ./run/execute_runner ansible_lxc ${{ inputs.vmid }}
+      - name: Generate Step Summary
         run: |
-          echo "### Ansible\nRunning ansible playbook for LXC ${{ inputs.vmid }}" >> $GITHUB_STEP_SUMMARY
-          ./run/execute_runner ansible_lxc ${{ inputs.vmid }}
+          echo "### LXC ${{ inputs.vmid }}" >> $GITHUB_STEP_SUMMARY
+          echo "- terraform ${{ inputs.tf_action }} step - status: ${{ steps.terraform.outcome }}" >> $GITHUB_STEP_SUMMARY
+          if [[ '${{ inputs.tf_action }}'!='apply' ]]; then
+            echo '- subsequent Ansible step has been skipped' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ansible step - status: ${{ steps.terraform.outcome }}" >> $GITHUB_STEP_SUMMARY
+          fi
