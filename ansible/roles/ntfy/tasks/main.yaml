@@ -3,6 +3,11 @@
     path: /etc/apt/keyrings
     state: directory
 
+- name: Instal gpg
+  ansible.builtin.apt_key:
+    name: gpg
+    state: present
+
 - name: Ntfy.sh gpg key
   ansible.builtin.apt_key:
     url: https://archive.heckel.io/apt/pubkey.txt
