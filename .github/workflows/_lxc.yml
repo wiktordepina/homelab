@@ -52,7 +52,11 @@ jobs:
       - name: Generate Step Summary
         if: always()
         run: |
-          echo "### LXC ${{ inputs.vmid }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Linux Container LXC" >> $GITHUB_STEP_SUMMARY
+          echo 'Input parameters:' >> $GITHUB_STEP_SUMMARY
+          echo "- Container ID (`vmid`): ${{ inputs.vmid }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Terraform action (`tf_action`): ${{ inputs.tf_action }}" >> $GITHUB_STEP_SUMMARY
+          echo "#### Outcome:" >> $GITHUB_STEP_SUMMARY
           tf_status=':white_check_mark:'
           [[ '${{ steps.terraform.outcome }}' != 'success' ]] && tf_status=':x:'
           an_status=':white_check_mark:'
