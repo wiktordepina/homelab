@@ -50,6 +50,7 @@ jobs:
         if: ${{ inputs.tf_action == 'apply' }}
         run: ./run/execute_runner ansible_lxc ${{ inputs.vmid }}
       - name: Generate Step Summary
+        if: always()
         run: |
           echo "### LXC ${{ inputs.vmid }}" >> $GITHUB_STEP_SUMMARY
           tf_status=':white_check_mark:'
