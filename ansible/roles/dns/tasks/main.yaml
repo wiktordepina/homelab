@@ -4,6 +4,7 @@
     name:
       - bind9
       - bind9-utils
+    state: present
 
 - name: Bind9 log folder
   ansible.builtin.file:
