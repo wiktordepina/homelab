@@ -65,5 +65,5 @@ jobs:
           if [[ '${{ inputs.tf_action }}' == 'apply' ]]; then
             echo "${an_status} Ansible step ***${{ steps.ansible.outcome }}***" >> $GITHUB_STEP_SUMMARY
           else
-            echo ':no_entry_sign: subsequent Ansible step has been skipped' >> $GITHUB_STEP_SUMMARY
+            echo ':no_entry_sign: Ansible step has been skipped' >> $GITHUB_STEP_SUMMARY
           fi
