@@ -52,9 +52,13 @@ jobs:
       - name: Generate Step Summary
         run: |
           echo "### LXC ${{ inputs.vmid }}" >> $GITHUB_STEP_SUMMARY
-          echo "- terraform ${{ inputs.tf_action }} step - status: ${{ steps.terraform.outcome }}" >> $GITHUB_STEP_SUMMARY
+          tf_status=':white_check_mark:'
+          [[ '${{ steps.terraform.outcome }}'!='success' ]] && tf_status=':x:'
+          an_status=':white_check_mark:'
+          [[ '${{ steps.ansible.outcome }}'!='success' ]] && an_status=':x:'
+          echo "${tf_status} terraform ${{ inputs.tf_action }} step" >> $GITHUB_STEP_SUMMARY
           if [[ '${{ inputs.tf_action }}'!='apply' ]]; then
-            echo '- subsequent Ansible step has been skipped' >> $GITHUB_STEP_SUMMARY
+            echo ':no_entry_sign: subsequent Ansible step has been skipped' >> $GITHUB_STEP_SUMMARY
           else
-            echo "- ansible step - status: ${{ steps.terraform.outcome }}" >> $GITHUB_STEP_SUMMARY
+            echo "${an_status} ansible step - status: ${{ steps.terraform.outcome }}" >> $GITHUB_STEP_SUMMARY
           fi
