@@ -25,7 +25,7 @@
 
 - name: Install Ntfy.sh
   ansible.builtin.apt:
-    update: yes
+    update_cache: yes
     name: ntfy
     state: present
 
