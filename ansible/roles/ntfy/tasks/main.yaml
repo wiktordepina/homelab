@@ -4,7 +4,7 @@
     state: directory
 
 - name: Instal gpg
-  ansible.builtin.apt_key:
+  ansible.builtin.apt:
     name: gpg
     state: present
 
