@@ -14,7 +14,7 @@
     keyring: /etc/apt/keyrings/archive.heckel.io.gpg
 
 - name: Instal apt-transport-https
-  ansible.builtin.apt_key:
+  ansible.builtin.apt:
     name: apt-transport-https
     state: present
 
