@@ -43,7 +43,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Terraform
-        run: ./run/execute_runner terraform_lxc ${{ inputs.vmid }} ${{ inputs.tf_action }}
+        run: |
+          echo "### Terraform\nRunning terraform ${{ inputs.tf_action }} for LXC ${{ inputs.vmid }}." >> $GITHUB_STEP_SUMMARY
+          [[ '${{ inputs.tf_action }}'!='apply' ]] && echo 'Subsequent Ansible step will be skipped.' >> $GITHUB_STEP_SUMMARY
+          ./run/execute_runner terraform_lxc ${{ inputs.vmid }} ${{ inputs.tf_action }}
       - name: Ansible
         if: ${{ inputs.tf_action == 'apply' }}
-        run: ./run/execute_runner ansible_lxc ${{ inputs.vmid }}
+        run: |
+          echo "### Ansible\nRunning ansible playbook for LXC ${{ inputs.vmid }}" >> $GITHUB_STEP_SUMMARY
+          ./run/execute_runner ansible_lxc ${{ inputs.vmid }}
