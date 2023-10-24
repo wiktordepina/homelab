@@ -14,6 +14,15 @@
   notify:
     - Restart bind9
 
+- name: Bind9 comfig folder
+  ansible.builtin.file:
+    path: /etc/bind
+    state: directory
+    owner: bind
+    group: bind
+  notify:
+    - Restart bind9
+
 - name: Bind9 options
   ansible.builtin.copy:
     src: named.conf.options
