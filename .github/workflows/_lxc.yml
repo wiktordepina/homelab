@@ -53,12 +53,12 @@ jobs:
         run: |
           echo "### LXC ${{ inputs.vmid }}" >> $GITHUB_STEP_SUMMARY
           tf_status=':white_check_mark:'
-          [[ '${{ steps.terraform.outcome }}'!='success' ]] && tf_status=':x:'
+          [[ '${{ steps.terraform.outcome }}' -ne 'success' ]] && tf_status=':x:'
           an_status=':white_check_mark:'
-          [[ '${{ steps.ansible.outcome }}'!='success' ]] && an_status=':x:'
-          echo "${tf_status} terraform ${{ inputs.tf_action }} step" >> $GITHUB_STEP_SUMMARY
-          if [[ '${{ inputs.tf_action }}'!='apply' ]]; then
+          [[ '${{ steps.ansible.outcome }}' -ne 'success' ]] && an_status=':x:'
+          echo "${tf_status} Terraform ${{ inputs.tf_action }} step" >> $GITHUB_STEP_SUMMARY
+          if [[ '${{ inputs.tf_action }}' -ne 'apply' ]]; then
             echo ':no_entry_sign: subsequent Ansible step has been skipped' >> $GITHUB_STEP_SUMMARY
           else
-            echo "${an_status} ansible step - status: ${{ steps.terraform.outcome }}" >> $GITHUB_STEP_SUMMARY
+            echo "${an_status} Ansible step - status: ${{ steps.terraform.outcome }}" >> $GITHUB_STEP_SUMMARY
           fi
