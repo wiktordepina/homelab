@@ -41,8 +41,8 @@
 
 - name: Auth file
   ansible.builtin.file:
-    owner: /var/lib/ntfy/user.db
-    user: ntfy
+    path: /var/lib/ntfy/user.db
+    owner: ntfy
     group: ntfy
     state: touch
   notify: 
