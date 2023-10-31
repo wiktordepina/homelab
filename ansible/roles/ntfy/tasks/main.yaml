@@ -35,6 +35,7 @@
     path: /var/cache/ntfy/cache.db
     owner: ntfy
     group: ntfy
+    state: touch
   notify: 
     - Restart Ntfy
 
@@ -43,6 +44,7 @@
     owner: /var/lib/ntfy/user.db
     user: ntfy
     group: ntfy
+    state: touch
   notify: 
     - Restart Ntfy
 
