@@ -33,14 +33,14 @@
 - name: Cache file
   ansible.builtin.file:
     path: /var/cache/ntfy/cache.db
-    user: ntfy
+    owner: ntfy
     group: ntfy
   notify: 
     - Restart Ntfy
 
 - name: Auth file
   ansible.builtin.file:
-    path: /var/lib/ntfy/user.db
+    owner: /var/lib/ntfy/user.db
     user: ntfy
     group: ntfy
   notify: 
