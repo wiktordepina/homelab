@@ -55,10 +55,6 @@
   notify: 
     - Restart Ntfy
 
-- name: Admin user
-  ansible.builtin.command:
-    cmd: ntfy user add --role=admin root
-
 - name: Enable service
   ansible.builtin.service:
     name: ntfy
