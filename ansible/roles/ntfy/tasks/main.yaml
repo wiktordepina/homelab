@@ -1,3 +1,4 @@
+---
 - name: Keyrings folder
   ansible.builtin.file:
     path: /etc/apt/keyrings
@@ -28,6 +29,33 @@
     update_cache: yes
     name: ntfy
     state: present
+
+- name: Cache file
+  ansible.builtin.file:
+    path: /var/cache/ntfy/cache.db
+    user: ntfy
+    group: ntfy
+  notify: 
+    - Restart Ntfy
+
+- name: Auth file
+  ansible.builtin.file:
+    path: /var/lib/ntfy/user.db
+    user: ntfy
+    group: ntfy
+  notify: 
+    - Restart Ntfy
+
+- name: Config file
+  ansible.builtin.copy:
+    src: server.yml
+    dest: /etc/ntfy/server.yml
+  notify: 
+    - Restart Ntfy
+
+- name: Admin user
+  ansible.builtin.command:
+    cmd: ntfy user add --role=admin root
 
 - name: Enable service
   ansible.builtin.service:
