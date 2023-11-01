@@ -10,5 +10,4 @@
 
 - name: Debug
   ansible.builtin.debug:
-    msg: runner_version.json
-    
+    msg: "{{ runner_version.json }}"
