@@ -1,0 +1,14 @@
+---
+- name: Get github-runner latest version
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/actions/runner/releases/latest
+    method: GET
+    return_content: yes
+    status_code: 200
+    body_format: json
+    register: runner_version
+
+- name: Debug
+  ansible.builtin.debug:
+    msg: runner_version.json
+    
