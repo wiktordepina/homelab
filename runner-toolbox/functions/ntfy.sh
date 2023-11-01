@@ -21,8 +21,8 @@ run_ntfy_workflow_status() {
   local wf_status="${2}" ; check_null wf_status "${2}"
   local wf_url="${3}"    ; check_null wf_url "${3}"
 
-  local status_tag='x'
-  [[ "${wf_status}" == 'success' ]] && status_tag='white_check_mark'
+  local status_tag='x,hankey'
+  [[ "${wf_status}" == 'success' ]] && status_tag='white_check_mark,tada'
 
   local extra_header="Actions: view, Show workflow, ${wf_url}, clear=true"
 
