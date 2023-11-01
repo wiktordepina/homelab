@@ -10,4 +10,4 @@
 
 - name: Debug
   ansible.builtin.debug:
-    msg: "{{ runner_version.json }}"
+    msg: "https://github.com/actions/runner/releases/download/{{ runner_version.json.tag_name }}/actions-runner-linux-x64-{{ runner_version.json.tag_name | replace('v', '') }}.tar.gz"
