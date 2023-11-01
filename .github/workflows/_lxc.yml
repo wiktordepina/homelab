@@ -35,6 +35,7 @@ env:
   PM_USER: ${{ secrets.PM_USER }}
   PM_PASS: ${{ secrets.PM_PASS }}
   DNS_TSIG_KEY: ${{ secrets.DNS_TSIG_KEY }}
+  NTFY_CREDS: ${{ secrets.NTFY_CREDS }}
 
 jobs:
   RunLXC:
@@ -67,3 +68,11 @@ jobs:
           else
             echo ':no_entry_sign: Ansible step has been skipped' >> $GITHUB_STEP_SUMMARY
           fi
+  Ntfy:
+    runs-on: self-hosted
+    if: always() 
+    needs:
+      - RunLXC
+    steps: 
+      - name: Ntfy
+        run: ./run/execute_runner ntfy_workflow_status '${{ github.workflow }} - ${{ inputs.tf_action }}' '${{ needs.RunLXC.result }}' 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'        

@@ -30,6 +30,7 @@ concurrency: dns
 
 env:
   DNS_TSIG_KEY: ${{ secrets.DNS_TSIG_KEY }}
+  NTFY_CREDS: ${{ secrets.NTFY_CREDS }}
 
 jobs:
   RunDNS:
