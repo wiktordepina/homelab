@@ -39,3 +39,6 @@ jobs:
         uses: actions/checkout@v4
       - name: Terraform
         run: ./run/execute_runner terraform_dns ${{ github.event_name == 'push' && 'apply' || inputs.tf_action }}
+      - name: Ntfy
+        if: always()
+        run: ./run/execute_runner ntfy_workflow_status '${{ github.workflow }} - ${{ github.event_name == 'push' && 'apply' || inputs.tf_action }}' '${{ github.action_status }}' 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'
