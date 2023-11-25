@@ -31,7 +31,7 @@ resource "proxmox_lxc" "container" {
   }
 
   dynamic "mountpoint" {
-    for_each = var.mount_points
+    for_each = { for mp in var.mount_points: mp.key => mp }
     content {
       key     = mountpoint.key
       slot    = mountpoint.key

@@ -93,6 +93,7 @@ variable "ostemplate" {
 
 variable "mount_points" {
   type = list(object({
+    key     = number
     storage = string
     mp      = string
     size    = string
