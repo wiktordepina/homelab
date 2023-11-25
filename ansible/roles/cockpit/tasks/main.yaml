@@ -3,9 +3,35 @@
   ansible.builtin.apt_repository:
     repo: deb http://deb.debian.org/debian bookworm-backports main
 
+# - name: Install dependencies
+#   ansible.builtin.apt:
+#     name:
+#       - attr
+#       - coreutils
+#       - libc-bin
+#       - nfs-kernel-server
+#       - samba
+#       - samba-common-bin
+#       - systemd
+#       - winbind
+#       - gawk
+
 - name: Install Cockpit
   ansible.builtin.apt:
     name: cockpit
     default_release: bookworm-backports
     update_cache: true
     install_recommends: false
+
+- name: Install Cockpit mod - cockpit-file-sharing
+  ansible.builtin.apt:
+    deb: "https://github.com/45Drives/cockpit-file-sharing/releases/download/v{{ cockpit_file_sharing_version }}/cockpit-file-sharing_{{ cockpit_file_sharing_version }}-1focal_all.deb"
+
+- name: Install Cockpit mod - cockpit-navigator
+  ansible.builtin.apt:
+    deb: "https://github.com/45Drives/cockpit-navigator/releases/download/v{{ cockpit_navigator_version }}/cockpit-navigator_{{ cockpit_navigator_version }}-1focal_all.deb"
+
+- name: Install Cockpit mod - cockpit-identities
+  ansible.builtin.apt:
+    deb: "https://github.com/45Drives/cockpit-identities/releases/download/v{{ cockpit_identities_version }}/cockpit-identities_{{ cockpit_identities_version }}-1focal_all.deb"
+
