@@ -30,3 +30,10 @@ resource "dns_a_record_set" "proxmox" {
   addresses = ["192.168.200.100"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "fileserver" {
+  zone      = "home.matagoth.com."
+  name      = "fileserver"
+  addresses = ["10.20.1.203"]
+  ttl       = 500
+}
