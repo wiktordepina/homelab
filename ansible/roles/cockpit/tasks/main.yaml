@@ -1,0 +1,11 @@
+---
+- name: Enable backports repo
+  ansible.builtin.apt_repository:
+    repo: deb http://deb.debian.org/debian bookworm-backports main
+
+- name: Install Cockpit
+  ansible.builtin.apt:
+    name: cockpit
+    default_release: bookworm-backports
+    update_cache: true
+    install_recommends: false

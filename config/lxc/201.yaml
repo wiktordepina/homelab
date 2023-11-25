@@ -10,10 +10,12 @@ terraform:
   start_on_boot: true
   rootfs_size: 20G
   # mount_points:
-  #   - storage: '/host/example/1'
+  #   - key: 1
+  #     storage: '/host/example/1'
   #     mp: '/example/1'
   #     size: 250M
-  #   - storage: '/host/example/2'
+  #   - key: 2
+  #     storage: '/host/example/2'
   #     mp: '/example/2'
   #     size: 1G
 

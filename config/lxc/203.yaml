@@ -1,0 +1,21 @@
+---
+terraform:
+  vmid: 203
+  hostname: fileserver
+  ip_address: 10.20.1.203/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 4
+  memory: 2048
+  swap: 512
+  start_on_boot: true
+  rootfs_size: 20G
+  mount_points:
+    - key: 1
+      storage: /zpool/share
+      mp: /mnt/share
+      size: 20T
+
+ansible:
+  roles:
+    - base
+    - cockpit
