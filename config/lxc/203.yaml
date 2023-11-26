@@ -10,7 +10,7 @@ terraform:
   start_on_boot: true
   rootfs_size: 20G
   mount_points:
-    - key: 1
+    - key: 0
       storage: /zpool/share
       mp: /mnt/share
       size: 20T
