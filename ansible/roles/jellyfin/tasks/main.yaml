@@ -1,14 +1,14 @@
 ---
-- name: Install software-properties-common
-  ansible.builtin.apt:
-    name: software-properties-common
+# - name: Install software-properties-common
+#   ansible.builtin.apt:
+#     name: software-properties-common
 
-- name: Add Universe repo
-  ansible.builtin.command: add-apt-repository universe
+# - name: Add Universe repo
+#   ansible.builtin.command: add-apt-repository universe
 
-- name: APT cache update
-  ansible.builtin.apt_repository:
-    update_cache: true
+# - name: APT cache update
+#   ansible.builtin.apt_repository:
+#     update_cache: true
 
 - name: Install jellyfin-ffmpeg
   ansible.builtin.apt:
