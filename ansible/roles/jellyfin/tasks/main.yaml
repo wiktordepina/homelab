@@ -1,4 +1,8 @@
 ---
+- name: Install software-properties-common
+  ansible.builtin.apt:
+    name: software-properties-common
+
 - name: Add Universe repo
   ansible.builtin.command: add-apt-repository universe
 
