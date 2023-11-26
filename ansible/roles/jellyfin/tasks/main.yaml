@@ -1,7 +1,6 @@
 ---
 - name: Add Universe repo
-  ansible.builtin.apt_repository:
-    repo: universe
+  ansible.builtin.command: add-apt-repository universe
 
 - name: APT cache update
   ansible.builtin.apt_repository:
