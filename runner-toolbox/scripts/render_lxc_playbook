@@ -27,7 +27,23 @@ if pve_extra:
           'create': 'yes',
           'line': yaml.scalarstring.DoubleQuotedScalarString('{{ item }}')
         },
-        'loop': [ f'{key}: {value}' for line in pve_extra for key, value in line.items() ]
+        'loop': [ f'{key}: {value}' for line in pve_extra for key, value in line.items() ],
+        'register': 'pve_config'
+      },
+      {
+        'name': f'Restart LXC {vmid}',
+        'ansible.builtin.command': f'pct reboot {vmid}',
+        'when': 'pve_config is changed',
+        'register': 'reboot'
+      },
+      {
+        'name': f'Wait until LXC {vmid} is back up',
+        'ansible.builtin.wait_for': {
+          'host': lxc_ip,
+          'port': 22,
+          'delay': 10
+        },
+        'when': 'reboot is changed'
       }
     ]
   }

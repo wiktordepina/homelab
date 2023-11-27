@@ -9,17 +9,19 @@ terraform:
   swap: 512
   start_on_boot: true
   rootfs_size: 20G
-  mount_points:
-    - key: 0
-      storage: /zpool/share/movies
-      mp: /mnt/movies
-      size: 20T
-    - key: 1
-      storage: /zpool/share/shows
-      mp: /mnt/shows
-      size: 20T
+  # mount_points:
+  #   - key: 0
+  #     storage: /zpool/share/movies
+  #     mp: /mnt/movies
+  #     size: 20T
+  #   - key: 1
+  #     storage: /zpool/share/shows
+  #     mp: /mnt/shows
+  #     size: 20T
 
 pve_extra:
+  - mp0: /zpool/share/movies,mp=/mnt/movies,backup=0
+  - mp1: /zpool/share/shows,mp=/mnt/shows,backup=0
   - lxc.cgroup.devices.allow: c 195:* rwm
   - lxc.cgroup.devices.allow: c 234:* rwm
   - lxc.cgroup.devices.allow: c 238:* rwm
