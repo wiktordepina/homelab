@@ -12,5 +12,5 @@ run_ansible_lxc() {
   render_lxc_playbook "${vmid}" > playbook.yaml
   trap 'rm -rf /build/playbook.yaml' EXIT
 
-  ansible-playbook -i "${lxc_ip}," playbook.yaml
+  ansible-playbook -i "192.168.200.100,${lxc_ip}," playbook.yaml
 }
