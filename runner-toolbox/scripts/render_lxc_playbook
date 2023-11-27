@@ -18,7 +18,7 @@ pve_options_playbook = {}
 if pve_extra:
   pve_options_playbook = {
     'name': f'PVE Extra Config Options for LXC {vmid}',
-    'hosts': 'proxmox.home.matagoth.com',
+    'hosts': '192.168.200.100',
     'tasks': [
       {
         'name': 'Apply extra config',
