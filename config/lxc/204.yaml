@@ -19,6 +19,17 @@ terraform:
       mp: /mnt/shows
       size: 20T
 
+pve_extra:
+  - lxc.cgroup.devices.allow: c 195:* rwm
+  - lxc.cgroup.devices.allow: c 234:* rwm
+  - lxc.cgroup.devices.allow: c 238:* rwm
+  - lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file
+  - lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file
+  - lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file
+  - lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file
+  - lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-caps/nvidia-cap1 none bind,optional,create=file
+  - lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-caps/nvidia-cap2 none bind,optional,create=file
+
 ansible:
   roles:
     - base

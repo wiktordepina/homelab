@@ -1,26 +1,48 @@
 #!/usr/bin/env python3
 
-import sys, yaml
+import sys
+import ruamel.yaml as yaml
 
 vmid = sys.argv[1]
 
 lcx_conf_path = f'./config/lxc/{vmid}.yaml'
 with open(lcx_conf_path) as conf_file:
-  lxc_conf = yaml.safe_load(conf_file)
+  lxc_conf = yaml.YAML().load(conf_file)
 
 lxc_ip = lxc_conf['terraform']['ip_address'].split('/')[0]
+pve_extra = lxc_conf.get('pve_extra', None)
 ansible_roles = lxc_conf['ansible'].get('roles')
 ansible_tasks = lxc_conf['ansible'].get('tasks')
 
+pve_options_playbook = {}
+if pve_extra:
+  pve_options_playbook = {
+    'name': f'PVE Extra Config Options for LXC {vmid}',
+    'hosts': 'proxmox.home.matagoth.com',
+    'tasks': [
+      {
+        'name': 'Apply extra config',
+        'ansible.builtin.lineinfile': {
+          'path': f'/etc/pve/lxc/{vmid}.conf',
+          'create': 'yes',
+          'line': yaml.scalarstring.DoubleQuotedScalarString('{{ item }}')
+        },
+        'loop': [ f'{key}: {value}' for line in pve_extra for key, value in line.items() ]
+      }
+    ]
+  }
+
 playbook = {
-  "name": f'LXC {vmid}',
-  "hosts": lxc_ip
+  'name': f'LXC {vmid}',
+  'hosts': lxc_ip
 }
 
 if ansible_roles:
-  playbook.update({"roles": ansible_roles})
+  playbook.update({'roles': ansible_roles})
 
 if ansible_tasks:
-  playbook.update({"tasks": ansible_tasks})
+  playbook.update({'tasks': ansible_tasks})
 
-print(yaml.dump([playbook]))
+full_playbook = [pve_options_playbook, playbook] if pve_extra else [playbook]
+
+yaml.YAML().dump(full_playbook, sys.stdout)
