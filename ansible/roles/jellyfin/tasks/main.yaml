@@ -9,7 +9,7 @@
 - name: Install libc6:i386
   ansible.builtin.apt:
     name: libc6:i386
-    update_cache: pdkg_config.changed
+    update_cache: {{ pdkg_config.changed }}
 
 - name: Download NVidia driver
   ansible.builtin.get_url:
