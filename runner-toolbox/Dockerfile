@@ -9,8 +9,7 @@ RUN apt update && apt upgrade -y
 RUN apt-get install -y jq yq
 
 # ansible
-RUN apt-get install -y python3-full python3-pip ansible
-RUN pip3 install ruamel.yaml
+RUN apt-get install -y python3-full python3-pip python3-ruamel.yaml ansible
 
 # terraform
 RUN apt-get install -y unzip curl git gnupg software-properties-common
