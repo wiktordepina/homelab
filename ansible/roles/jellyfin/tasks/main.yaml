@@ -15,7 +15,7 @@
   ansible.builtin.get_url:
     url: "{{ nvidia_driver_url }}"
     dest: /tmp/NVIDIA-Linux-x86_64.run
-    mode: '0666'
+    mode: '0755'
   register: nvidia_driver_package
 
 - name: Install NVidia driver
