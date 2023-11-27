@@ -1,5 +1,5 @@
 ---
-- name: Eanble i386 aech
+- name: Eanble i386 arch
   ansible.builtin.lineinfile: 
     dest: /var/lib/dpkg/arch
     line: i386 
@@ -13,19 +13,19 @@
 
 - name: Download NVidia driver
   ansible.builtin.get_url:
-    url: nvidia_driver_url
+    url: "{{ nvidia_driver_url }}"
     dest: /tmp/NVIDIA-Linux-x86_64.run
     mode: '0666'
-  register: nvidia_driver
+  register: nvidia_driver_package
 
 - name: Install NVidia driver
   ansible.builtin.command: /tmp/NVIDIA-Linux-x86_64.run --no-questions
-  when: nvidia_driver_url.changed
+  when: nvidia_driver_package is changed
   register: nvidia_driver
 
 - name: Reboot container
   ansible.builtin.reboot:
-  when: nvidia_driver.changed
+  when: nvidia_driver is changed
 
 - name: Install jellyfin-ffmpeg
   ansible.builtin.apt:
