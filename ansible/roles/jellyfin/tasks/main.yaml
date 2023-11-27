@@ -1,4 +1,32 @@
 ---
+- name: Eanble i386 aech
+  ansible.builtin.lineinfile: 
+    dest: /var/lib/dpkg/arch
+    line: i386 
+    create: yes
+  register: pdkg_config
+
+- name: Install libc6:i386
+  ansible.builtin.apt:
+    name: libc6:i386
+    update_cache: pdkg_config.changed
+
+- name: Download NVidia driver
+  ansible.builtin.get_url:
+    url: nvidia_driver_url
+    dest: /tmp/NVIDIA-Linux-x86_64.run
+    mode: '0666'
+  register: nvidia_driver
+
+- name: Install NVidia driver
+  ansible.builtin.command: /tmp/NVIDIA-Linux-x86_64.run --no-questions
+  when: nvidia_driver_url.changed
+  register: nvidia_driver
+
+- name: Reboot container
+  ansible.builtin.reboot:
+  when: nvidia_driver.changed
+
 - name: Install jellyfin-ffmpeg
   ansible.builtin.apt:
     deb: "https://repo.jellyfin.org/releases/server/debian/versions/jellyfin-ffmpeg/{{ jellyfin_ffmpeg_version }}/jellyfin-ffmpeg{{ jellyfin_ffmpeg_version[0] }}_{{ jellyfin_ffmpeg_version }}-bookworm_amd64.deb"
@@ -22,3 +50,4 @@
     name: jellyfin
     enabled: true
     state: started
+
