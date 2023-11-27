@@ -19,7 +19,7 @@
   register: nvidia_driver_package
 
 - name: Install NVidia driver
-  ansible.builtin.command: /root/NVIDIA-Linux-x86_64.run --no-questions --no-kernel-module
+  ansible.builtin.command: /root/NVIDIA-Linux-x86_64.run -s --no-kernel-module
   when: nvidia_driver_package is changed
   register: nvidia_driver
 
