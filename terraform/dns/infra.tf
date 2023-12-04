@@ -37,3 +37,10 @@ resource "dns_a_record_set" "fileserver" {
   addresses = ["10.20.1.203"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "dockerhost" {
+  zone      = "home.matagoth.com."
+  name      = "dockerhost"
+  addresses = ["10.20.1.205"]
+  ttl       = 500
+}
