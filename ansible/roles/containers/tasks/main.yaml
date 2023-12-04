@@ -7,6 +7,6 @@
   loop: "{{ containers }}"
 
 - name: Restart container
-  ansible.builtin.command: "docker compose up -d -f /containers/{{ item.item }}/docker-compose.yaml"
+  ansible.builtin.command: "docker compose -f /containers/{{ item.item }}/docker-compose.yaml up -d"
   when: item is changed
   loop: "{{ config.results }}"
