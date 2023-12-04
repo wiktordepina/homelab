@@ -1,0 +1,16 @@
+---
+terraform:
+  vmid: 205
+  hostname: dockerhost
+  ip_address: 10.20.1.205/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 12
+  memory: 12288
+  swap: 2048
+  start_on_boot: true
+  rootfs_size: 200G
+
+ansible:
+  roles:
+    - base
+    - docker
