@@ -4,21 +4,12 @@ terraform:
   hostname: jellyfin
   ip_address: 10.20.1.204/16
   nameserver: 10.20.0.1
-  cpu_core_count: 4
-  memory: 2048
-  swap: 512
+  cpu_core_count: 6
+  memory: 4096
+  swap: 1024
   start_on_boot: true
   rootfs_size: 20G
   unprivileged: false
-  # mount_points:
-  #   - key: 0
-  #     storage: /zpool/share/movies
-  #     mp: /mnt/movies
-  #     size: 20T
-  #   - key: 1
-  #     storage: /zpool/share/shows
-  #     mp: /mnt/shows
-  #     size: 20T
 
 pve_extra:
   - mp0: /zpool/share/movies,mp=/mnt/movies,backup=0
