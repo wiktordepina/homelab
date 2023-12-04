@@ -14,3 +14,7 @@ ansible:
   roles:
     - base
     - docker
+    - role: containers
+      vars:
+        containers:
+          - pontainer

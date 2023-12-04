@@ -1,0 +1,11 @@
+---
+- name: Copy config
+  ansible.builtin.copy:
+    src: "../../../config/docker/{{ item }}/"
+    dest: "/containers/{{ item }}/"
+  register: config
+  loop: "{{ containers }}"
+
+- name: DEBUG
+  debug:
+    msg: "{{ config }}"

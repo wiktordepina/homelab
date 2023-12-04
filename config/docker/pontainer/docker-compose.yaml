@@ -1,0 +1,12 @@
+services:
+  pontainer:
+    restart: always
+    image: pontainer/pontainer-ce:latest
+    ports:
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - pontainer_data:/data
+
+volumes:
+  pontainer_data:
