@@ -6,6 +6,7 @@
   register: config
   loop: "{{ containers }}"
 
-- name: DEBUG
-  debug:
-    msg: "{{ config }}"
+- name: Restart container
+  ansible.builtin.command: "docker compose up -d -f /containers/{{ item.item }}/docker-compose.yaml"
+  when: item is changed
+  loop: "{{ config.results }}"
