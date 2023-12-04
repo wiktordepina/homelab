@@ -17,4 +17,4 @@ ansible:
     - role: containers
       vars:
         containers:
-          - pontainer
+          - portainer
