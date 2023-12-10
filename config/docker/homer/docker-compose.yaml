@@ -3,7 +3,8 @@ version: "3.8"
 
 services:
   homer:
-    image: b4bz/homer
+    restart: always
+    image: b4bz/homer:v23.10.1
     container_name: homer
     volumes:
       - /containers/homer/assets/:/www/assets

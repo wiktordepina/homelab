@@ -4,7 +4,8 @@ version: "3.8"
 services:
   pontainer:
     restart: always
-    image: portainer/portainer-ce:latest
+    image: portainer/portainer-ce:2.19.4
+    container_name: portainer
     ports:
       - "9443:9443"
     volumes:
