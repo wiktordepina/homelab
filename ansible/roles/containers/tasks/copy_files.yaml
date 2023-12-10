@@ -1,4 +1,9 @@
 ---
+- name: "Create base directory for {{ container.name }}"
+  ansible.builtin.file:
+    path: "/containers/{{ container.name }}"
+    state: directory
+
 - name: "Create directories for {{ container.name }}"
   ansible.builtin.file:
     path: "/containers/{{ container.name }}/{{ item.path }}"
