@@ -11,5 +11,7 @@ docker run --rm \
   -e DNS_TSIG_KEY="${DNS_TSIG_KEY}" \
   -e NTFY_CREDS="${NTFY_CREDS}" \
   -e PVE_HOMER_KEY="${PVE_HOMER_KEY}" \
+  -e PORTAINER_HOMER_KEY="${PORTAINER_HOMER_KEY}" \
+  -e PIHOLE_HOMER_KEY="${PIHOLE_HOMER_KEY}" \
   runner-toolbox \
   "${@}"

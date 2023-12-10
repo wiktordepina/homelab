@@ -114,9 +114,9 @@ services:
     icon: fa fa-cubes
     items:
       - name: Proxmox
-        logo: "https://www.google.com/url?sa=i&url=https%3A%2F%2Fgithub.com%2FandOTP%2FandOTP%2Fissues%2F337&psig=AOvVaw2YKVuEUIBeTUikr7kAjm8D&ust=1665323538747000&source=images&cd=vfe&ved=0CAkQjRxqFwoTCPCTruLj0PoCFQAAAAAdAAAAABAN"
+        logo: "https://p1.hiclipart.com/preview/829/284/891/orange-logo-proxmox-virtual-environment-ceph-virtual-private-network-central-processing-unit-orange-sa-text-png-clipart.jpg"
         type: Proxmox
-        url: "https://pve.matagoth.com"
+        url: "https://pve.matagoth.com:8006"
         node: pve
         warning_value: 50
         danger_value: 80
@@ -126,6 +126,13 @@ services:
         hide: [] # hides information. Possible values are "vms", "vms_total", "lxcs", "lxcs_total", "disk", "mem" and "cpu".
         small_font_on_small_screens: true # uses small font on small screens (like mobile)
         small_font_on_desktop: false # uses small font on desktops (just in case you're showing much info)
+
+      - name: "Pi-hole"
+        logo: "https://www.clipartmax.com/png/small/296-2965097_network-wide-ad-blocking-via-your-own-linux-hardware-pihole-logo.png"
+        # subtitle: "Network-wide Ad Blocking" # optional, if no subtitle is defined, PiHole statistics will be shown
+        url: "http://10.20.1.1/admin/login.php"
+        apikey: "{{ lookup('ansible.builtin.env', 'PIHOLE_HOMER_KEY') }}"
+        type: "PiHole"
       
       - name: OPNSense
         logo: "https://www.pngkey.com/png/full/325-3250930_opnsenselogo-opnsense-logo.png"
@@ -136,11 +143,28 @@ services:
       - name: Switch
         icon: fa fa-exchange
         tag: infra
-        url: "http://switch.home.matagoth.com/"
+        url: "http://switch.home.matagoth.com"
 
       - name: File Server
         icon: fa fa-server
         tag: infra
-        url: "https://fileserver.home.matagoth.com:9090/"
+        url: "https://fileserver.home.matagoth.com:9090"
+
+  - name: Services
+    icon: fa fa-microchip
+    items:
+      - name: Jellyfin
+        logo: "https://www.svgrepo.com/download/349420/jellyfin.svg"
+        tag: service
+        url: "http://jellyfin.home.matagoth.com:8096"
+
+  - name: Docker
+    logo: "https://www.pinclipart.com/picdir/middle/116-1161113_docker-logo-png-clipart.png"
+    items:
+      - name: Portainer
+        logo: "https://onthedock.github.io/images/portainer.png"
+        url: "https://dockerhost.home.matagoth.com:9443"
+        type: Portainer
+        apikey: "{{ lookup('ansible.builtin.env', 'PORTAINER_HOMER_KEY') }}"
 
       

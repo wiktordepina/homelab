@@ -1,5 +1,5 @@
 ---
-- name: Template files (explicitly skip directories in order to use the 'src' attribute)
+- name: "Render templates for {{ container.name }}"
   ansible.builtin.template:
     src: '{{ item.src }}'
     dest: "/containers/{{ container.name }}/{{ item.path }}"
