@@ -9,6 +9,6 @@ services:
       - /containers/homer/assets/:/www/assets
     ports:
       - 8080:8080
-    user: 1000:1000 # default
+    user: root:root
     environment:
-      - INIT_ASSETS=1 # default
+      - INIT_ASSETS=1
