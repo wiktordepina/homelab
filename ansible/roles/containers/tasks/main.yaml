@@ -1,12 +1,25 @@
 ---
 - name: Copy config
   ansible.builtin.copy:
-    src: "../../../config/docker/{{ item }}/"
-    dest: "/containers/{{ item }}/"
+    src: "../../../config/docker/{{ item.name }}/"
+    dest: "/containers/{{ item.name }}/"
   register: config
+  when: item.state == "up"
   loop: "{{ containers }}"
 
 - name: Restart container
-  ansible.builtin.command: "docker compose -f /containers/{{ item.item }}/docker-compose.yaml up -d"
-  when: item is changed
-  loop: "{{ config.results }}"
+  ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml up -d"
+  when: item.state == "up"
+  loop: "{{ containers }}"
+
+- name: Stop container
+  ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml down"
+  when: item.state != "up"
+  loop: "{{ containers }}"
+
+- name: Remove container config
+  ansible.builtin.file:
+    path: /etc/foo
+    state: absent
+  when: item.state == "destroyed"
+  loop: "{{ containers }}"

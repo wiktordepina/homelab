@@ -17,4 +17,7 @@ ansible:
     - role: containers
       vars:
         containers:
-          - portainer
+          - name: portainer
+            state: up
+          - name: homer
+            state: up
