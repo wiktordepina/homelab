@@ -25,7 +25,7 @@
   loop: "{{ containers }}"
 
 - name: Test
-  incluse_tasks: copy_files.yaml
+  include_tasks: copy_files.yaml
   loop: "{{ containers }}"
   loop_control:
     loop_var: container_name
