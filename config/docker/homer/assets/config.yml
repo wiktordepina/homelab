@@ -130,7 +130,7 @@ services:
       - name: "Pi-hole"
         logo: "https://www.clipartmax.com/png/small/296-2965097_network-wide-ad-blocking-via-your-own-linux-hardware-pihole-logo.png"
         # subtitle: "Network-wide Ad Blocking" # optional, if no subtitle is defined, PiHole statistics will be shown
-        url: "http://10.20.1.1/admin/login.php"
+        url: "http://10.20.1.1/admin"
         apikey: "{{ lookup('ansible.builtin.env', 'PIHOLE_HOMER_KEY') }}"
         type: "PiHole"
       
