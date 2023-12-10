@@ -1,5 +1,5 @@
 ---
-- name: Copy config
+- name: Copy files
   ansible.builtin.copy:
     src: "../../../config/docker/{{ item.name }}/"
     dest: "/containers/{{ item.name }}/"
@@ -23,3 +23,10 @@
     state: absent
   when: item.state == "destroyed"
   loop: "{{ containers }}"
+
+- name: Test
+  incluse_tasks: copy_files.yaml
+  loop: "{{ containers }}"
+  loop_control:
+    loop_var: container_name
+  when: item.state == "up"

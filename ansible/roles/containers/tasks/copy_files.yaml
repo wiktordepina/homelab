@@ -1,0 +1,14 @@
+---
+# - name: Template files (explicitly skip directories in order to use the 'src' attribute)
+#   ansible.builtin.template:
+#     src: '{{ item.src }}'
+#     dest: "/containers/{{ container_name }}/{{ item.path }}"
+#     mode: '{{ item.mode }}'
+#   with_community.general.filetree: "../../../config/docker/{{ container_name }}/"
+#   when: item.state == 'file'
+
+- name: debug
+  ansible.builtin.debug:
+    msg: "/containers/{{ container_name }}/{{ item.path }}"
+  with_community.general.filetree: "../../../config/docker/{{ container_name }}/"
+  when: item.state == "file"
