@@ -31,6 +31,13 @@ resource "dns_a_record_set" "proxmox" {
   ttl       = 500
 }
 
+resource "dns_a_record_set" "pihole" {
+  zone      = "home.matagoth.com."
+  name      = "pihole"
+  addresses = ["10.20.1.1"]
+  ttl       = 500
+}
+
 resource "dns_a_record_set" "fileserver" {
   zone      = "home.matagoth.com."
   name      = "fileserver"
