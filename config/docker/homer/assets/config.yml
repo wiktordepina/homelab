@@ -170,7 +170,7 @@ services:
       - name: "Uptime Kuma"
         icon: fa fa-cogs
         # subtitle: "A fancy self-hosted monitoring tool" # optional, if no subtitle is defined, Uptime Kuma incidents, if any, will be shown
-        url: "http://dockerhub.home.matagoth.com:3001"
+        url: "http://dockerhost.home.matagoth.com:3001"
         # slug: "myCustomDashboard" # Defaults to "default" if not provided.
         type: "UptimeKuma"
 
