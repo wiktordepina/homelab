@@ -28,5 +28,4 @@
   include_tasks: copy_files.yaml
   loop: "{{ containers }}"
   loop_control:
-    loop_var: container_name
-  when: item.state == "up"
+    loop_var: container

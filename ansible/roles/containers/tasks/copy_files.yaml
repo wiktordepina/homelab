@@ -9,6 +9,6 @@
 
 - name: debug
   ansible.builtin.debug:
-    msg: "/containers/{{ container_name }}/{{ item.path }}"
-  with_community.general.filetree: "../../../config/docker/{{ container_name }}/"
-  when: item.state == "file"
+    msg: "/containers/{{ container.name }}/{{ item.path }}"
+  with_community.general.filetree: "../../../config/docker/{{ container.name }}/"
+  when: item.state == "file" and container.state = "up"
