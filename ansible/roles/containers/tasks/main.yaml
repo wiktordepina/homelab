@@ -1,11 +1,9 @@
 ---
 - name: Copy files
-  ansible.builtin.copy:
-    src: "../../../config/docker/{{ item.name }}/"
-    dest: "/containers/{{ item.name }}/"
-  register: config
-  when: item.state == "up"
+  include_tasks: copy_files.yaml
   loop: "{{ containers }}"
+  loop_control:
+    loop_var: container
 
 - name: Restart container
   ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml up -d"
@@ -23,9 +21,3 @@
     state: absent
   when: item.state == "destroyed"
   loop: "{{ containers }}"
-
-- name: Test
-  include_tasks: copy_files.yaml
-  loop: "{{ containers }}"
-  loop_control:
-    loop_var: container

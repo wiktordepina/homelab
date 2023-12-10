@@ -10,5 +10,6 @@ docker run --rm \
   -e PM_PASS="${PM_PASS}" \
   -e DNS_TSIG_KEY="${DNS_TSIG_KEY}" \
   -e NTFY_CREDS="${NTFY_CREDS}" \
+  -e PVE_HOMER_KEY="${PVE_HOMER_KEY}" \
   runner-toolbox \
   "${@}"
