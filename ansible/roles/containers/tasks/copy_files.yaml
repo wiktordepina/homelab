@@ -3,6 +3,7 @@
   ansible.builtin.file:
     path: "/containers/{{ container.name }}"
     state: directory
+  when: container.state == "up"
 
 - name: "Create directories for {{ container.name }}"
   ansible.builtin.file:
@@ -10,7 +11,7 @@
     state: directory
     mode: "{{ item.mode }}"
   with_community.general.filetree: "../../../config/docker/{{ container.name }}/"
-  when: item.state == "directory"
+  when: item.state == "directory" and container.state == "up"
 
 - name: "Render templates for {{ container.name }}"
   ansible.builtin.template:
