@@ -1,0 +1,15 @@
+---
+version: "3.8"
+
+services:
+  pontainer:
+    restart: always
+    image: louislam/uptime-kuma:1.23.9
+    container_name: uptime-kuma
+    ports:
+      - "9443:9443"
+    volumes:
+      - uptime_kuma_data:/app/data
+
+volumes:
+  uptime_kuma_data:

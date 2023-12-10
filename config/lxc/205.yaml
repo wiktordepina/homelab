@@ -21,3 +21,5 @@ ansible:
             state: up
           - name: homer
             state: up
+          - name: uptime-kuma
+            state: up
