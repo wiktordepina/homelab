@@ -29,3 +29,5 @@ ansible:
             state: up
           - name: homarr
             state: up
+          - name: arrs
+            state: up

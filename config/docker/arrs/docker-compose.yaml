@@ -1,0 +1,32 @@
+---
+version: "3.8"
+
+services:
+  gluetun:
+    container_name: gluetun
+    image: qmcgaw/gluetun:v3.36.0
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=torguard
+      - OPENVPN_USER={{ lookup('ansible.builtin.env', 'TORGUARD_USER') }}
+      - OPENVPN_PASSWORD={{ lookup('ansible.builtin.env', 'TORGUARD_PASSWORD') }}
+      - SERVER_COUNTRIES=Netherlands
+    ports:
+      - 9696:9696
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:1.10.5
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - prowlar_data:/config
+    restart: unless-stopped
+    network_mode: service:gluetun
+
+volumes:
+  prowlarr_data:
