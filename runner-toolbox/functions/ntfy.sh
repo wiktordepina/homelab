@@ -13,7 +13,8 @@ ntfy_msg() {
   [[ -n "${tags}" ]] && headers+=" -H 'Tags: ${tags}'"
   [[ -n "${extra_header}" ]] && headers+=" -H '${extra_header}'"
 
-  eval "curl -u ${NTFY_CREDS} ${headers} -d '${message}' ${NTFY_HOST}/${topic}"
+  local command="curl -u ${NTFY_CREDS} ${headers} -d '${message}' ${NTFY_HOST}/${topic}"
+  eval $command
 }
 
 run_ntfy_workflow_status() {

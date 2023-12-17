@@ -1,7 +1,7 @@
 #!/bin/bash
 
-for fnc in /pve/secrets/*.sh; do 
-  source "${fnc}"
+for scr in /pve/secrets/*.sh; do 
+  source "${scr}"
 done
 
 for fnc in /opt/functions/*.sh; do 

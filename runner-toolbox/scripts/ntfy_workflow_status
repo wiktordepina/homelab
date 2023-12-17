@@ -1,7 +1,3 @@
 #!/bin/bash
 
-for fnc in /opt/functions/*.sh; do 
-  source "${fnc}"
-done
-
 run_ntfy_workflow_status "${1}" "${2}" "${3}"
