@@ -34,3 +34,10 @@
       - docker-buildx-plugin
       - docker-compose-plugin
     state: present
+
+- name: Enable tun module
+  ansible.builtin.lineinfile:
+    path: /etc/modules-load.d/modules.conf
+    line: tun
+  notify:
+    - Reboot

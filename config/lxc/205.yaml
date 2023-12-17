@@ -10,6 +10,10 @@ terraform:
   start_on_boot: true
   rootfs_size: 200G
 
+pve_extra:
+  - lxc.cgroup.devices.allow: c 10:200 rwm
+  - lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+
 ansible:
   roles:
     - base
