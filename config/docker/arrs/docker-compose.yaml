@@ -8,13 +8,15 @@ services:
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
+    volumes:
+      - /dev/net/tun:/dev/net/tun
     environment:
       - VPN_SERVICE_PROVIDER=torguard
       - OPENVPN_USER={{ lookup('ansible.builtin.env', 'TORGUARD_USER') }}
       - OPENVPN_PASSWORD={{ lookup('ansible.builtin.env', 'TORGUARD_PASSWORD') }}
       - SERVER_COUNTRIES=Netherlands
     ports:
-      - 9696:9696
+      - 9696:9696  # prowlarr
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:1.10.5
