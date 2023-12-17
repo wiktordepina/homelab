@@ -24,7 +24,7 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - prowlar_data:/config
+      - prowlarr_data:/config
     restart: unless-stopped
     network_mode: service:gluetun
 
