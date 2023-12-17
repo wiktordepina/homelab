@@ -3,6 +3,7 @@
 docker run --rm \
   --name runner \
   -v /pve/terraform:/pve/terraform \
+  -v /pve/secrets:/pve/secrets \
   -v /home/runner/.ssh:/root/.ssh \
   -v .:/build \
   -w /build \
