@@ -30,3 +30,6 @@ RUN wget -O- https://github.com/minamijoyo/hcledit/releases/download/v${HCLEDIT_
                   
 COPY ./functions /opt/functions
 COPY ./scripts /usr/bin
+COPY entrypoint /opt/entrypoint
+
+ENTRYPOINT ["/opt/entrypoint"]

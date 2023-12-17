@@ -1,0 +1,11 @@
+#!/bin/bash
+
+for fnc in /pve/secrets/*.sh; do 
+  source "${fnc}"
+done
+
+for fnc in /opt/functions/*.sh; do 
+  source "${fnc}"
+done
+
+eval "${@}"
