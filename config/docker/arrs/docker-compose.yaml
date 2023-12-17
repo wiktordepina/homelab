@@ -8,13 +8,17 @@ services:
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
-    volumes:
-      - /dev/net/tun:/dev/net/tun
+    devices:
+      - /dev/net/tun
     environment:
-      - VPN_SERVICE_PROVIDER=torguard
-      - OPENVPN_USER={{ lookup('ansible.builtin.env', 'TORGUARD_USER') }}
-      - OPENVPN_PASSWORD={{ lookup('ansible.builtin.env', 'TORGUARD_PASSWORD') }}
-      - SERVER_COUNTRIES=Netherlands
+      - VPN_SERVICE_PROVIDER=custom
+      - VPN_TYPE=wireguard
+      - VPN_ENDPOINT_IP=37.120.198.162
+      - VPN_ENDPOINT_PORT=1443
+      - WIREGUARD_PUBLIC_KEY=3ZpSpiWuyN2+Qn786t+ejcNul6Tq5b6+9uB6sGSLHhc=
+      - WIREGUARD_PRIVATE_KEY={{ lookup('ansible.builtin.env', 'WIREGUARD_PRIVATE_KEY') }}
+      # - WIREGUARD_PRESHARED_KEY=xOEI9rqqbDwnN8/Bpp22sVz48T71vJ4fYmFWujulwUU=
+      - WIREGUARD_ADDRESSES=10.13.122.21/24
     ports:
       - 9696:9696  # prowlarr
 
