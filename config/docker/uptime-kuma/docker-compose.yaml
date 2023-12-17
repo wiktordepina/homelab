@@ -3,7 +3,7 @@ version: "3.8"
 
 services:
   pontainer:
-    restart: always
+    restart: unless-stopped
     image: louislam/uptime-kuma:1.23.9
     container_name: uptime-kuma
     ports:
