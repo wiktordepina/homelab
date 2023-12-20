@@ -26,6 +26,7 @@ services:
       - 8888:8888       # qbittorrent
       - 6881:6881       # qbittorrent
       - 6881:6881/udp   # qbittorrent
+      - 8080:8889       # sabnzbd
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:1.10.5
@@ -92,6 +93,20 @@ services:
       - /pve/share/downloads:/downloads
     restart: unless-stopped
     network_mode: service:gluetun
+
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:4.1.0
+    container_name: sabnzbd
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - sabnzbd_data:/config
+      - /pve/share/downloads:/downloads
+      - /pve/share/incomplete:/incomplete-downloads
+    restart: unless-stopped
+    network_mode: service:gluetun
   
 
 volumes:
@@ -100,3 +115,4 @@ volumes:
   radarr_data:
   lidarr_data:
   qbittorrent_data:
+  sabnzbd_data:
