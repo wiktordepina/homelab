@@ -26,6 +26,8 @@ services:
       - 8888:8888       # qbittorrent
       - 6881:6881       # qbittorrent
       - 6881:6881/udp   # qbittorrent
+    links:
+      - sabnzbd
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:1.10.5
@@ -34,8 +36,6 @@ services:
       - TZ=Etc/UTC
     volumes:
       - prowlarr_data:/config
-    links:
-      - sabnzbd
     restart: unless-stopped
     network_mode: service:gluetun
 
@@ -50,8 +50,6 @@ services:
       - sonarr_data:/config
       - /pve/share/shows:/tv
       - /pve/share/downloads:/downloads
-    links:
-      - sabnzbd
     restart: unless-stopped
     network_mode: service:gluetun
 
@@ -66,8 +64,6 @@ services:
       - radarr_data:/config
       - /pve/share/movies:/movies
       - /pve/share/downloads:/downloads
-    links:
-      - sabnzbd
     restart: unless-stopped
     network_mode: service:gluetun
 
@@ -82,8 +78,6 @@ services:
       - lidarr_data:/config
       - /pve/share/music:/music
       - /pve/share/downloads:/downloads
-    links:
-      - sabnzbd
     restart: unless-stopped
     network_mode: service:gluetun
 
