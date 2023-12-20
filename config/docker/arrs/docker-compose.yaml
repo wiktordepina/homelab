@@ -26,7 +26,7 @@ services:
       - 8888:8888       # qbittorrent
       - 6881:6881       # qbittorrent
       - 6881:6881/udp   # qbittorrent
-      - 8080:8889       # sabnzbd
+      - 8080:8080       # sabnzbd
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:1.10.5

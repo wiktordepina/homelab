@@ -25,7 +25,7 @@ ansible:
           - name: portainer
             state: up
           - name: homer
-            state: up
+            state: destroyed
           - name: uptime-kuma
             state: up
           - name: homarr
