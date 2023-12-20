@@ -5,11 +5,6 @@
   loop_control:
     loop_var: container
 
-- name: Restart container
-  ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml up -d"
-  when: item.state == "up"
-  loop: "{{ containers }}"
-
 - name: Stop container
   ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml down"
   when: item.state != "up"
@@ -20,4 +15,9 @@
     path: /etc/foo
     state: absent
   when: item.state == "destroyed"
+  loop: "{{ containers }}"
+
+- name: Restart container
+  ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml up -d"
+  when: item.state == "up"
   loop: "{{ containers }}"
