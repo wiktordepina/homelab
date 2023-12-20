@@ -24,8 +24,6 @@ ansible:
         containers:
           - name: portainer
             state: up
-          - name: homer
-            state: destroyed
           - name: uptime-kuma
             state: up
           - name: homarr
