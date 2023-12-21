@@ -27,7 +27,7 @@ services:
       - 8888:8888       # qbittorrent
       - 6881:6881       # qbittorrent
       - 6881:6881/udp   # qbittorrent
-  links:
+    links:
       - sabnzbd
 
   prowlarr:
