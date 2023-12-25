@@ -8,7 +8,7 @@ terraform:
   memory: 4096
   swap: 1024
   start_on_boot: true
-  rootfs_size: 20G
+  rootfs_size: 200G
   unprivileged: false
 
 pve_extra:
