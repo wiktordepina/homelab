@@ -3,6 +3,7 @@
   ansible.builtin.lineinfile:
     path: /etc/apt/apt.conf.d/10sandbox
     line: 'APT::Sandbox::User "root";'
+    create: true
 
 - name: Install Dependencies
   ansible.builtin.apt:
