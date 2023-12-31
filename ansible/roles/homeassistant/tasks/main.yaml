@@ -1,6 +1,12 @@
 ---
+- name: Allow root apt sandbox
+  ansible.builtin.lineinfile:
+    path: /etc/apt/apt.conf.d/10sandbox
+    line: 'APT::Sandbox::User "root";'
+
 - name: Install Dependencies
   ansible.builtin.apt:
+    update_cache: yes
     name:
       - apparmor
       - cifs-utils
