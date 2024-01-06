@@ -31,7 +31,7 @@ services:
       - sabnzbd
 
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:1.11.4
+    image: lscr.io/linuxserver/prowlarr:1.10.5
     container_name: prowlarr
     environment:
       - TZ=Etc/UTC
@@ -55,7 +55,7 @@ services:
     network_mode: service:gluetun
 
   radarr:
-    image: lscr.io/linuxserver/radarr:5.2.6
+    image: lscr.io/linuxserver/radarr:5.1.3
     container_name: radarr
     environment:
       - PUID=1000
@@ -69,7 +69,7 @@ services:
     network_mode: service:gluetun
 
   lidarr:
-    image: lscr.io/linuxserver/lidarr:2.1.2
+    image: lscr.io/linuxserver/lidarr:2.1.1-nightl
     container_name: lidarr
     environment:
       - PUID=1000
