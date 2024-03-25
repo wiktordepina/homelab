@@ -27,4 +27,5 @@ pve_extra:
 ansible:
   roles:
     - base
+    - gpu_drivers
     - jellyfin
