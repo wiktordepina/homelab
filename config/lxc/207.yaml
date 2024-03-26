@@ -26,4 +26,6 @@ pve_extra:
 ansible:
   roles:
     - base
+    - docker
     - gpu_drivers
+    - nvidia_container_toolkit

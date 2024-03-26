@@ -1,0 +1,27 @@
+---
+- name: Keyrings folder
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+
+- name: Instal gpg
+  ansible.builtin.apt:
+    name: gpg
+    state: present
+
+- name: nvidia container toolkit gpg key
+  ansible.builtin.apt_key:
+    url: https://nvidia.github.io/libnvidia-container/gpgkey
+    keyring: /etc/apt/keyrings/nvidia-container-toolkit.gpg
+
+- name: nvidia container toolkit repo
+  ansible.builtin.copy:
+    src: nvidia-container-toolkit.list
+    dest: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+- name: Install nvidia container toolkit
+  ansible.builtin.apt:
+    update_cache: yes
+    name:
+      - nvidia-container-toolkit
+    state: present
