@@ -6,8 +6,8 @@
 
 - name: Deploy compose file
   ansible.builtin.copy:
-    src: docker-compose.yml
-    dest: /localai/docker-compose.yml
+    src: docker-compose.yaml
+    dest: /localai/docker-compose.yaml
 
 - name: Restart LocalAI
   ansible.builtin.command: docker compose -f /localai/docker-compose.yaml up -d
