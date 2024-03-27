@@ -5,7 +5,7 @@ services:
   localai:
     container_name: localai
     restart: unless-stopped
-    image: quay.io/go-skynet/local-ai:master-cublas-cuda12-ffmpeg
+    image: quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-12
     ports:
       - 8080:8080
     environment:
