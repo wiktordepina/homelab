@@ -11,3 +11,10 @@ resource "dns_a_record_set" "jellyfin" {
   addresses = ["10.20.1.204"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "localai" {
+  zone      = "home.matagoth.com."
+  name      = "localai"
+  addresses = ["10.20.1.207"]
+  ttl       = 500
+}
