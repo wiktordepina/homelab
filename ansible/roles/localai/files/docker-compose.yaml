@@ -12,7 +12,7 @@ services:
       - DEBUG=true
       - MODELS_PATH=/localai/models
       - THREADS=1 
-      - MODELS='github:skynet-go/model-gallery/llama2-7b-chat-gguf.yaml,github:skynet-go/model-gallery/vicuna.yaml'
+      - 'PRELOAD_MODELS=[{"url": "github:go-skynet/model-gallery/llama2-7b-chat-gguf.yaml", "name": "llama2-7b-chat-gguf"},{"url": "github:go-skynet/model-gallery/vicuna.yaml", "name": "vicuna"}]'
     volumes:
       - /localai:/localai
     deploy:
