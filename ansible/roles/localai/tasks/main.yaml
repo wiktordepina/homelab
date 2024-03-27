@@ -1,0 +1,13 @@
+---
+- name: Create LocalAI directory
+  ansible.builtin.file:
+    path: /localai/models
+    state: directory
+
+- name: Deploy compose file
+  ansible.builtin.copy:
+    src: docker-compose.yml
+    dest: /localai/docker-compose.yml
+
+- name: Restart LocalAI
+  ansible.builtin.command: docker compose -f /localai/docker-compose.yml up -d
