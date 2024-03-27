@@ -29,3 +29,4 @@ ansible:
     - docker
     - gpu_drivers
     - nvidia_container_toolkit
+    - localai
