@@ -10,4 +10,4 @@
     dest: /localai/docker-compose.yml
 
 - name: Restart LocalAI
-  ansible.builtin.command: docker compose -f /localai/docker-compose.yml up -d
+  ansible.builtin.command: docker compose -f /localai/docker-compose.yaml up -d
