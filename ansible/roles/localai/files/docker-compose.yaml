@@ -12,6 +12,7 @@ services:
       - DEBUG=true
       - MODELS_PATH=/localai/models
       - THREADS=1 
+      - MODELS='github:skynet-go/model-gallery/llama2-7b-chat-gguf.yaml,github:skynet-go/model-gallery/vicuna.yaml'
     volumes:
       - /localai:/localai
     deploy:
