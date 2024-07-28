@@ -108,6 +108,7 @@ services:
     volumes:
       - qbittorrent_data:/config
       - /pve/share/downloads:/downloads
+      - /pve/share/404:/404
     restart: unless-stopped
     network_mode: service:gluetun
 
