@@ -1,19 +1,19 @@
 ---
 - name: Install jellyfin-ffmpeg
   ansible.builtin.apt:
-    deb: "https://repo.jellyfin.org/releases/server/debian/versions/jellyfin-ffmpeg/{{ jellyfin_ffmpeg_version }}/jellyfin-ffmpeg{{ jellyfin_ffmpeg_version[0] }}_{{ jellyfin_ffmpeg_version }}-bookworm_amd64.deb"
+    deb: "{{ jellyfin_ffmpeg_package_url }}"
   notify: 
     - Restart Jellyfin
 
 - name: Install jellyfin-server
   ansible.builtin.apt:
-    deb: "https://repo.jellyfin.org/releases/server/debian/versions/stable/server/{{ jellyfin_server_version }}/jellyfin-server_{{ jellyfin_server_version }}-1_amd64.deb"
+    deb: "{{ jellyfin_server_package_url }}"
   notify: 
     - Restart Jellyfin
 
 - name: Install jellyfin-web
   ansible.builtin.apt:
-    deb: "https://repo.jellyfin.org/releases/server/debian/versions/stable/web/{{ jellyfin_web_version }}/jellyfin-web_{{ jellyfin_web_version }}-1_all.deb"
+    deb: "{{ jellyfin_web_package_url }}"
   notify: 
     - Restart Jellyfin
 
