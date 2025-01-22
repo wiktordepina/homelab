@@ -2,6 +2,27 @@
 
 export NTFY_HOST='http://ntfy.home.matagoth.com'
 
+
+# ntfy_msg - Send a message to the ntfy service.
+#
+# Description:
+#   This function sends a message to the ntfy service.
+#
+# Usage:
+#   ntfy_msg <topic> <title> <message> [<tags>] [<extra_header>]
+#
+# Parameters:
+#   <topic>         - The topic to which the message will be sent.
+#   <title>         - The title of the message.
+#   <message>       - The content of the message.
+#   <tags>          - The tags to be added to the message. [optional]
+#   <extra_header>  - Extra headers to be added to the message. [optional]
+#
+# Returns:
+#   The response from the ntfy service.
+#
+# Example:
+#   ntfy_msg 'gh-worker' 'Workflow' 'Workflow completed' 'success'
 ntfy_msg() {
   local topic="${1}"   ; check_null topic "${1}"
   local title="${2}"   ; check_null title "${2}"
@@ -17,6 +38,21 @@ ntfy_msg() {
   eval $command
 }
 
+# run_ntfy_workflow_status - Send a message to the ntfy service with the workflow status.
+#
+# Description:
+#   This function sends a message to the ntfy service with the workflow status.
+#
+# Usage:
+#   run_ntfy_workflow_status <wf_name> <wf_status> <wf_url>
+#
+# Parameters:
+#   <wf_name>   - The name of the workflow.
+#   <wf_status> - The status of the workflow.
+#   <wf_url>    - The URL of the workflow.
+#
+# Example:
+#   run_ntfy_workflow_status 'workflow' 'success' 'https://github.com/wiktordepina/homelab/actions/runs/12917019032'
 run_ntfy_workflow_status() {
   local wf_name="${1}"   ; check_null wf_name "${1}"
   local wf_status="${2}" ; check_null wf_status "${2}"

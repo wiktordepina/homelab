@@ -1,4 +1,28 @@
 #!/usr/bin/env python3
+"""
+This script generates an Ansible playbook for configuring and managing LXC containers.
+
+Usage:
+  ./render_lxc_playbook <vmid>
+
+Arguments:
+  vmid: The VM ID of the LXC container.
+
+The script performs the following steps:
+1. Reads the LXC configuration from a YAML file located at './config/lxc/<vmid>.yaml'.
+2. Extracts the IP address, PVE extra configuration options, Ansible roles, and Ansible tasks from the configuration file.
+3. Constructs an Ansible playbook for applying PVE extra configuration options if they are present.
+4. Constructs an Ansible playbook for the LXC container using the extracted roles and tasks.
+5. Combines the PVE extra configuration playbook and the LXC container playbook if PVE extra configuration options are present.
+6. Outputs the final playbook to stdout in YAML format.
+
+Dependencies:
+  - ruamel.yaml: A YAML parser/emitter that supports round-trip preservation of comments, etc.
+
+Example:
+  ./render_lxc_playbook 204
+"""
+
 
 import sys
 import ruamel.yaml as yaml

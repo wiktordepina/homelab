@@ -2,6 +2,21 @@
 
 export TF_STATEFILE_BASEDIR='/pve/terraform'
 
+# inject_tf_var_for_lxc - Injects Terraform variables for LXC containers.
+#
+# Description:
+#   This function injects Terraform variables for LXC containers.
+#
+# Usage:
+#   inject_tf_var_for_lxc <vmid> <output_folder> <var_name>
+#
+# Parameters:
+#   <vmid>          - The ID of the LXC container.
+#   <output_folder> - The folder where the Terraform variables will be stored.
+#   <var_name>      - The name of the variable to be injected.
+#
+# Example:
+#   inject_tf_var_for_lxc 204 '/build' 'ip_address'
 inject_tf_var_for_lxc() {
   local vmid="${1}"          ; check_null vmid "${1}"
   local output_folder="${2}" ; check_null output_folder "${2}"
@@ -15,6 +30,17 @@ inject_tf_var_for_lxc() {
   [ -n "${value}" ] && echo "${var_name}=${value}" >> "${output_folder}/terraform.tfvars"
 }
 
+# inject_tf_lxc_config - Injects set of Terraform variables for LXC containers from config.
+#
+# Description:
+#   This function injects set of Terraform variables for LXC containers from config.
+#
+# Usage:
+#   inject_tf_lxc_config <vmid> <output_folder>
+#
+# Parameters:
+#   <vmid>          - The ID of the LXC container.
+#   <output_folder> - The folder where the Terraform variables will be stored.
 inject_tf_lxc_config() {
   local vmid="${1}"          ; check_null vmid "${1}"
   local output_folder="${2}" ; check_null output_folder "${2}"
@@ -32,6 +58,21 @@ inject_tf_lxc_config() {
   } >> "${output_folder}/terraform.tfvars"
 }
 
+# run_terraform - Run Terraform scripts.
+#
+# Description:
+#   This function runs Terraform scripts.
+#
+# Usage:
+#   run_terraform <tf_action> <tf_dir> <tf_statefile>
+#
+# Parameters:
+#   <tf_action>    - The action to be performed by Terraform (plan|apply|plan_destroy|destroy).
+#   <tf_dir>       - The directory where the Terraform scripts are stored.
+#   <tf_statefile> - The statefile for the Terraform scripts.
+#
+# Example:
+#   run_terraform 'plan' 'terraform/lxc' '/pve/terraform/lxc-204.tfstate'
 run_terraform() {
   local tf_action="${1}"    ; check_null tf_action "${1}"
   local tf_dir="${2}"       ; check_null tf_dir "${2}"
@@ -71,6 +112,20 @@ run_terraform() {
   popd > /dev/null
 }
 
+# run_terraform_lxc - Run Terraform scripts for LXC containers.
+#
+# Description:
+#   This function runs Terraform scripts for LXC containers.
+#
+# Usage:
+#   run_terraform_lxc <vmid> <tf_action>
+#
+# Parameters:
+#   <vmid>      - The ID of the LXC container.
+#   <tf_action> - The action to be performed by Terraform (plan|apply|plan_destroy|destroy).
+#
+# Example:
+#   run_terraform_lxc 204 'plan'
 run_terraform_lxc() {
   local vmid="${1}"      ; check_null vmid "${1}"
   local tf_action="${2}" ; check_null tf_action "${2}"
