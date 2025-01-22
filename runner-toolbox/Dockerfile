@@ -1,13 +1,21 @@
-ARG BASE_IMAGE_TAG=12
+ARG BASE_IMAGE_TAG=24.04
 
-FROM debian:${BASE_IMAGE_TAG}
+FROM ubuntu:${BASE_IMAGE_TAG}
 
 ARG TERRAFORM_VERSION=1.10.4
-ARG HCLEDIT_VERSION='0.2.15'
+ARG HCLEDIT_VERSION=0.2.15
+
+ENV LANG=en_GB.UTF-8
+ENV LC_ALL=en_GB.UTF-8
+ENV LANGUAGE=en_GB.UTF-8
 
 RUN <<SETUP
   set -e
   apt update && apt upgrade -y
+  apt-get install --no-install-recommends -y locales
+  echo UTC > /etc/timezone
+  locale-gen en_GB.UTF-8
+  update-locale LANG=en_GB.UTF-8
   apt-get install --no-install-recommends -y \
     jq \
     yq \
@@ -29,9 +37,9 @@ RUN <<SETUP
     --fingerprint
   git clone https://github.com/tfutils/tfenv.git ~/.tfenv
   ln -s ~/.tfenv/bin/* /usr/local/bin
-  tfenv install ${TERRAFORM_VERSION}
-  tfenv use ${TERRAFORM_VERSION}
-  wget -O- https://github.com/minamijoyo/hcledit/releases/download/v${HCLEDIT_VERSION}/hcledit_${HCLEDIT_VERSION}_linux_amd64.tar.gz | \
+  tfenv install "${TERRAFORM_VERSION}"
+  tfenv use "${TERRAFORM_VERSION}"
+  wget -O- "https://github.com/minamijoyo/hcledit/releases/download/v${HCLEDIT_VERSION}/hcledit_${HCLEDIT_VERSION}_linux_amd64.tar.gz" | \
     tar -xz --directory /usr/local/bin
   chmod 755 /usr/local/bin/hcledit
 SETUP
