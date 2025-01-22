@@ -1,0 +1,29 @@
+---
+version: "3.8"
+
+services:
+  pipelines:
+    restart: unless-stopped
+    image: ghcr.io/open-webui/pipelines:main
+    container_name: pipelines
+    ports:
+      - "9099:9099"
+    volumes:
+      - pipelines:/app/pipelines
+
+  openwebui:
+    restart: unless-stopped
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    ports:
+      - "80:8080"
+    volumes:
+      - openwebui:/app/backend/data
+    depends_on:
+      pipelines:
+        condition: service_started
+
+
+volumes:
+  openwebui:
+  pipelines:

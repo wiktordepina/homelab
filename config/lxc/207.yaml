@@ -4,29 +4,19 @@ terraform:
   hostname: localai
   ip_address: 10.20.1.207/16
   nameserver: 10.20.0.1
-  cpu_core_count: 58
-  memory: 102400
+  cpu_core_count: 12
+  memory: 12288
   swap: 2048
   start_on_boot: true
-  storage: local-lvm
-  rootfs_size: 300G
-  unprivileged: false
+  rootfs_size: 500G
 
-pve_extra:
-  - lxc.cgroup2.devices.allow: c 195:* rwm
-  - lxc.cgroup2.devices.allow: c 234:* rwm
-  - lxc.cgroup2.devices.allow: c 238:* rwm
-  - lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file
-  - lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file
-  - lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file
-  - lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file
-  - lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-caps/nvidia-cap1 none bind,optional,create=file
-  - lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-caps/nvidia-cap2 none bind,optional,create=file
 
 ansible:
   roles:
     - base
     - docker
-    - gpu_drivers
-    - nvidia_container_toolkit
-    - localai
+    - role: containers
+      vars:
+        containers:
+          - name: openwebui
+            state: up          
