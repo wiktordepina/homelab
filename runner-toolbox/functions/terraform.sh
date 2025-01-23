@@ -137,6 +137,19 @@ run_terraform_lxc() {
   run_terraform "${tf_action}" "${tf_dir}" "${tf_statefile}"
 }
 
+# run_terraform_dns - Run Terraform scripts for DNS records.
+#
+# Description:
+#   This function runs Terraform scripts for DNS records.
+#
+# Usage:
+#   run_terraform_dns <tf_action>
+#
+# Parameters:
+#   <tf_action> - The action to be performed by Terraform (plan|apply|plan_destroy|destroy).
+#
+# Example:
+#   run_terraform_dns 'plan'
 run_terraform_dns() {
   local tf_action="${1}" ; check_null tf_action "${1}"
   check_null DNS_TSIG_KEY "${DNS_TSIG_KEY}"
