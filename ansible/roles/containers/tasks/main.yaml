@@ -17,6 +17,9 @@
   when: item.state == "destroyed"
   loop: "{{ containers }}"
 
+- name: Prune and update images
+  include_tasks: update_and_clear_images.yaml
+
 - name: Restart container
   ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml up -d"
   when: item.state == "up"

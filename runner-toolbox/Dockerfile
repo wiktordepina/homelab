@@ -29,6 +29,7 @@ RUN <<SETUP
     gnupg \
     wget \
     software-properties-common
+  ansible-galaxy collection install community.docker
   wget -O- https://apt.releases.hashicorp.com/gpg | \
     gpg --dearmor | \
     tee /usr/share/keyrings/hashicorp-archive-keyring.gpg 

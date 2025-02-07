@@ -1,0 +1,14 @@
+---
+- name: Prune images
+  community.docker.docker_prune:
+    images: true
+
+- name: Find local images
+  ansible.builtin.command: docker images --format "{{.Repository}}:{{.Tag}}"
+  register: local_images
+
+- name: Update images
+  community.general.docker_image_pull:
+    name: "{{ item }}"
+    platform: amd64
+  with_items: "{{ local_images.stdout_lines }}"
