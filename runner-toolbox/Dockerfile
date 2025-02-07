@@ -12,8 +12,9 @@ ENV LANGUAGE=en_GB.UTF-8
 RUN <<SETUP
 set -e
   echo UTC > /etc/timezone
-  apt update
-  apt-get install --no-install-recommends -y readline-common locales
+  apt-get update
+  apt-get install --no-install-recommends -y readline-common apt-utils 
+  apt-get install --no-install-recommends -y locales
   locale-gen en_GB.UTF-8
   update-locale LANG=en_GB.UTF-8
   apt-get install --no-install-recommends -y \
