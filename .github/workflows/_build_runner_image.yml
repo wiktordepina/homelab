@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Prune docker resources
+        run: docker system prune -f
       - name: Build Image
         run: docker build runner-toolbox -t runner-toolbox:latest
   Ntfy:
