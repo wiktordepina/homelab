@@ -10,10 +10,10 @@ ENV LC_ALL=en_GB.UTF-8
 ENV LANGUAGE=en_GB.UTF-8
 
 RUN <<SETUP
-  set -e
-  apt update && apt upgrade -y
-  apt-get install --no-install-recommends -y locales
+set -e
   echo UTC > /etc/timezone
+  apt update
+  apt-get install --no-install-recommends -y readline-common locales
   locale-gen en_GB.UTF-8
   update-locale LANG=en_GB.UTF-8
   apt-get install --no-install-recommends -y \
