@@ -25,7 +25,7 @@ RUN <<SETUP
   # => get dependencies
   apt-get install --no-install-recommends -y \
     jq \
-    yq \
+    ssh \
     unzip \
     curl \
     git \

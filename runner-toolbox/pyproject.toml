@@ -5,5 +5,7 @@ description = "toolbox environment"
 requires-python = ">=3.13"
 dependencies = [
     "ansible>=11.2.0",
+    "jq>=1.8.0",
     "ruamel-yaml>=0.18.10",
+    "yq>=3.4.3",
 ]
