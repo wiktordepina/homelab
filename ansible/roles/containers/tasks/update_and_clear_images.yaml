@@ -4,7 +4,7 @@
     images: true
 
 - name: Find local images
-  ansible.builtin.command: 'docker images --format "{{.Repository}}:{{.Tag}}"'
+  ansible.builtin.command: "docker images --format {% raw %}'{{.Repository}}:{{.Tag}}'{% endraw %}"
   register: local_images
 
 - name: Update images
