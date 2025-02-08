@@ -8,7 +8,7 @@
   register: local_images
 
 - name: Update images
-  community.general.docker_image_pull:
+  community.docker.docker_image_pull:
     name: "{{ item }}"
     platform: amd64
   with_items: "{{ local_images.stdout_lines }}"
