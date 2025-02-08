@@ -1,6 +1,6 @@
-ARG BASE_IMAGE_TAG=24.04
+ARG BASE_IMAGE_TAG=12
 
-FROM ubuntu:${BASE_IMAGE_TAG}
+FROM debian:${BASE_IMAGE_TAG}
 
 ARG TERRAFORM_VERSION=1.10.4
 ARG HCLEDIT_VERSION=0.2.15
@@ -13,10 +13,9 @@ RUN <<SETUP
 set -e
   echo UTC > /etc/timezone
   apt-get update
-  apt-get install --no-install-recommends -y readline-common apt-utils 
-  apt-get install --no-install-recommends -y locales
-  locale-gen en_GB.UTF-8
-  update-locale LANG=en_GB.UTF-8
+  apt-get install --no-install-recommends -y apt-utils locales
+  sed -i 's/^# *\(en_GB.UTF-8\)/\1/' /etc/locale.gen
+  locale-gen
   apt-get install --no-install-recommends -y \
     jq \
     yq \
