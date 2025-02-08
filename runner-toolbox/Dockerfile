@@ -2,7 +2,7 @@ ARG BASE_IMAGE_TAG=12
 
 FROM debian:${BASE_IMAGE_TAG}
 
-WORKDIR /toolbox
+WORKDIR /build
 
 ARG TERRAFORM_VERSION=1.10.4
 ARG HCLEDIT_VERSION=0.2.15
@@ -12,7 +12,7 @@ ENV LANG=en_GB.UTF-8
 ENV LC_ALL=en_GB.UTF-8
 ENV LANGUAGE=en_GB.UTF-8
 
-COPY .python-version pyproject.toml uv.lock /toolbox
+COPY .python-version pyproject.toml uv.lock /build
 
 RUN <<SETUP
   set -e
