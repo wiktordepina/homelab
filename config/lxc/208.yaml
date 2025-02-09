@@ -8,7 +8,7 @@ terraform:
   memory: 8192
   swap: 2048
   start_on_boot: true
-  rootfs_size: 200GB
+  rootfs_size: 200G
 
 
 ansible:
