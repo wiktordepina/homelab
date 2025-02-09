@@ -1,0 +1,19 @@
+---
+terraform:
+  vmid: 208
+  hostname: cloudflared
+  ip_address: 10.20.1.208/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 6
+  memory: 8192
+  swap: 2048
+  start_on_boot: true
+  rootfs_size: 200GB
+
+
+ansible:
+  roles:
+    - base
+    - role: cloudflared
+      vars:
+        cloudflared_tunnel_token: "{{ lookup('ansible.builtin.env', 'CLOUDFLARE_TUNNEL_TOKEN') }}"
