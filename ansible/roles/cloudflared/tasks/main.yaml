@@ -6,7 +6,7 @@
 - name: Install service
   ansible.builtin.shell: |
     set -e
-    sudo cloudflared service install {{ cloudflared_tunnel_token }}
+    cloudflared service install {{ cloudflared_tunnel_token }}
     touch /opt/cloudflared_installed
   args:
     creates: /opt/cloudflared_installed
