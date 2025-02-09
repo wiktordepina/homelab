@@ -1,0 +1,12 @@
+---
+- name: Install cloudflared
+  ansible.builtin.apt:
+    deb: https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+
+- name: Install service
+  ansible.builtin.shell: |
+    set -e
+    sudo cloudflared service install {{ cloudflared_tunnel_token }}
+    touch /opt/cloudflared_installed
+  args:
+    creates: /opt/cloudflared_installed
