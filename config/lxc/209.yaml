@@ -11,7 +11,7 @@ terraform:
   rootfs_size: 100G
 
 pve_extra:
-  - mp0: /zpool/signum,mp=/mnt/signum,backup=0
+  - mp0: /zpool/share/plots,mp=/mnt/plots,backup=0
 
 ansible:
   roles:

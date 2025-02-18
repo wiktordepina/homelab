@@ -2,16 +2,16 @@
 # PLEASE ONLY ENTER YOUR PASSPHRASE BELOW IF YOU ARE GOING TO MINE SOLO!
 # YOU DO NOT NEED TO ENTER YOUR PASSPHRASE FOR POOL MINING.
 # NEVER POST YOUR CONFIG.YAML INCLUDING YOUR PASSPHRASE TO ANY BOARD OR CHAT!
-account_id_to_secret_phrase:          # define accounts and passphrases for solo mining 
-  {{ lookup('ansible.builtin.env', 'SIGNUM_ACCOUNT_ID') }}: '{{ lookup('ansible.builtin.env', 'SIGNUM_WALLET_PHRASE') }}'
+# account_id_to_secret_phrase:          # define accounts and passphrases for solo mining 
+
 
 # List of directories with your plot files, adjust to suit your disks
 plot_dirs:
-  - '/mnt/signum/plots'
+  - '/mnt/plots'
 
-# url: 'https://pool.burstcoin.ro'      # mainnet pool
+url: 'https://pool.signumcoin.ro'      # mainnet pool
 #url: 'http://nivbox.co.uk:9000'      # testnet pool
-url: 'http://localhost:8125'         # solo mining
+#url: 'http://localhost:8125'         # solo mining
 #url: 'http://localhost:8125'         # solo mining testnet
 #url: 'http://localhost:6876'         # solo mining testnet
 
