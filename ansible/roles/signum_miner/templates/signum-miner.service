@@ -1,0 +1,12 @@
+[Unit]
+Description=Signum Miner
+After=network.target
+
+[Service]
+WorkingDirectory=/etc/signum-miner
+ExecStart=/etc/signum-miner/signum-miner
+Type=notify
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

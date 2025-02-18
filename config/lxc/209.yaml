@@ -1,0 +1,17 @@
+---
+  hostname: signumminer
+  ip_address: 10.20.1.208/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 32
+  memory: 8192
+  swap: 2048
+  start_on_boot: true
+  rootfs_size: 500G
+
+pve_extra:
+  - mp0: /zpool/signum,mp=/mnt/signum,backup=0
+
+ansible:
+  roles:
+    - base
+    - signum_miner

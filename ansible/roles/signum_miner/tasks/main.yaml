@@ -1,0 +1,21 @@
+---
+- name: Install Signum Miner
+  ansible.builtin.get_url:
+    url: https://github.com/signum-network/signum-miner/releases/download/v1.8.0/signum-miner
+    dest: /etc/signum-miner/signum-miner
+    mode: '0755'
+- name: Create Signum Miner Config
+  ansible.builtin.template:
+    src: config.yaml
+    dest: /etc/signum-miner/config.yaml
+    mode: '0644'
+- name: Create Signum Miner Service
+  ansible.builtin.template:
+    src: signum-miner.service
+    dest: /etc/systemd/system/signum-miner.service
+    mode: '0644'
+- name: Enable Signum Miner Service
+  ansible.builtin.systemd:
+    name: signum-miner
+    enabled: true
+    state: started

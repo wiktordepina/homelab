@@ -1,5 +1,5 @@
 ---
 - name: Update OS Packages
-  ansible.builtin.apt: 
+  ansible.builtin.apt:
     update_cache: true
     upgrade: "yes"
