@@ -1,4 +1,9 @@
 ---
+- name: Create Signum Miner Folder
+  ansible.builtin.file:
+    path: /etc/signum-miner
+    state: directory
+    mode: '0755'
 - name: Install Signum Miner
   ansible.builtin.get_url:
     url: https://github.com/signum-network/signum-miner/releases/download/v1.8.0/signum-miner

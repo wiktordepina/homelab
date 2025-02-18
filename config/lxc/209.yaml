@@ -8,7 +8,7 @@ terraform:
   memory: 8192
   swap: 2048
   start_on_boot: true
-  rootfs_size: 500G
+  rootfs_size: 100G
 
 pve_extra:
   - mp0: /zpool/signum,mp=/mnt/signum,backup=0
