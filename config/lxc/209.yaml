@@ -1,6 +1,6 @@
 ---
 hostname: signumminer
-ip_address: 10.20.1.208/16
+ip_address: 10.20.1.209/16
 nameserver: 10.20.0.1
 cpu_core_count: 32
 memory: 8192
