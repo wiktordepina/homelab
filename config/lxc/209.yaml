@@ -11,9 +11,16 @@ terraform:
   rootfs_size: 100G
 
 pve_extra:
-  - mp0: /zpool/share/plots,mp=/mnt/plots,backup=0
+  - mp0: /mnt/pve/Plot0/plots,mp=/mnt/plots0,backup=0
+  - mp1: /mnt/pve/Plot1/plots,mp=/mnt/plots1,backup=0
+  - mp2: /mnt/pve/Plot2/plots,mp=/mnt/plots2,backup=0
 
 ansible:
   roles:
     - base
-    - signum_miner
+    - role: signum_miner
+      vars:
+        signum_miner_plot_dirs:
+          - /mnt/plots0
+          - /mnt/plots1
+          - /mnt/plots2

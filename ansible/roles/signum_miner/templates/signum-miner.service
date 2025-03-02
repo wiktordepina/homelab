@@ -5,8 +5,9 @@ After=network.target
 [Service]
 WorkingDirectory=/etc/signum-miner
 ExecStart=/etc/signum-miner/signum-miner
-Type=notify
+Type=simple
 Restart=always
+TimeoutStartSec=3600
 
 [Install]
 WantedBy=multi-user.target

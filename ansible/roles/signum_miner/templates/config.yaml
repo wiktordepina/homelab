@@ -7,7 +7,9 @@
 
 # List of directories with your plot files, adjust to suit your disks
 plot_dirs:
-  - '/mnt/plots'
+{% for dir in signum_miner_plot_dirs %}
+ - '{{ dir }}'
+{% endfor %}
 
 url: 'https://pool.signumcoin.ro'      # mainnet pool
 #url: 'http://nivbox.co.uk:9000'      # testnet pool
@@ -45,7 +47,7 @@ submit_only_best: true                # default true
 #  "AccountKey" : "1234567890"
 
 console_log_level: 'info'             # default Info, options (off, error, warn, info, debug, trace)
-logfile_log_level: 'warn'             # default Warn, options (off, error, warn, info, debug, trace)
+logfile_log_level: 'info'             # default Warn, options (off, error, warn, info, debug, trace)
 logfile_max_count: 10                 # maximum number of log files to keep
 logfile_max_size : 20                 # maximum size per logfile in MiB
 
