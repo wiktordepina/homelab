@@ -1,0 +1,15 @@
+---
+version: "3.8"
+
+services:
+  pontainer:
+    restart: unless-stopped
+    image: actualbudget/actual-server:latest
+    container_name: actualbudget
+    ports:
+      - "5006:5006"
+    volumes:
+      - actualbudget_data:/data
+
+volumes:
+  actualbudget_data:
