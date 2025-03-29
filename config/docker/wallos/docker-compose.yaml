@@ -1,0 +1,15 @@
+---
+services:
+  wallos:
+    restart: unless-stopped
+    container_name: wallos
+    image: bellamy/wallos:latest
+    ports:
+      - '8282:8282'
+    environment:
+      TZ: 'Europe/London'
+    volumes:
+      - wallos_data:/var/www/html/db
+
+volumes:
+  wallos_data:

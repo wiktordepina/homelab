@@ -32,3 +32,5 @@ ansible:
             state: up
           - name: actualbudget
             state: up
+          - name: wallos
+            state: up
