@@ -5,7 +5,7 @@ services:
     container_name: wallos
     image: bellamy/wallos:latest
     ports:
-      - '8282:8282'
+      - '8282:80/tcp'
     environment:
       TZ: 'Europe/London'
     volumes:
