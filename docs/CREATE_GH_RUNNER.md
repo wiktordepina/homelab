@@ -12,7 +12,7 @@ Run below in the container:
 ```shell
 # => setup env
 GH_RUNNER_VERSION=2.322.0
-GH_RUNNER_TOKEN=...
+read -p 'Input GitHub Actions Runner Token: ' GH_RUNNER_TOKEN
 # => create a folder
 mkdir actions-runner && cd actions-runner
 # => download the latest runner package
