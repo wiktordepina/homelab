@@ -20,8 +20,6 @@ services:
       - 9696:9696       # prowlarr
       - 8989:8989       # sonarr
       - 7878:7878       # radarr
-      - 8686:8686       # lidarr
-      - 6969:6969       # whisparr
       - 8888:8888       # qbittorrent
       - 6881:6881       # qbittorrent
       - 6881:6881/udp   # qbittorrent
@@ -67,34 +65,6 @@ services:
     restart: unless-stopped
     network_mode: service:gluetun
 
-  lidarr:
-    image: lscr.io/linuxserver/lidarr:latest
-    container_name: lidarr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - lidarr_data:/config
-      - /pve/share/music:/music
-      - /pve/share/downloads:/downloads
-    restart: unless-stopped
-    network_mode: service:gluetun
-
-  whisparr:
-    image: ghcr.io/thespad/whisparr:latest
-    container_name: whisparr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - whisparr_data:/config
-      - /pve/share/404/whisp:/whisp
-      - /pve/share/downloads:/downloads
-    restart: unless-stopped
-    network_mode: service:gluetun
-
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
@@ -133,8 +103,6 @@ volumes:
   prowlarr_data:
   sonarr_data:
   radarr_data:
-  lidarr_data:
-  whisparr_data:
   qbittorrent_data:
   sabnzbd_data:
 
