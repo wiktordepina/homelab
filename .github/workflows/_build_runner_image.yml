@@ -9,8 +9,6 @@ on:
     paths:
       - 'runner-toolbox/**'
 
-env:
-  NTFY_CREDS: ${{ secrets.NTFY_CREDS }}
 
 jobs:
   BuildRunnerImage:

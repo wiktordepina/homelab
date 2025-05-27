@@ -32,13 +32,7 @@ on:
 concurrency: lxc
 
 env:
-  PM_USER: ${{ secrets.PM_USER }}
-  PM_PASS: ${{ secrets.PM_PASS }}
   DNS_TSIG_KEY: ${{ secrets.DNS_TSIG_KEY }}
-  NTFY_CREDS: ${{ secrets.NTFY_CREDS }}
-  PVE_HOMER_KEY: ${{ secrets.PVE_HOMER_KEY }}
-  PORTAINER_HOMER_KEY: ${{ secrets.PORTAINER_HOMER_KEY }}
-  PIHOLE_HOMER_KEY: ${{ secrets.PIHOLE_HOMER_KEY }}
 
 jobs:
   RunLXC:
