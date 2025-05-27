@@ -28,9 +28,6 @@ on:
 
 concurrency: dns
 
-env:
-  DNS_TSIG_KEY: ${{ secrets.DNS_TSIG_KEY }}
-
 jobs:
   RunDNS:
     runs-on: self-hosted

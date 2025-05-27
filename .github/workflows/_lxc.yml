@@ -31,9 +31,6 @@ on:
 
 concurrency: lxc
 
-env:
-  DNS_TSIG_KEY: ${{ secrets.DNS_TSIG_KEY }}
-
 jobs:
   RunLXC:
     runs-on: self-hosted
