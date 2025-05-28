@@ -9,7 +9,13 @@
   register: pihole_status
 
 - name: Install PiHole
-  ansible.builtin.shell: curl -sSL https://install.pi-hole.net | bash
+  block:
+    - name: Get installer
+      ansible.builtin.get_url: 
+        url: https://install.pi-hole.net
+        dest: /tmp/pihole-install.sh
+    - name: Run installer
+      ansible.builtin.shell: bash /tmp/pihole-install.sh  
   when: pihole_status.stdout == 'absent'
 
 - name: Update PiHole
