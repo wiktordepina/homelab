@@ -1,6 +1,6 @@
 ---
 - name: Check if PiHole is installed
-  ansible.builtin.command: |
+  ansible.builtin.shell: |
     if command -v pihole; then
       echo 'present'
     else
@@ -10,11 +10,11 @@
   changed_when: pihole_status.rc != 0
 
 - name: Install PiHole
-  ansible.builtin.command: curl -sSL https://install.pi-hole.net | bash
+  ansible.builtin.shell: curl -sSL https://install.pi-hole.net | bash
   when: pihole_status == 'absent'
   changed_when: pihole_status.rc != 0
 
 - name: Update PiHole
-  ansible.builtin.command: pihole -u
+  ansible.builtin.shell: pihole -u
   when: pihole_status == 'present'
   changed_when: pihole_status.rc == 0
