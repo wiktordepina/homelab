@@ -7,14 +7,11 @@
       echo 'absent'
     fi
   register: pihole_status
-  changed_when: pihole_status.rc != 0
 
 - name: Install PiHole
   ansible.builtin.shell: curl -sSL https://install.pi-hole.net | bash
   when: pihole_status == 'absent'
-  changed_when: pihole_status.rc != 0
 
 - name: Update PiHole
   ansible.builtin.shell: pihole -u
   when: pihole_status == 'present'
-  changed_when: pihole_status.rc == 0
