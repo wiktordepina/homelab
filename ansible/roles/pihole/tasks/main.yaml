@@ -1,6 +1,7 @@
 ---
 - name: Check if PiHole is installed
-  ansible.builtin.shell: command -v pihole; then
+  ansible.builtin.shell: |
+    command -v pihole; then
       echo 'present'
     else
       echo 'absent'
