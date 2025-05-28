@@ -1,6 +1,6 @@
 ---
 terraform:
-  vmid: 1
+  vmid: 100
   hostname: pihole
   ip_address: 10.20.1.1/16
   nameserver: 10.20.0.1
