@@ -6,21 +6,15 @@
     else
       echo 'absent'
     fi
-  become: true
-  become_method: ansible.builtin.sudo
   register: pihole_status
   changed_when: pihole_status.rc != 0
 
 - name: Install PiHole
   ansible.builtin.command: curl -sSL https://install.pi-hole.net | bash
-  become: true
-  become_method: ansible.builtin.sudo
   when: pihole_status == 'absent'
   changed_when: pihole_status.rc != 0
 
 - name: Update PiHole
   ansible.builtin.command: pihole -u
-  become: true
-  become_method: ansible.builtin.sudo
   when: pihole_status == 'present'
   changed_when: pihole_status.rc == 0
