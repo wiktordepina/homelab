@@ -45,6 +45,8 @@ jobs:
       vmid: ${{ matrix.vmid }}
       tf_action: ${{ inputs.tf_action }}
   UpdateDNSRecords:
+    needs:
+      - BuildRunnerImage
     name: Update DNS records
     uses: ./.github/workflows/_dns.yml
     with:
