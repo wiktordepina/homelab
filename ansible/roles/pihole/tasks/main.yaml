@@ -27,7 +27,7 @@
   notify: Restart unbound
 
 - name: Copy unbound config
-  ansible.builtin.file:
-    name: pi-hole.conf
+  ansible.builtin.copy:
+    src: pi-hole.conf
     dest: /etc/unbound/unbound.conf.d/pi-hole.conf
   notify: Restart unbound
