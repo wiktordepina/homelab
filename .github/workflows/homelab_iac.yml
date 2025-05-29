@@ -13,6 +13,11 @@ on:
           - apply
           - destroy_plan
           - destroy
+      skip_notify:
+        type: boolean
+        required: false
+        description: skip notifications
+        default: false
   # push:
   #   branches:
   #     - main
@@ -22,6 +27,8 @@ concurrency: homelab-iac
 jobs:
   BuildRunnerImage:
     uses: ./.github/workflows/_build_runner_image.yml
+    with:
+      skip_notify: ${{ inputs.skip_notify }}
   DeployLXCs:
     needs:
       - BuildRunnerImage
@@ -44,6 +51,7 @@ jobs:
     with:
       vmid: ${{ matrix.vmid }}
       tf_action: ${{ inputs.tf_action }}
+      skip_notify: ${{ inputs.skip_notify }}
   UpdateDNSRecords:
     needs:
       - BuildRunnerImage
@@ -51,3 +59,4 @@ jobs:
     uses: ./.github/workflows/_dns.yml
     with:
       tf_action: ${{ inputs.tf_action }}
+      skip_notify: ${{ inputs.skip_notify }}

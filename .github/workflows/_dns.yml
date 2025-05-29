@@ -8,6 +8,10 @@ on:
         required: true
         description: terraform action
         default: plan
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
   workflow_dispatch:
     inputs:
       tf_action:
@@ -20,6 +24,11 @@ on:
           - apply
           - destroy_plan
           - destroy
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
+        description: skip notifications
   push:
     branches:
       - main
@@ -38,7 +47,7 @@ jobs:
         run: ./run/execute_runner terraform_dns ${{ github.event_name == 'push' && 'apply' || inputs.tf_action }}
   Ntfy:
     runs-on: self-hosted
-    if: always() 
+    if: ${{ always() && !inputs.skip_notify }}
     needs:
       - RunDNS
     steps: 

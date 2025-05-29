@@ -12,6 +12,10 @@ on:
         required: true
         description: terraform action
         default: plan
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
   workflow_dispatch:
     inputs:
       vmid:
@@ -28,6 +32,11 @@ on:
           - apply
           - plan_destroy
           - destroy
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
+        description: skip notifications
 
 concurrency: lxc
 
@@ -64,7 +73,7 @@ jobs:
           fi
   Ntfy:
     runs-on: self-hosted
-    if: always() 
+    if: ${{ always() && !inputs.skip_notify }}
     needs:
       - RunLXC
     steps: 

@@ -2,7 +2,18 @@ name: Build Runner Image
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
+        description: skip notifications
   workflow_call:
+    inputs:
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
   push:
     branches:
       - main
@@ -22,7 +33,7 @@ jobs:
         run: docker build runner-toolbox -t runner-toolbox:latest
   Ntfy:
     runs-on: self-hosted
-    if: always() 
+    if: ${{ always() && !inputs.skip_notify }}
     needs:
       - BuildRunnerImage
     steps: 
