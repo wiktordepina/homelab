@@ -1,23 +1,21 @@
 ---
 - name: Check if PiHole is installed
-  ansible.builtin.shell: |
-    if command -v pihole; then
-      echo 'present'
-    else
-      echo 'absent'
-    fi
-  register: pihole_status
-
-- name: Install PiHole
   block:
-    - name: Get installer
-      ansible.builtin.get_url: 
-        url: https://install.pi-hole.net
-        dest: /tmp/pihole-install.sh
-    - name: Run installer
-      ansible.builtin.shell: bash /tmp/pihole-install.sh  
-  when: pihole_status.stdout == 'absent'
+    - name: Check pihole command
+      ansible.builtin.shell: |
+        if command -v pihole; then
+          echo 'present'
+        else
+          echo 'absent'
+        fi
+      register: pihole_status
+    - name: Fail if PiHole not installed
+      ansible.builtin.fail:
+        msg: |
+          Failing as PiHole not installed on host.
+          Installation needs to be done manually due to nesesary interactive elements, stable headless method currently not available.
+          Please install manually by running 'curl -sSL https://install.pi-hole.net | bash' on the host as root.
+      when: pihole_status.stdout == 'absent'
 
 - name: Update PiHole
   ansible.builtin.shell: pihole -u
-  when: pihole_status.stdout == 'present'
