@@ -1,4 +1,4 @@
 ---
-jellyfin_ffmpeg_package_url: https://repo.jellyfin.org/files/ffmpeg/debian/latest-7.x/amd64/jellyfin-ffmpeg7_7.0.2-8-bookworm_amd64.deb
-jellyfin_server_package_url: https://repo.jellyfin.org/files/server/debian/latest-stable/amd64/jellyfin-server_10.10.3+deb12_amd64.deb
-jellyfin_web_package_url: https://repo.jellyfin.org/files/server/debian/latest-stable/amd64/jellyfin-web_10.10.3+deb12_all.deb
+jellyfin_ffmpeg_package_url: https://repo.jellyfin.org/files/ffmpeg/debian/7.x/7.1.1-4/amd64/jellyfin-ffmpeg7_7.1.1-4-bookworm_amd64.deb
+jellyfin_server_package_url: https://repo.jellyfin.org/files/server/debian/stable/v10.10.7/amd64/jellyfin-server_10.10.7+deb12_amd64.deb
+jellyfin_web_package_url: https://repo.jellyfin.org/files/server/debian/stable/v10.10.7/amd64/jellyfin-web_10.10.7+deb12_all.deb
