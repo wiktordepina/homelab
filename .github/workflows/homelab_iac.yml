@@ -18,9 +18,8 @@ on:
         required: false
         description: skip notifications
         default: false
-  # push:
-  #   branches:
-  #     - main
+  schedule:
+    - cron: '0 0 * * 3'
 
 concurrency: homelab-iac
 
@@ -28,7 +27,7 @@ jobs:
   BuildRunnerImage:
     uses: ./.github/workflows/_build_runner_image.yml
     with:
-      skip_notify: ${{ inputs.skip_notify }}
+      skip_notify: ${{ inputs.skip_notify || false }}
   DeployLXCs:
     needs:
       - BuildRunnerImage
@@ -50,13 +49,13 @@ jobs:
     secrets: inherit
     with:
       vmid: ${{ matrix.vmid }}
-      tf_action: ${{ inputs.tf_action }}
-      skip_notify: ${{ inputs.skip_notify }}
+      tf_action: ${{ inputs.tf_action || 'apply' }}
+      skip_notify: ${{ inputs.skip_notify || false}}
   UpdateDNSRecords:
     needs:
       - BuildRunnerImage
     name: Update DNS records
     uses: ./.github/workflows/_dns.yml
     with:
-      tf_action: ${{ inputs.tf_action }}
-      skip_notify: ${{ inputs.skip_notify }}
+      tf_action: ${{ inputs.tf_action || 'apply' }}
+      skip_notify: ${{ inputs.skip_notify || false }}
