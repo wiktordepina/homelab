@@ -18,4 +18,16 @@
       when: pihole_status.stdout == 'absent'
 
 - name: Update PiHole
-  ansible.builtin.shell: pihole -u
+  ansible.builtin.shell: pihole -up
+
+- name: Install unbound DNS
+  ansible.builtin.package:
+    name: unbound
+    state: present
+  notify: Restart unbound
+
+- name: Copy unbound config
+  ansible.builtin.file:
+    name: pi-hole.conf
+    dest: /etc/unbound/unbound.conf.d/pi-hole.conf
+  notify: Restart unbound
