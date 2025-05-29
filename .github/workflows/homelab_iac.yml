@@ -2,6 +2,17 @@ name: HomeLab IAC
 
 on:
   workflow_dispatch:
+    inputs:
+      tf_action:
+        type: choice
+        required: true
+        description: terraform action
+        default: plan
+        options:
+          - plan
+          - apply
+          - destroy_plan
+          - destroy
   # push:
   #   branches:
   #     - main
@@ -19,9 +30,22 @@ jobs:
       max-parallel: 1
       matrix:
         vmid:
-          - 201
+          - 100   # pihole + unbound
+          - 201   # bind9
+          - 202   # ntfy
+          - 203   # fileserver
+          - 204   # jellyfin
+          - 205   # docker host
+          - 207   # local AI
+          - 208   # CloudFlare tunnel worker
+          - 209   # Signum miner
     uses: ./.github/workflows/_lxc.yml
     secrets: inherit
     with:
       vmid: ${{ matrix.vmid }}
-      tf_action: plan
+      tf_action: ${{ inputs.tf_action }}
+  UpdateDNSRecords:
+    name: Update DNS records
+    uses: ./.github/workflows/_dns.yml
+    with:
+      tf_action: ${{ inputs.tf_action }}
