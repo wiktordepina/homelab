@@ -9,7 +9,7 @@ terraform {
 }
 
 provider "proxmox" {
-  pm_api_url = "https://pve.matagoth.com:8006/api2/json"
+  pm_api_url = "https://192.168.200.100:8006/api2/json"
 
   #   pm_log_enable = true
   #   pm_log_file = "terraform-plugin-proxmox.log"
