@@ -18,7 +18,7 @@ variable "cpu_core_count" {
 
 variable "network_bridge" {
   type    = string
-  default = "vmbr3"
+  default = "vmbr1"
 }
 
 variable "memory" {
