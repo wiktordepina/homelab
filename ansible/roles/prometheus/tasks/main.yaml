@@ -24,7 +24,7 @@
 - name: Copy config
   ansible.builtin.copy:
     src: prometheus.yml
-    dest: /etc/prometheus/prometheus.yml
+    dest: /etc/prometheus/prometheus.yaml
     mode: '0644'
 
 - name: Create prometheus service
