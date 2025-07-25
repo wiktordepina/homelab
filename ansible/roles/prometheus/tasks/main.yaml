@@ -1,0 +1,34 @@
+---
+- name: Download binaries
+  ansible.builtin.unarchive:
+    src: https://github.com/prometheus/prometheus/releases/download/v3.5.0/prometheus-3.5.0.linux-amd64.tar.gz
+    dest: /tmp
+
+- name: Copy prometheus binaries
+  ansible.builtin.copy:
+    src: /tmp/prometheus-3.5.0.linux-amd64/{{ item }}
+    dest: /etc/prometheus/{{ item }}
+    remote_src: true
+    mode: preserve
+  with_items:
+    - prometheus
+    - promtool
+
+- name: Copy config
+  ansible.builtin.copy:
+    src: prometheus.yml
+    dest: /etc/prometheus/prometheus.yml
+    mode: '0644'
+
+- name: Create prometheus service
+  ansible.builtin.copy:
+    src: prometheus.service
+    dest: /etc/systemd/system/prometheus.service
+    mode: '0644'
+
+- name: Enable prometheus service
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: prometheus
+    state: started
+    enabled: true

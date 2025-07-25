@@ -1,0 +1,19 @@
+---
+terraform:
+  vmid: 210
+  hostname: prometheus
+  ip_address: 10.20.1.210/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 8
+  memory: 6114
+  swap: 512
+  start_on_boot: true
+  rootfs_size: 50G
+
+pve_extra:
+  - mp0: /zpool/prometheus,mp=/prometheus_data,backup=0
+
+ansible:
+  roles:
+    - base
+    - prometheus
