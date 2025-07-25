@@ -23,7 +23,7 @@
 
 - name: Copy config
   ansible.builtin.copy:
-    src: prometheus.yml
+    src: prometheus.yaml
     dest: /etc/prometheus/prometheus.yaml
     mode: '0644'
 
