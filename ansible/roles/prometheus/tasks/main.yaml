@@ -3,6 +3,7 @@
   ansible.builtin.unarchive:
     src: https://github.com/prometheus/prometheus/releases/download/v3.5.0/prometheus-3.5.0.linux-amd64.tar.gz
     dest: /tmp
+    remote_src: true
 
 - name: Copy prometheus binaries
   ansible.builtin.copy:
