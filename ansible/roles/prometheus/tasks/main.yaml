@@ -1,4 +1,10 @@
 ---
+- name: Create prometheus directory
+  ansible.builtin.file:
+    path: /etc/prometheus
+    state: directory
+    mode: '0755'
+
 - name: Download binaries
   ansible.builtin.unarchive:
     src: https://github.com/prometheus/prometheus/releases/download/v3.5.0/prometheus-3.5.0.linux-amd64.tar.gz
