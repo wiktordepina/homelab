@@ -20,12 +20,16 @@
   with_items:
     - prometheus
     - promtool
+  notify:
+    - Restart prometheus service
 
 - name: Copy config
   ansible.builtin.copy:
     src: prometheus.yaml
     dest: /etc/prometheus/prometheus.yaml
     mode: '0644'
+  notify:
+    - Restart prometheus service
 
 - name: Create prometheus service
   ansible.builtin.copy:
