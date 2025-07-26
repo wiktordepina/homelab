@@ -5,6 +5,17 @@
     state: directory
     mode: '0755'
 
+- name: Create prometheus group
+  ansible.builtin.group:
+    name: prometheus
+    state: present
+
+- name: Create prometheus user
+  ansible.builtin.user:
+    name: prometheus
+    shell: /bin/bash
+    groups: prometheus
+
 - name: Download binaries
   ansible.builtin.unarchive:
     src: https://github.com/prometheus/prometheus/releases/download/v3.5.0/prometheus-3.5.0.linux-amd64.tar.gz
