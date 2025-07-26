@@ -6,7 +6,7 @@ mappings:
       vmid: ${1}
 
   - match: proxmox.nodes.*.*.*
-    name: 'proxmox_node_${2}_${3}'
+    name: 'proxmox_node_${3}'
     labels:
       node_name: ${1}
 
@@ -20,3 +20,9 @@ mappings:
     labels:
       node_name: ${1}
       storage_name: ${2}
+
+  - match: proxmox.nodes.*.nics.*.*
+    name: 'proxmox_node_nic_${3}'
+    labels:
+      node_name: ${1}
+      nic: ${2}
