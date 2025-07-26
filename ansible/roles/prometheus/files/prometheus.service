@@ -5,10 +5,10 @@ After=network.target
 
 [Service]
 Type=simple
+User=prometheus
 WorkingDirectory=/etc/prometheus
 ExecStart=/etc/prometheus/prometheus --config.file=/etc/prometheus/prometheus.yaml --storage.tsdb.path=/prometheus_data/ --storage.tsdb.retention.time=1y
 Restart=always
-User=prometheus
 
 [Install]
 WantedBy=multi-user.target
