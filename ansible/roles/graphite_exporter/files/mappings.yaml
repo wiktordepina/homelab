@@ -5,10 +5,10 @@ mappings:
     labels:
       vmid: ${1}
 
-  # - match: proxmox.nodes.*.*.*
-  #   name: 'proxmox_node_${3}'
-  #   labels:
-  #     node_name: ${1}
+  - match: proxmox.nodes.*.*.*
+    name: 'proxmox_node_${2}_${3}'
+    labels:
+      node_name: ${1}
 
   - match: proxmox.qemu.*.*
     name: proxmox_qemu_${2}
