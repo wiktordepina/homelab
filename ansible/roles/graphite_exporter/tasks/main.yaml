@@ -1,0 +1,58 @@
+---
+- name: Create graphite_exporter directory
+  ansible.builtin.file:
+    path: /etc/graphite_exporter
+    state: directory
+    mode: '0755'
+
+- name: Create graphite_exporter group
+  ansible.builtin.group:
+    name: graphite_exporter
+    state: present
+
+- name: Create graphite_exporter user
+  ansible.builtin.user:
+    name: graphite_exporter
+    shell: /bin/bash
+    groups: graphite_exporter
+
+- name: Download binaries
+  ansible.builtin.unarchive:
+    src: https://github.com/prometheus/graphite_exporter/releases/download/v0.16.0/graphite_exporter-0.16.0.linux-amd64.tar.gz
+    dest: /tmp
+    remote_src: true
+
+- name: Copy graphite_exporter binaries
+  ansible.builtin.copy:
+    src: /tmp/graphite_exporter-0.16.0.linux-amd64/{{ item }}
+    dest: /etc/graphite_exporter/{{ item }}
+    remote_src: true
+    mode: preserve
+  with_items:
+    - graphite_exporter
+    - getool
+  notify:
+    - Restart graphite_exporter service
+
+- name: Copy mappings
+  ansible.builtin.copy:
+    src: mappings.yaml
+    dest: /etc/graphite_exporter/mappings.yaml
+    mode: '0644'
+  notify:
+    - Restart graphite_exporter service
+
+- name: Create graphite_exporter service
+  ansible.builtin.copy:
+    src: graphite_exporter.service
+    dest: /etc/systemd/system/graphite_exporter.service
+    mode: '0644'
+  notify:
+    - Restart graphite_exporter service
+
+- name: Enable graphite_exporter service
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: graphite_exporter
+    state: started
+    enabled: true

@@ -17,3 +17,4 @@ ansible:
   roles:
     - base
     - prometheus
+    - graphite_exporter

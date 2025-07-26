@@ -1,0 +1,6 @@
+---
+- name: Restart prometheus service
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: graphite_exporter
+    state: restarted
