@@ -47,6 +47,8 @@
     src: prometheus.service
     dest: /etc/systemd/system/prometheus.service
     mode: '0644'
+  notify:
+    - Restart prometheus service
 
 - name: Enable prometheus service
   ansible.builtin.systemd_service:
