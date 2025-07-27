@@ -18,3 +18,10 @@ scrape_configs:
       - targets: ["localhost:9108"]
         labels:
           app: proxmox
+  - job_name: graphana
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["localhost:3000"]
+        labels:
+          app: graphana
