@@ -34,7 +34,7 @@
 - name: Copy config
   ansible.builtin.copy:
     src: config.ini
-    dest: /etc/grafana/conf/config.ini
+    dest: /etc/graphana/conf/config.ini
     mode: '0644'
   notify:
     - Restart prometheus service
