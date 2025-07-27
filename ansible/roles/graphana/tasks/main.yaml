@@ -31,6 +31,22 @@
   notify:
     - Restart graphana service
 
+- name: Copy config
+  ansible.builtin.copy:
+    src: config.ini
+    dest: /etc/grafana/config/config.ini
+    mode: '0644'
+  notify:
+    - Restart prometheus service
+
+- name: Set folder permissions
+  ansible.builtin.file:
+    dest: /etc/graphana
+    owner: graphana
+    group: graphana
+    mode: '0755'
+    recurse: true
+
 - name: Create graphana service
   ansible.builtin.copy:
     src: graphana.service
