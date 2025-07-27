@@ -18,3 +18,4 @@ ansible:
     - base
     - prometheus
     - graphite_exporter
+    - graphana

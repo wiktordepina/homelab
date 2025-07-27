@@ -1,0 +1,47 @@
+---
+- name: Create graphana directory
+  ansible.builtin.file:
+    path: /etc/graphana
+    state: directory
+    mode: '0755'
+
+- name: Create graphana group
+  ansible.builtin.group:
+    name: graphana
+    state: present
+
+- name: Create graphana user
+  ansible.builtin.user:
+    name: graphana
+    shell: /bin/bash
+    groups: graphana
+
+- name: Download binaries
+  ansible.builtin.unarchive:
+    src: https://dl.grafana.com/oss/release/grafana-12.1.0.linux-amd64.tar.gz
+    dest: /tmp
+    remote_src: true
+
+- name: Copy graphana binaries
+  ansible.builtin.copy:
+    src: /tmp/grafana-v12.1.0/
+    dest: /etc/graphana/
+    remote_src: true
+    mode: preserve
+  notify:
+    - Restart graphana service
+
+- name: Create graphana service
+  ansible.builtin.copy:
+    src: graphana.service
+    dest: /etc/systemd/system/graphana.service
+    mode: '0644'
+  notify:
+    - Restart graphana service
+
+- name: Enable graphana service
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: graphana
+    state: started
+    enabled: true
