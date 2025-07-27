@@ -7,7 +7,7 @@ After=network.target
 Type=simple
 User=graphana
 WorkingDirectory=/etc/graphana/
-ExecStart=/etc/graphana/bin/grafana server --config /etc/graphana/config/config.ini --homepath /etc/graphana
+ExecStart=/etc/graphana/bin/grafana server --config /etc/graphana/conf/config.ini --homepath /etc/graphana
 Restart=always
 
 [Install]
