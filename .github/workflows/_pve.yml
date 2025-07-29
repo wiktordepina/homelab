@@ -1,0 +1,20 @@
+name: PVE Extras
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - config/pve/playbook.yml
+
+concurrency: ansible-pve
+
+jobs:
+  PVE:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run PVE Extras playbook
+        run: ./run/execute_runner run_ansible_pve 
