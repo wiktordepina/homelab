@@ -30,3 +30,7 @@ run_ansible_lxc() {
 
   ansible-playbook -i "192.168.200.100,${lxc_ip}," playbook.yaml
 }
+
+run_ansible_pve() {
+  ansible-playbook -i "192.168.200.100," config/pve/playbook.yaml
+}
