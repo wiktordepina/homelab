@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - config/pve/playbook.yml
+      - config/pve/playbook.yaml
 
 concurrency: ansible-pve
 
