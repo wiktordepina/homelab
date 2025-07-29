@@ -25,3 +25,10 @@ scrape_configs:
       - targets: ["localhost:3000"]
         labels:
           app: graphana
+  - job_name: pve_node
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["192.168.200.100:9100"]
+        labels:
+          app: pve_node
