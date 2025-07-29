@@ -1,0 +1,36 @@
+---
+- name: Create node_exporter directory
+  ansible.builtin.file:
+    path: /etc/node_exporter
+    state: directory
+    mode: '0755'
+
+- name: Download binaries
+  ansible.builtin.unarchive:
+    src: https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
+    dest: /tmp
+    remote_src: true
+
+- name: Copy node_exporter binaries
+  ansible.builtin.copy:
+    src: /tmp/node_exporter-1.9.1.linux-amd64/node_exporter
+    dest: /etc/node_exporter/node_exporter
+    remote_src: true
+    mode: preserve
+  notify:
+    - Restart node_exporter service
+
+- name: Create node_exporter service
+  ansible.builtin.copy:
+    src: node_exporter.service
+    dest: /etc/systemd/system/node_exporter.service
+    mode: '0644'
+  notify:
+    - Restart node_exporter service
+
+- name: Enable node_exporter service
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: node_exporter
+    state: started
+    enabled: true
