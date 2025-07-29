@@ -17,4 +17,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Run PVE Extras playbook
-        run: ./run/execute_runner run_ansible_pve 
+        run: ./run/execute_runner ansible_pve 

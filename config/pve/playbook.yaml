@@ -1,5 +1,5 @@
 ---
-- name: PVE Node Extras
+- name: PVE Extras
   hosts: 192.168.200.100
   roles:
     - node_exporter

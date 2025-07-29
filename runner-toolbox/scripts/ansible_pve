@@ -1,0 +1,11 @@
+#!/bin/bash
+
+for scr in /pve/secrets/*.sh; do 
+  source "${scr}"
+done
+
+for fnc in /opt/functions/*.sh; do 
+  source "${fnc}"
+done
+
+run_ansible_pve
