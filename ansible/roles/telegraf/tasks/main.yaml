@@ -1,7 +1,7 @@
 ---
 - name: Create telegraf directories
   ansible.builtin.file:
-    path: {{ item }}
+    path: "{{ item }}"
     state: directory
     mode: '0755'
   with_items:
