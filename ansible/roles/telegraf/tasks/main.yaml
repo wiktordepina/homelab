@@ -38,7 +38,7 @@
   notify:
     - Restart telegraf service
 
-- name: Create prometheus service
+- name: Create telegraf service
   ansible.builtin.copy:
     src: telegraf.service
     dest: /etc/systemd/system/telegraf.service
