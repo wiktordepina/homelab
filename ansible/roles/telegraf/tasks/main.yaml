@@ -1,0 +1,54 @@
+---
+- name: Create telegraf directories
+  ansible.builtin.file:
+    path: {{ item }}
+    state: directory
+    mode: '0755'
+  with_items:
+    - /etc/telegraf
+    - /etc/telegraf.d
+    - /var/log/telegraf
+
+- name: Download binaries
+  ansible.builtin.unarchive:
+    src: https://dl.influxdata.com/telegraf/releases/telegraf-1.35.0_linux_amd64.tar.gz
+    dest: /tmp
+    remote_src: true
+
+- name: Copy telegraf binaries
+  ansible.builtin.copy:
+    src: /tmp/telegraf-1.35.0/usr/bin/telegraf
+    dest: /etc/telegraf/telegraf
+    remote_src: true
+    mode: preserve
+  notify:
+    - Restart telegraf service
+
+- name: Copy logrotate config
+  ansible.builtin.copy:
+    src: telegraf
+    dest: /etc/logrotate.d/telegraf
+    mode: '0644'
+
+- name: Copy config
+  ansible.builtin.copy:
+    src: telegraf.conf
+    dest: /etc/telegraf/telegraf.conf
+    mode: '0644'
+  notify:
+    - Restart telegraf service
+
+- name: Create prometheus service
+  ansible.builtin.copy:
+    src: telegraf.service
+    dest: /etc/systemd/system/telegraf.service
+    mode: '0644'
+  notify:
+    - Restart telegraf service
+
+- name: Enable telegraf service
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: telegraf
+    state: started
+    enabled: true
