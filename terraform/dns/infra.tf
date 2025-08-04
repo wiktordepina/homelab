@@ -14,7 +14,7 @@ resource "dns_a_record_set" "router" {
 resource "dns_a_record_set" "reverse_proxy" {
   zone      = "home.matagoth.com."
   name      = "www"
-  addresses = ["10.20.1.110"]
+  addresses = ["10.20.1.10"]
   ttl       = 500
 }
 
