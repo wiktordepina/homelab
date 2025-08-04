@@ -11,12 +11,12 @@ resource "dns_a_record_set" "router" {
   ttl = 500
 }
 
-# resource "dns_a_record_set" "reverse_proxy" {
-#   zone      = "home.matagoth.com."
-#   name      = "hub"
-#   addresses = ["10.20.1.10"]
-#   ttl       = 500
-# }
+resource "dns_a_record_set" "reverse_proxy" {
+  zone      = "home.matagoth.com."
+  name      = "hub"
+  addresses = ["10.20.1.10"]
+  ttl       = 500
+}
 
 resource "dns_a_record_set" "switch" {
   zone      = "home.matagoth.com."
