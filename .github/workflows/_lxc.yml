@@ -1,5 +1,5 @@
 name: LXC
-run-name: LXC {{ inputs.vmid }}
+run-name: LXC ${{ inputs.vmid }}
 
 on:
   workflow_call:
