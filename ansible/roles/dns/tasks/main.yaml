@@ -51,3 +51,10 @@
     dest: /etc/bind/home-matagoth-com.zone
   notify:
     - Restart bind9
+
+- name: homelab.matagoth.com zone
+  ansible.builtin.template:
+    src: homelab-matagoth-com.zone.j2
+    dest: /etc/bind/homelab-matagoth-com.zone
+  notify:
+    - Restart bind9

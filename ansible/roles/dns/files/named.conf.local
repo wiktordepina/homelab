@@ -5,3 +5,9 @@ zone "home.matagoth.com" IN {
   file "/etc/bind/home-matagoth-com.zone";
   update-policy { grant tsig-key zonesub any; };
 };
+
+zone "homelab.matagoth.com" IN {
+  type master;
+  file "/etc/bind/homelab-matagoth-com.zone";
+  update-policy { grant tsig-key zonesub any; };
+};
