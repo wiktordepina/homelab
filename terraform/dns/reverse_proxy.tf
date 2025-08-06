@@ -5,7 +5,7 @@ resource "dns_a_record_set" "www" {
   ttl       = 500
 }
 
-resource "dns_a_record_set" "proxmox" {
+resource "dns_a_record_set" "rvp_proxmox" {
   zone      = "homelab.matagoth.com."
   name      = "proxmox"
   addresses = ["10.20.1.10"]
