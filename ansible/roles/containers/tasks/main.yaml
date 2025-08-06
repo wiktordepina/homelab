@@ -21,6 +21,6 @@
   include_tasks: update_and_clear_images.yaml
 
 - name: Restart container
-  ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml up -d"
+  ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml up -d --remove-orphans"
   when: item.state == "up"
   loop: "{{ containers }}"
