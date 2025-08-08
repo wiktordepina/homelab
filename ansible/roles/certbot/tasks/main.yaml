@@ -12,8 +12,12 @@
 
 - name: Create Python virtual environment
   ansible.builtin.command:
-    cmd: "python3 -m venv /opt/certbot/ && /opt/certbot/bin/pip install --upgrade pip"
+    cmd: "python3 -m venv /opt/certbot/"
     creates: /opt/certbot/
+
+- name: Upgrade pip
+  ansible.builtin.command:
+    cmd: "/opt/certbot/bin/pip install --upgrade pip"
 
 - name: Install/upgrade certbot
   ansible.builtin.command:
