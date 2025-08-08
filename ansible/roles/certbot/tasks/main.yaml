@@ -1,0 +1,51 @@
+---
+- name: Get dependencies
+  ansible.builtin.apt:
+    state: present
+    update_cache: true
+    pkg:
+      - python3
+      - python3-dev
+      - python3-venv
+      - libaugeas-dev
+      - gcc
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: "python3 -m venv /opt/certbot/ && /opt/certbot/bin/pip install --upgrade pip"
+    creates: /opt/certbot/
+
+- name: Install/upgrade certbot
+  ansible.builtin.command:
+    cmd: "/opt/certbot/bin/pip install --upgrade certbot"
+
+- name: Prepare certbot command
+  ansible.builtin.command:
+    cmd: "ln -s /opt/certbot/bin/certbot /usr/bin/certbot"
+    creates: /opt/certbot/bin/certbot
+
+- name: Install/upgrade certbot-dns-cloudflare
+  ansible.builtin.command:
+    cmd: "/opt/certbot/bin/pip install --upgrade certbot-dns-cloudflare"
+
+- name: Copy Cloudflare credentials
+  ansible.builtin.template:
+    src: cloudflare.ini.j2
+    dest: /opt/certbot/cloudflare.ini
+    mode: '0600'
+
+- name: Create timers service for certificate renews
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: '0644'
+  with_items:
+    - certbot-renew.service
+    - certbot-renew.timer
+
+- name: Enable certbot-renew timer
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: certbot-renew.timer
+    state: started
+    enabled: true

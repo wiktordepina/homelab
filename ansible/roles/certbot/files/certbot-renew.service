@@ -1,0 +1,6 @@
+[Unit]
+Description=Renew SSL certificates if they are due to expire
+
+[Service]
+User=root
+ExecStart=/opt/certbot/bin/certbot renew

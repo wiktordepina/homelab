@@ -1,0 +1,10 @@
+[Unit]
+Description=Renew SSL certs if needed, daily
+
+[Timer]
+OnCalendar=daily
+AccuracySec=6h
+Unit=certbot-renew.service
+
+[Install]
+WantedBy=timers.target
