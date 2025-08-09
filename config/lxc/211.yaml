@@ -1,0 +1,22 @@
+---
+terraform:
+  vmid: 211
+  hostname: n8n
+  ip_address: 10.20.1.211/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 6
+  memory: 6144
+  swap: 2048
+  start_on_boot: true
+  rootfs_size: 100G
+
+
+ansible:
+  roles:
+    - base
+    - docker
+    - role: containers
+      vars:
+        containers:
+          - name: n8n
+            state: up          
