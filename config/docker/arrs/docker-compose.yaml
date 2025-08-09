@@ -27,6 +27,19 @@ services:
       gluetun_network:
         ipv4_address: 10.5.0.10
 
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+      - TZ=Europe/London
+    ports:
+      - 8191:8191
+    restart: unless-stopped
+    network_mode: service:gluetun
+
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
