@@ -16,6 +16,7 @@ locals {
     "fileserver",
     "localai",
     "sonarr",
+    "radarr"
   ]
 }
 
