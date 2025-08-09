@@ -11,7 +11,7 @@ terraform:
   rootfs_size: 200G
 
 pve_extra:
-  - lxc.cgroup.devices.allow: c 10:200 rwm
+  - lxc.cgroup2.devices.allow: c 10:200 rwm
   - lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
   - mp0: /zpool/share,mp=/pve/share,backup=0
 
