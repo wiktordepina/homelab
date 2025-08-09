@@ -15,5 +15,6 @@ nginx_reverse_proxy_servers:
   jellyfin: http://10.20.1.204:8096/
   qbittorrent: http://10.20.1.205:8888/
   sabnzbd: http://10.20.1.205:8080/
-  fileserver: https://10.20.1.203:9090
+  fileserver: https://10.20.1.203:9090/
   localai: http://10.20.1.207/
+  ntfy: http://10.20.1.202/
