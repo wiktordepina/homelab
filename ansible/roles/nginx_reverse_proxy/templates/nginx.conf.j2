@@ -17,7 +17,7 @@ http {
         return 301 https://$host$request_uri;
     }
 
-    {% for server_name_prefix, proxy_url in servers.items() -%}
+    {% for server_name_prefix, proxy_url in nginx_reverse_proxy_servers.items() -%}
     server {
         listen  443 ssl;
         listen  [::]:443    ssl;

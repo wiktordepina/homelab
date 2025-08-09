@@ -1,4 +1,5 @@
-servers:
+---
+nginx_reverse_proxy_servers:
   www: http://10.20.1.205:7575/
   proxmox: https://192.168.200.100:8006/
   prometheus: http://10.20.1.210:9090/
