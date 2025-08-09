@@ -14,7 +14,8 @@ locals {
     "qbittorrent",
     "sabnzbd",
     "fileserver",
-    "localai"
+    "localai",
+    "sonarr",
   ]
 }
 
