@@ -23,6 +23,7 @@ services:
       - 8888:8888       # qbittorrent
       - 6881:6881       # qbittorrent
       - 6881:6881/udp   # qbittorrent
+      - 8191:8191       # flaresolverr
     networks:
       gluetun_network:
         ipv4_address: 10.5.0.10
@@ -35,8 +36,6 @@ services:
       - LOG_HTML=false
       - CAPTCHA_SOLVER=none
       - TZ=Europe/London
-    ports:
-      - 8191:8191
     restart: unless-stopped
     network_mode: service:gluetun
 
