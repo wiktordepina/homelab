@@ -15,8 +15,8 @@ locals {
     "sabnzbd",
     "fileserver",
     "localai",
-    "sonarr-test",
-    "radarr-test",
+    "sonarr",
+    "radarr",
     "ntfy",
   ]
 }
