@@ -1,0 +1,18 @@
+servers:
+  www: http://10.20.1.205:7575/
+  proxmox: https://192.168.200.100:8006/
+  prometheus: http://10.20.1.210:9090/
+  grafana: http://10.20.1.210:3000/
+  opnsense: https://192.168.200.1/
+  uptime-kuma: http://10.20.1.205:3001/
+  switch: http://192.168.200.50/
+  pihole: https://10.20.1.1/
+  portainer: https://10.20.1.205:9443/
+  prowlarr: https://10.20.1.205:9696/
+  radarr: https://10.20.1.205:7878/
+  sonarr: https://10.20.1.205:8989/
+  jellyfin: https://10.20.1.204:8096/
+  qbittorrent: https://10.20.1.205:8888/
+  sabnzbd: https://10.20.1.205:8080/
+  fileserver: https://10.20.1.203:9090
+  localai: http://10.20.1.207/
