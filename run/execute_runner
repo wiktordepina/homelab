@@ -9,6 +9,5 @@ docker run --rm \
   -v /home/runner/.ssh:/root/.ssh \
   -v .:/build \
   -w /build \
-  -e DNS_TSIG_KEY="${DNS_TSIG_KEY}" \
   runner-toolbox \
   "${@}"
