@@ -56,7 +56,7 @@ RUN <<SETUP
   # => cleanup
   rm -rf /tmp/**
   # => install custom terraform provider
-  mkdir /root/.terraform.d/plugins/localhost/telmate/proxmox/1.0.0/linux_amd64
+  mkdir -p /root/.terraform.d/plugins/localhost/telmate/proxmox/1.0.0/linux_amd64
   cp /pve/terraform/provider/terraform-provider-proxmox /root/.terraform.d/plugins/localhost/telmate/proxmox/1.0.0/linux_amd64/
 SETUP
 
