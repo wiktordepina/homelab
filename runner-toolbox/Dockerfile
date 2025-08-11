@@ -61,4 +61,4 @@ ENV PATH="/toolbox/.venv/bin:$PATH"
                   
 COPY ./functions /opt/functions
 COPY ./scripts /usr/bin
-COPY ./provider/terraform-provider-proxmox /root/.terraform.d/plugins/localhost/telmate/proxmox/1.0.0/linux_amd64/terraform-provider-proxmox
+COPY ./provider/terraform-provider-proxmox ~/.terraform.d/plugins/localhost/telmate/proxmox/1.0.0/linux_amd64/terraform-provider-proxmox
