@@ -55,12 +55,10 @@ RUN <<SETUP
   chmod 755 /usr/local/bin/hcledit
   # => cleanup
   rm -rf /tmp/**
-  # => install custom terraform provider
-  mkdir -p /root/.terraform.d/plugins/localhost/telmate/proxmox/1.0.0/linux_amd64
-  cp /pve/terraform/provider/terraform-provider-proxmox /root/.terraform.d/plugins/localhost/telmate/proxmox/1.0.0/linux_amd64/
 SETUP
 
 ENV PATH="/toolbox/.venv/bin:$PATH"
                   
 COPY ./functions /opt/functions
 COPY ./scripts /usr/bin
+COPY /pve/terraform/provider/terraform-provider-proxmox /root/.terraform.d/plugins/localhost/telmate/proxmox/1.0.0/linux_amd64/terraform-provider-proxmox
