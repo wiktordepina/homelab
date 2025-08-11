@@ -18,3 +18,4 @@ nginx_reverse_proxy_servers:
   fileserver: https://10.20.1.203:9090/
   localai: http://10.20.1.207/
   ntfy: http://10.20.1.202/
+  n8n: http://10.20.1.211:5678/

@@ -18,6 +18,7 @@ locals {
     "sonarr",
     "radarr",
     "ntfy",
+    "n8n",
   ]
 }
 
