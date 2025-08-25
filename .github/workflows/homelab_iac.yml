@@ -37,6 +37,7 @@ jobs:
       matrix:
         vmid:
           - 100   # pihole + unbound
+          - 110   # reverse proxy
           - 201   # bind9
           - 202   # ntfy
           - 203   # fileserver
@@ -45,6 +46,8 @@ jobs:
           - 207   # local AI
           - 208   # CloudFlare tunnel worker
           - 209   # Signum miner
+          - 210   # Prometheus & Grafana
+          - 211   # n8n
     uses: ./.github/workflows/_lxc.yml
     secrets: inherit
     with:
