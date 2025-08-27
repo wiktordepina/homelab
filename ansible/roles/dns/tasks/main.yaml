@@ -15,7 +15,7 @@
   notify:
     - Restart bind9
 
-- name: Bind9 comfig folder
+- name: Bind9 config folder
   ansible.builtin.file:
     path: /etc/bind
     state: directory
@@ -56,5 +56,11 @@
   ansible.builtin.template:
     src: homelab-matagoth-com.zone.j2
     dest: /etc/bind/homelab-matagoth-com.zone
+  notify:
+    - Restart bind9
+
+- name: Delete stale journals
+  ansible.builtin.command:
+    cmd: rm -f /etc/bind/*.jnl
   notify:
     - Restart bind9
