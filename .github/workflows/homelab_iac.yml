@@ -18,8 +18,6 @@ on:
         required: false
         description: skip notifications
         default: false
-  schedule:
-    - cron: '0 0 * * 3'
 
 concurrency: homelab-iac
 
