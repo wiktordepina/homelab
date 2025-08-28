@@ -19,6 +19,7 @@ locals {
     "radarr",
     "ntfy",
     "n8n",
+    "litellm",
   ]
 }
 
