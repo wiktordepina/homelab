@@ -19,4 +19,6 @@ ansible:
       vars:
         containers:
           - name: openwebui
-            state: up          
+            state: up
+          - name: litellm
+            state: up      
