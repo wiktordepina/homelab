@@ -49,8 +49,8 @@
     - Restart Ntfy
 
 - name: Config file
-  ansible.builtin.copy:
-    src: server.yml
+  ansible.builtin.template:
+    src: server.yml.j2
     dest: /etc/ntfy/server.yml
   notify: 
     - Restart Ntfy

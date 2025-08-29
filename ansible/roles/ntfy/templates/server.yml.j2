@@ -7,4 +7,7 @@ cache-file: "/var/cache/ntfy/cache.db"
 cache-duration: "12h"
 
 auth-file: "/var/lib/ntfy/user.db"
+auth-users:
+  - "matagoth:{{ lookup('ansible.builtin.env', 'NTFY_PASSWORD_HASH') }}:admin"
+
 auth-default-access: "deny-all"
