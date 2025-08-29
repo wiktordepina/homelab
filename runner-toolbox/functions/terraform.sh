@@ -54,7 +54,10 @@ inject_tf_lxc_config() {
   {
     echo "root_password=\"${PM_PASS}\""
     echo "start_after_creation=true"
-    echo "ssh_public_keys=\"$(cat config/worker_id_rsa.pub)\""
+    echo "ssh_public_keys = <<-EOT"
+    echo "$(cat config/worker_id_rsa.pub)"
+    echo "$(cat config/root_pve_id_rsa.pub)"
+    echo "EOT"
   } >> "${output_folder}/terraform.tfvars"
 }
 
