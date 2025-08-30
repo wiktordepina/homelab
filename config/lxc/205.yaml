@@ -23,9 +23,9 @@ ansible:
       vars:
         containers:
           - name: portainer
-            state: up
+            state: down
           - name: uptime-kuma
-            state: up
+            state: down
           - name: homarr
             state: up
           - name: arrs
