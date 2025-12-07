@@ -10,6 +10,8 @@ services:
       STORE_MODEL_IN_DB: "True"
       LITELLM_MASTER_KEY: "{{ lookup('ansible.builtin.env', 'LITELLM_MASTER_KEY') }}"
       LITELLM_SALT_KEY: "{{ lookup('ansible.builtin.env', 'LITELLM_SALT_KEY') }}"
+      UI_USERNAME: 'matagoth'
+      UI_PASSWORD: "{{ lookup('ansible.builtin.env', 'UI_PASSWORD') }}"
     depends_on:
       - db
     healthcheck:
