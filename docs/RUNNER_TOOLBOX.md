@@ -15,9 +15,9 @@ The toolbox is used by GitHub Actions runners to execute Terraform and Ansible o
 │  │              Runner Toolbox Container             │  │
 │  │                                                   │  │
 │  │  • Terraform + tfenv                              │  │
-│  │  • Ansible + community.docker collection         │  │
-│  │  • Python (uv managed)                           │  │
-│  │  • jq, yq, curl, git                             │  │
+│  │  • Ansible + community.docker collection          │  │
+│  │  • Python (uv managed)                            │  │
+│  │  • jq, yq, curl, git                              │  │
 │  │                                                   │  │
 │  │  Mounts:                                          │  │
 │  │  • /pve/secrets   → Credentials                   │  │

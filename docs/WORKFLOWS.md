@@ -17,17 +17,13 @@ This document describes common operational workflows for managing the homelab in
 
 ### Complete Workflow
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ 1. Create LXC   │────▶│ 2. Terraform    │────▶│ 3. Ansible      │
-│    Config       │     │    Provision    │     │    Configure    │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                                                         │
-                                                         ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ 6. Verify       │◀────│ 5. Update       │◀────│ 4. Add DNS      │
-│    Service      │     │    Reverse Proxy│     │    Record       │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
+```mermaid
+flowchart LR
+    A[1. Create LXC<br>Config] --> B[2. Terraform<br>Provision]
+    B --> C[3. Ansible<br>Configure]
+    C --> D[4. Add DNS<br>Record]
+    D --> E[5. Update<br>Reverse Proxy]
+    E --> F[6. Verify<br>Service]
 ```
 
 ### Step 1: Create LXC Configuration
