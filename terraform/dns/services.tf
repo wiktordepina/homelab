@@ -32,3 +32,10 @@ resource "dns_a_record_set" "n8n" {
   addresses = ["10.20.1.211"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "mait" {
+  zone      = "home.matagoth.com."
+  name      = "mait"
+  addresses = ["10.20.30.40"]
+  ttl       = 500
+}

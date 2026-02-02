@@ -18,6 +18,7 @@ locals {
     "ntfy",
     "n8n",
     "litellm",
+    "mait",
   ]
 }
 

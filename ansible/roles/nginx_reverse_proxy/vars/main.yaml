@@ -18,3 +18,4 @@ nginx_reverse_proxy_servers:
   ntfy: http://10.20.1.202/
   n8n: http://10.20.1.211:5678/
   litellm: http://10.20.1.207:4000/
+  mait: http://10.20.30.40:8080/
