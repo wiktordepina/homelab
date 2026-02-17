@@ -39,3 +39,10 @@ scrape_configs:
       - targets: ["192.168.200.100:9300"]
         labels:
           app: telegraf
+  - job_name: mait_gateway
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["10.20.30.40:8080"]
+        labels:
+          app: mait_gateway
