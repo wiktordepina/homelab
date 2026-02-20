@@ -147,7 +147,6 @@ homelab/
 - [Workflows](docs/WORKFLOWS.md) - Common operational workflows
 - [Network Architecture](docs/NETWORK.md) - IP addressing and network design
 - [Docker Stacks](docs/DOCKER_STACKS.md) - Docker Compose service configurations
-- [Contributing](CONTRIBUTING.md) - How to contribute to this project
 
 ### Operational Guides
 
