@@ -41,6 +41,7 @@ jobs:
           - 203   # fileserver
           - 204   # jellyfin
           - 205   # docker host
+          - 206   # home assistant
           - 207   # local AI
           - 208   # CloudFlare tunnel worker
           - 209   # Signum miner

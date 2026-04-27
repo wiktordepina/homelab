@@ -147,6 +147,7 @@ homelab/
 - [Workflows](docs/WORKFLOWS.md) - Common operational workflows
 - [Network Architecture](docs/NETWORK.md) - IP addressing and network design
 - [Docker Stacks](docs/DOCKER_STACKS.md) - Docker Compose service configurations
+- [Service Setup](docs/SERVICE_SETUP.md) - Post-deployment manual setup steps per service
 
 ### Operational Guides
 
@@ -168,7 +169,6 @@ homelab/
 | `gpu_drivers` | NVIDIA GPU driver installation |
 | `graphana` | Grafana dashboard |
 | `graphite_exporter` | Graphite metrics exporter |
-| `homeassistant` | Home Assistant setup |
 | `jellyfin` | Jellyfin media server |
 | `localai` | LocalAI LLM server |
 | `nginx_reverse_proxy` | Nginx reverse proxy |

@@ -33,6 +33,13 @@ resource "dns_a_record_set" "n8n" {
   ttl       = 500
 }
 
+resource "dns_a_record_set" "homeassistant" {
+  zone      = "home.matagoth.com."
+  name      = "homeassistant"
+  addresses = ["10.20.1.206"]
+  ttl       = 500
+}
+
 resource "dns_a_record_set" "mait" {
   zone      = "home.matagoth.com."
   name      = "mait"

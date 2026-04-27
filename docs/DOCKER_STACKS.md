@@ -224,6 +224,29 @@ pve_extra:
 
 ---
 
+### homeassistant
+
+**Purpose:** Home automation hub (Home Assistant Container flavour)
+
+| Port | Service |
+|------|---------|
+| 8123 | Home Assistant Web UI |
+
+**Host:** homeassistant (LXC 206) — dedicated, not shared with other stacks because of `network_mode: host`.
+
+**Required LXC config:**
+- `pve_extra` mount: `/zpool/homeassistant → /mnt/homeassistant` (persistent `/config`).
+- Host networking is required for SSDP/mDNS discovery (Philips Hue, Chromecast, etc.).
+
+**Post-deploy manual setup:** see [docs/SERVICE_SETUP.md](SERVICE_SETUP.md#home-assistant) — HA needs a `http:` block in `configuration.yaml` to accept reverse-proxied traffic, and other one-off bits.
+
+```yaml
+- name: homeassistant
+  state: up
+```
+
+---
+
 ## Adding a New Stack
 
 ### 1. Create Stack Directory
@@ -296,3 +319,4 @@ Secrets are sourced from `/pve/secrets/` on the runner.
 | n8n | n8n (211) | 10.20.1.211 |
 | openwebui | localai (207) | 10.20.1.207 |
 | litellm | localai (207) | 10.20.1.207 |
+| homeassistant | homeassistant (206) | 10.20.1.206 |
