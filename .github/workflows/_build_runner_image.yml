@@ -36,6 +36,6 @@ jobs:
     if: ${{ always() && !inputs.skip_notify }}
     needs:
       - BuildRunnerImage
-    steps: 
+    steps:
       - name: Ntfy
         run: ./run/execute_runner ntfy_workflow_status '${{ github.workflow }}' '${{ needs.BuildRunnerImage.result }}' 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'

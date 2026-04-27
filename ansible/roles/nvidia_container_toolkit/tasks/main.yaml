@@ -29,7 +29,7 @@
 
 - name: Configure docker to use nvidia runtime
   ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
-  when: nvidia_container_toolkit is changed 
+  when: nvidia_container_toolkit is changed
 
 - name: Restart docker
   ansible.builtin.service:

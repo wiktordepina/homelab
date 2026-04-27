@@ -5,7 +5,7 @@ services:
     image: ghcr.io/homarr-labs/homarr:latest
     restart: unless-stopped
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock # Optional, only if you want docker integration
+      - /var/run/docker.sock:/var/run/docker.sock  # Optional, only if you want docker integration
       - homarr_data:/appdata
     environment:
       - SECRET_ENCRYPTION_KEY={{ lookup('ansible.builtin.env', 'HOMARR_SECRET_ENCRYPTION_KEY') }}

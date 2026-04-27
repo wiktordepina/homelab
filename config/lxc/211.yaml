@@ -19,4 +19,4 @@ ansible:
       vars:
         containers:
           - name: n8n
-            state: up          
+            state: up

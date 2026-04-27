@@ -2,7 +2,7 @@
 # PLEASE ONLY ENTER YOUR PASSPHRASE BELOW IF YOU ARE GOING TO MINE SOLO!
 # YOU DO NOT NEED TO ENTER YOUR PASSPHRASE FOR POOL MINING.
 # NEVER POST YOUR CONFIG.YAML INCLUDING YOUR PASSPHRASE TO ANY BOARD OR CHAT!
-# account_id_to_secret_phrase:          # define accounts and passphrases for solo mining 
+# account_id_to_secret_phrase:          # define accounts and passphrases for solo mining
 
 
 # List of directories with your plot files, adjust to suit your disks
@@ -51,8 +51,8 @@ logfile_log_level: 'info'             # default Warn, options (off, error, warn,
 logfile_max_count: 10                 # maximum number of log files to keep
 logfile_max_size : 20                 # maximum size per logfile in MiB
 
-show_progress: true                   # default true  
-show_drive_stats: false               # default false 
+show_progress: true                   # default true
+show_drive_stats: false               # default false
 benchmark_only: 'disabled'            # default disabled, options (disabled, I/O, XPU)
 
 # Low noise log patterns

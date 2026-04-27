@@ -1,8 +1,8 @@
 ---
 - name: Enable i386 arch
-  ansible.builtin.lineinfile: 
+  ansible.builtin.lineinfile:
     dest: /var/lib/dpkg/arch
-    line: i386 
+    line: i386
     create: yes
   register: pdkg_config
 

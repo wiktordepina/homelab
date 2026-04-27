@@ -4,7 +4,7 @@ terraform {
     proxmox = {
       # source  = "Telmate/proxmox"
       # version = "3.0.2-rc03"
-      source = "terraform.local/telmate/proxmox"
+      source  = "terraform.local/telmate/proxmox"
       version = "1.0.0"
     }
   }
@@ -12,7 +12,7 @@ terraform {
 
 provider "proxmox" {
   pm_api_url = "https://192.168.200.100:8006/api2/json"
-  
+
   pm_tls_insecure = true
 
   #   pm_log_enable = true

@@ -36,7 +36,7 @@
     owner: ntfy
     group: ntfy
     state: touch
-  notify: 
+  notify:
     - Restart Ntfy
 
 - name: Auth file
@@ -45,14 +45,14 @@
     owner: ntfy
     group: ntfy
     state: touch
-  notify: 
+  notify:
     - Restart Ntfy
 
 - name: Config file
   ansible.builtin.template:
     src: server.yml.j2
     dest: /etc/ntfy/server.yml
-  notify: 
+  notify:
     - Restart Ntfy
 
 - name: Enable service
