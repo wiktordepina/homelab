@@ -10,9 +10,15 @@ terraform:
   start_on_boot: true
   rootfs_size: 50G
 
+pve_extra:
+  - mp0: /zpool/homeassistant,mp=/mnt/homeassistant,backup=0
+
 ansible:
   roles:
     - base
     - docker
-    - homeassistant
-
+    - role: containers
+      vars:
+        containers:
+          - name: homeassistant
+            state: up

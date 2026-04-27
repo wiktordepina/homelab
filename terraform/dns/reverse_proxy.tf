@@ -19,6 +19,7 @@ locals {
     "n8n",
     "litellm",
     "mait",
+    "homeassistant",
   ]
 }
 

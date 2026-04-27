@@ -1,3 +1,6 @@
 .vscode
 .idea
 .venv
+
+AGENTS.md
+CLAUDE.md
