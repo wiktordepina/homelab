@@ -28,6 +28,12 @@ done
 
 cd /build
 
+# ansible-lint and ansible-playbook seed `.ansible/{collections,modules,roles}`
+# in the project dir as root. The `./run/lint` container is --rm, so the dirs
+# get left behind in the bind-mounted workspace and the host (non-root) runner
+# user can't clean them up on the next CI checkout.
+trap 'rm -rf /build/.ansible' EXIT
+
 failed=0
 fail() {
   failed=1
