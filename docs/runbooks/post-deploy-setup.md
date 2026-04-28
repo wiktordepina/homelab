@@ -17,11 +17,11 @@ A manual step does **not** belong here when it could be expressed as a role vari
 
 ## Format for new entries
 
-Each service's section should be self-contained. The header identifies the service and the container it runs in. The body lists steps in order, with each step naming what it does, why it cannot be automated, and what the operator needs to do.
+Each service's section should be self-contained. The header identifies the service and the container it runs in. The body lists steps in order, with each step naming what it does, why it cannot be automated, and what you need to do.
 
-Steps that are deferred — known to be needed eventually but not done yet (for example, wiring monitoring once the service has a stable token) — are marked as such with a note about what triggers them. Defer rather than skip; "we will do this later" is a useful operational state.
+Steps that are deferred — known to be needed eventually but not done yet (for example, wiring monitoring once the service has a stable token) — are marked as such with a note about what triggers them. The codeowner prefers explicit deferral over silent skipping: "we will do this later" is a useful operational state.
 
-Steps that are *automation candidates* — things that *could* be in IaC with effort but currently are not — are marked as such, so the document also functions as a backlog.
+Steps that are *automation candidates* — things that *could* be in IaC with effort but the codeowner has not yet committed to — are marked as such, so the document also functions as a backlog.
 
 ## Worked example: home assistant
 
@@ -29,7 +29,7 @@ This section is the canonical example of the format. It is also the only entry c
 
 ### What the service is
 
-Home Assistant runs as a docker container in a dedicated LXC. It uses host networking so that local-discovery protocols work for device pairing.
+Home Assistant runs as a docker container deployed via the `containers` Ansible role from the stack at `config/docker/homeassistant/`, in a dedicated LXC (206) at `10.20.1.206`. It uses host networking so that local-discovery protocols work for device pairing.
 
 ### After IaC succeeds
 
@@ -47,6 +47,6 @@ This is *not an automation candidate* because the service writes to its own conf
 
 ## Adding a new entry
 
-When provisioning a new service that has manual setup, add a section under this runbook using the same shape as the worked example: what the service is, then a numbered or bulleted list of post-deploy steps. For each step, name what cannot be automated and why; this both helps the next operator and identifies which steps are temporary versus inherent.
+When provisioning a new service that has manual setup, add a section under this runbook using the same shape as the worked example: what the service is, then a numbered or bulleted list of post-deploy steps. For each step, name what cannot be automated and why; this both helps whoever performs the procedure next and identifies which steps are temporary versus inherent.
 
 Cross-link to this runbook from the relevant role's notes and from any reference document that introduces the service, so the manual steps are discoverable from the places where someone first encounters the service.

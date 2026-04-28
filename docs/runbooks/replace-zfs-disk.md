@@ -1,8 +1,8 @@
 # Replace a disk in the ZFS pool
 
-The Proxmox host's bulk storage is a ZFS pool with single-disk fault tolerance. When a disk fails or is failing, the pool stays online but in a degraded state until the disk is physically replaced and the new disk is resilvered into the array.
+The Proxmox host's bulk storage is a ZFS pool (`zpool`) with single-disk fault tolerance, currently RAIDZ1. When a disk fails or is failing, the pool stays online but in a degraded state until the disk is physically replaced and the new disk is resilvered into the array.
 
-This runbook covers the replacement procedure. The host needs to be physically accessible for the disk swap; everything else is done from a shell on the host.
+This runbook covers the replacement procedure. The host needs to be physically accessible for the disk swap; everything else is done from a shell on the host. The pool was set up before this repository existed and is out of scope for IaC; the codeowner manages it directly.
 
 ## Before doing anything
 

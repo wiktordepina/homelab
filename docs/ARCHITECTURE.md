@@ -4,15 +4,19 @@ This document is the entry point for understanding the homelab. It describes the
 
 If you are looking for *what to do*, jump to the [runbooks](#runbooks). If you are looking for *why things are the way they are*, start with [concepts](#concepts). If you are looking for *the shape of a configuration artefact*, see [reference](#reference).
 
+## A note on voice
+
+The homelab is owned and operated by the codeowner (@wiktordepina). Decisions and preferences attributed to the codeowner in these docs are exactly that — deliberate choices grounded in one person's needs, not universal recommendations. When the docs address you directly ("you provision a container", "you check the pool status"), they mean whoever is currently performing that procedure, which in practice is almost always the codeowner.
+
 ## What this is
 
 A single Proxmox VE host running a collection of LXC containers, one per service, declared and reconciled by Terraform and Ansible. The repository is the source of truth for everything that lives on the Proxmox host; nothing of significance is configured by hand on the host itself.
 
-The system is small enough to fit in one operator's head, and the documentation is deliberately kept at that scale. Where a decision is non-obvious, the rationale lives next to the description.
+The system is small enough to fit in one head, and the documentation is deliberately kept at that scale. Where a decision is non-obvious, the rationale lives next to the description.
 
 ## The model in one paragraph
 
-Each service is described by a single YAML file keyed by its container ID. That file feeds two control planes: Terraform creates and shapes the container on Proxmox, and Ansible configures it once it exists. Cross-cutting concerns — internal DNS, the LAN-side reverse proxy, public exposure, monitoring — are declared separately and updated in lockstep when a service is added or removed. Everything is executed inside a purpose-built container image (the *runner toolbox*) on a self-hosted GitHub Actions runner; that runner is the only place secrets and state exist.
+Each service is described by a single YAML file in `config/lxc/`, keyed by its container ID. That file feeds two control planes: Terraform creates and shapes the container on Proxmox, and Ansible configures it once it exists. Cross-cutting concerns — internal DNS, the LAN-side reverse proxy, public exposure, monitoring — are declared separately and updated in lockstep when a service is added or removed. Everything is executed inside a purpose-built container image (the *runner toolbox*, built from `runner-toolbox/`) on a self-hosted GitHub Actions runner; that runner is the only place secrets and state exist.
 
 ## Boundaries
 
@@ -20,9 +24,9 @@ Some boundaries are load-bearing. They explain why parts of the system look the 
 
 **Host vs. container.** The Proxmox host is treated as a hypervisor, not as a service host. Services run in LXC containers, never directly on the host. The host has its own narrow Ansible target for hypervisor-level concerns; everything else stays in containers.
 
-**Runner vs. laptop.** The full execution path — Terraform applies, Ansible runs, secret access, state mutation — only exists on the runner. A developer laptop can lint and reason about the code, but it cannot apply changes. This is intentional and discussed in [concepts/runner-model](concepts/runner-model.md) and [concepts/secrets-and-state](concepts/secrets-and-state.md).
+**Runner vs. laptop.** The full execution path — Terraform applies, Ansible runs, secret access, state mutation — only exists on the runner. A developer laptop can lint and reason about the code, but it cannot apply changes. This is a deliberate choice by the codeowner and is discussed in [concepts/runner-model](concepts/runner-model.md) and [concepts/secrets-and-state](concepts/secrets-and-state.md).
 
-**IaC vs. manually configured.** Almost everything is declared in this repository. The notable exception is the public-exposure layer (Cloudflare Tunnel routes), which is currently configured by hand in the Cloudflare dashboard. This is acknowledged technical debt; see [concepts/domains-and-tls](concepts/domains-and-tls.md).
+**IaC vs. manually configured.** Almost everything is declared in this repository. The notable exception is the public-exposure layer (Cloudflare Tunnel routes), which is currently configured by hand in the Cloudflare dashboard. The codeowner acknowledges this as technical debt rather than a permanent design choice; see [concepts/domains-and-tls](concepts/domains-and-tls.md).
 
 ## Assumed inputs
 
@@ -37,20 +41,20 @@ Establishing those inputs is out of scope for this documentation set and will be
 
 ## The control planes
 
-Four operational entry points cover everything the runner does:
+Four operational entry points cover everything the runner does. Each is invoked through the `run/execute_runner` wrapper script with a corresponding sub-command:
 
-- **Per-LXC provisioning** — applies the Terraform plan that creates or shapes one container.
-- **Per-LXC configuration** — runs the Ansible roles declared by one container's YAML.
-- **DNS** — applies the Terraform plan that owns the internal zones.
-- **Proxmox host configuration** — runs Ansible against the hypervisor itself.
+- **Per-LXC provisioning** (`terraform_lxc`) — applies the Terraform plan that creates or shapes one container.
+- **Per-LXC configuration** (`ansible_lxc`) — runs the Ansible roles declared by one container's YAML.
+- **DNS** (`terraform_dns`) — applies the Terraform plan that owns the internal zones.
+- **Proxmox host configuration** (`ansible_pve`) — runs Ansible against the hypervisor itself.
 
-Each control plane is single-purpose. There is no orchestrator that runs all of them together; ordering and lockstep are the operator's responsibility, guided by the [add-service runbook](runbooks/add-service.md).
+Each control plane is single-purpose. There is no orchestrator that runs all of them together; ordering and lockstep are your responsibility when applying by hand, guided by the [add-service runbook](runbooks/add-service.md).
 
 ## Fundamental principles
 
 These are the non-shifting decisions that shape everything else. They are repeated in the relevant concept docs with rationale, and listed here as a quick orientation.
 
-1. **VMID is identity.** A service's container ID determines its IP, its DNS name, and its place in the operator's mental model. Breaking the mapping breaks the system's legibility.
+1. **VMID is identity.** A service's container ID determines its IP, its DNS name, and its place in the codeowner's mental model. Breaking the mapping breaks the system's legibility.
 2. **The runner is the only execution surface.** Secrets and state live on the runner, not on laptops. All applies happen there.
 3. **Lockstep additions.** Adding a service touches several files across Terraform, Ansible, DNS, the reverse proxy, monitoring, and CI. Skipping any of them leaves the service half-deployed.
 4. **One YAML per container.** A container's full description — resources, mounts, roles, role variables — lives in one file, named after the VMID.

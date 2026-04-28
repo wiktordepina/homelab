@@ -4,27 +4,27 @@ The reverse proxy is the LAN-side front door for services with a browser UI. It 
 
 ## What the proxy is for
 
-The proxy answers a single question: how does the operator reach a homelab service from a browser, on the LAN, without certificate warnings and without typing IP addresses or port numbers?
+The proxy answers a single question: how do you reach a homelab service from a browser, on the LAN, without certificate warnings and without typing IP addresses or port numbers?
 
-Every backend service it fronts already speaks HTTP (or HTTPS) on its container's address. The proxy adds three things on top: a friendly hostname, valid TLS, and a single point of TLS-cert renewal. Everything else — authentication, routing logic, rate limiting — is the backend's responsibility. The proxy is intentionally thin.
+Every backend service it fronts already speaks HTTP (or HTTPS) on its container's address. The proxy adds three things on top: a friendly hostname under `homelab.matagoth.com`, valid TLS, and a single point of TLS-cert renewal. Everything else — authentication, routing logic, rate limiting — is the backend's responsibility. The codeowner deliberately keeps the proxy thin.
 
 The proxy is **not** an internet front door. It is not exposed beyond the LAN. Public exposure goes through an entirely different path; see [domains-and-tls](domains-and-tls.md).
 
 ## Why TLS terminates at the proxy and not at each backend
 
-Each homelab service could in principle run its own TLS. The proxy exists so that the operator has to renew exactly one certificate (a wildcard) on exactly one container, rather than dealing with N certificates on N services with N different renewal mechanisms. The operational cost of running TLS is paid once, and every service behind the proxy benefits.
+Each homelab service could in principle run its own TLS. The proxy exists so that there is exactly one certificate (a wildcard for `*.homelab.matagoth.com`) to renew on exactly one container, rather than N certificates on N services with N different renewal mechanisms. The operational cost of running TLS is paid once, and every service behind the proxy benefits.
 
-A consequence is that the path between the proxy and the backend is plain HTTP. This is acceptable because it is on the LAN, between containers on the same host. If the threat model ever requires container-to-container encryption, the model has to change; today it does not.
+A consequence is that the path between the proxy and the backend is plain HTTP. The codeowner accepts this because the path is on the LAN, between containers on the same host. If the threat model ever requires container-to-container encryption, the model has to change; today it does not.
 
 ## The WebSocket-class footgun
 
-A recurring problem with naive reverse-proxy configuration is that **services with live state do not work**. The operator deploys the service, the page loads, and then nothing updates — clicks have no effect, dashboards stay frozen, new events never appear. The cause is almost always the same: the proxy is stripping the headers and protocol upgrade that real-time browsers need.
+A recurring problem with naive reverse-proxy configuration is that **services with live state do not work**. You deploy the service, the page loads, and then nothing updates — clicks have no effect, dashboards stay frozen, new events never appear. The cause is almost always the same: the proxy is stripping the headers and protocol upgrade that real-time browsers need.
 
 Several services in the homelab depend on WebSockets or long-lived streaming connections for their normal operation. Their UIs *appear* to work over a basic HTTP/1.0 proxy and only break for the live-update path. The breakage is silent: there is no error, just a UI that does not move.
 
-The proxy's configuration is therefore expected to support, by default, every backend that needs WebSockets — not as a per-service opt-in. The pattern is "configure the proxy correctly once, treat it as table-stakes, never tune it per-service unless there is a strong reason". Specifically the proxy advertises HTTP/1.1 to backends, forwards the upgrade and connection headers, and passes the original scheme so backends can build correct URLs.
+The proxy's configuration in the `nginx_reverse_proxy` Ansible role is therefore expected to support, by default, every backend that needs WebSockets — not as a per-service opt-in. The codeowner's pattern is "configure the proxy correctly once, treat it as table-stakes, never tune it per-service unless there is a strong reason". Specifically the proxy advertises HTTP/1.1 to backends, forwards the upgrade and connection headers, and passes the original scheme so backends can build correct URLs.
 
-This is a *concept* the operator should hold rather than a config to copy: when a new service appears to half-work, suspect the proxy configuration before suspecting the service.
+This is a *concept* to hold rather than a config to copy: when a new service appears to half-work, suspect the proxy configuration before suspecting the service.
 
 ## Trusted proxies on the backend
 
@@ -36,7 +36,7 @@ When wiring up a new browser-facing service, the question to ask is "does this s
 
 ## What the proxy does not do
 
-The proxy does not authenticate users; backends authenticate their own users. The proxy does not rewrite payloads; it forwards them as-is. The proxy does not load-balance; there is one backend per route. The proxy does not handle public exposure; that is Cloudflare Tunnel's job. Keeping the proxy thin is what makes it cheap to reason about and rare to need to change.
+The proxy does not authenticate users; backends authenticate their own users. The proxy does not rewrite payloads; it forwards them as-is. The proxy does not load-balance; there is one backend per route. The proxy does not handle public exposure; that is Cloudflare Tunnel's job. The codeowner keeps the proxy thin precisely because that makes it cheap to reason about and rare to need to change.
 
 ## Adding a backend
 

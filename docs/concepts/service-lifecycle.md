@@ -6,9 +6,9 @@ This document describes the lifecycle abstractly. The concrete walkthrough for a
 
 ## What "lockstep" means
 
-Adding a service touches several artefacts in different layers of the repository. Skipping any of them produces a half-deployed service that may appear to work in isolation but breaks the operator's mental model and the system's invariants.
+Adding a service touches several artefacts in different layers of the repository. Skipping any of them produces a half-deployed service that may appear to work in isolation but breaks the codeowner's mental model and the system's invariants.
 
-The recurring failure mode is: a container is provisioned and configured, a developer or operator can reach it by IP, and so the work *feels* complete — but the service has no DNS name, no proxy entry, no monitoring, and is not in the CI matrix. The next person to touch the homelab (often the same operator months later) finds inconsistent state and has to reconstruct the missing pieces.
+The recurring failure mode is: a container is provisioned and configured, you can reach it by IP, and so the work *feels* complete — but the service has no DNS name, no proxy entry, no monitoring, and is not in the CI matrix. The next time someone (in practice, the codeowner months later) touches the homelab, they find inconsistent state and have to reconstruct the missing pieces.
 
 The mitigation is a checklist that names every layer. The checklist is the runbook; the principle is that adding a service is *not* one change, it is several coordinated changes, and they belong in one commit.
 
@@ -16,9 +16,9 @@ The mitigation is a checklist that names every layer. The checklist is the runbo
 
 A new service typically requires changes across the following layers. Each is described conceptually here; the runbook gives the procedural detail.
 
-**Container declaration.** A YAML file named after the new VMID, declaring the container's resources, mounts, and the Ansible roles that should configure it. This is the bridge between the two control planes; everything else either feeds into it or follows from it.
+**Container declaration.** A YAML file at `config/lxc/<vmid>.yaml`, declaring the container's resources, mounts, and the Ansible roles that should configure it. This is the bridge between the two control planes; everything else either feeds into it or follows from it.
 
-**Configuration role.** If the service needs anything beyond what a generic role provides (package install, configuration files, systemd units), a dedicated role is added. Roles follow the standard layout; conventions live in the project's role-authoring practice rather than in any one document.
+**Configuration role.** If the service needs anything beyond what a generic role provides (package install, configuration files, systemd units), a dedicated role is added under `ansible/roles/<name>/`, following the standard role layout (`tasks/`, `handlers/`, `vars/`, `defaults/`, `templates/`, `files/`, `README.md`).
 
 **Internal DNS.** A record in the internal discovery zone, mapping the service's hostname to the container's address. Without this, no other container can find the service by name.
 
@@ -26,7 +26,7 @@ A new service typically requires changes across the following layers. Each is de
 
 **Monitoring.** If the service exposes metrics, a scrape entry pointing the metrics collector at it. If it does not, this layer is skipped.
 
-**CI matrix.** The deploy workflow's matrix gains the new VMID so the service is included in routine applies.
+**CI matrix.** The deploy workflow's matrix in `.github/workflows/homelab_iac.yml` gains the new VMID so the service is included in routine applies.
 
 **Documentation.** Anything non-obvious about the service — credentials it needs, post-deploy steps, integration quirks — is captured in the relevant runbook or role notes.
 
@@ -43,9 +43,9 @@ The order matters: base sets up apt and timezone, the runtime depends on base, d
 
 ## Variables and where they belong
 
-Roles ship with sensible defaults. Container-specific overrides live at the call site in the container's YAML, alongside the role reference. Secrets are pulled from the runner's environment at apply time; see [secrets-and-state](secrets-and-state.md).
+Roles ship with sensible defaults. Container-specific overrides live at the call site in the container's YAML at `config/lxc/<vmid>.yaml`, alongside the role reference. Secrets are pulled from the runner's environment at apply time; see [secrets-and-state](secrets-and-state.md).
 
-This keeps the role generic and the container's YAML the single source of "what does this container actually look like". A reader can answer "what is special about this container" by reading one file.
+This keeps the role generic and the container's YAML the single source of "what does this container actually look like". You can answer "what is special about this container" by reading one file.
 
 ## Removal
 

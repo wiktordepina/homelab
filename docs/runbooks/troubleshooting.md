@@ -22,7 +22,7 @@ A new service has been provisioned and configured, but trying to reach it fails.
 
 A Terraform or Ansible apply fails with an authentication-related error against an upstream service: Proxmox API rejection, DNS provider 401, registry pull failure, anything that looks like "the credential is wrong".
 
-**The credential is missing.** A required environment variable is empty. The runner sources every script in the host's secrets directory before applying; if a new secret was added but its file is missing on the host, the variable is empty rather than absent and the failure is downstream. Check the host's secrets directory for a file containing the relevant credential.
+**The credential is missing.** A required environment variable is empty. The runner sources every script in `/pve/secrets/` before applying; if a new secret was added but its file is missing on the host, the variable is empty rather than absent and the failure is downstream. Check `/pve/secrets/` for a file containing the relevant credential.
 
 **The credential is wrong.** The secret was added but the value is incorrect, has expired, or has insufficient scope. API tokens that look right but lack the necessary scope are a particularly common trap. Regenerate the credential with the right scope and update the secrets file.
 
@@ -30,11 +30,11 @@ A Terraform or Ansible apply fails with an authentication-related error against 
 
 ## Terraform reports state lock or unexpected drift
 
-A Terraform apply fails because the state is locked, or because the plan shows changes the operator did not make.
+A Terraform apply fails because the state is locked, or because the plan shows changes nobody recently made through IaC.
 
 **State is locked.** A previous apply was interrupted (process killed, runner rebooted, container stopped mid-run) and left the state lock in place. ZFS pool, host filesystem, or the runner's state mount may be involved. The remedy is to release the lock; do this only after confirming no other apply is genuinely running.
 
-**Plan shows unexpected changes to a container.** Someone has changed the container's configuration on the Proxmox host outside of IaC, or the container's configuration has drifted because of a Proxmox upgrade. The plan is correct: it shows the difference between what IaC declares and what is currently true. Reconcile by either updating the YAML to match reality or applying to make reality match the YAML.
+**Plan shows unexpected changes to a container.** Someone has changed the container's configuration on the Proxmox host outside of IaC, or the container's configuration has drifted because of a Proxmox upgrade. The plan is correct: it shows the difference between what IaC declares and what is currently true. Reconcile by either updating `config/lxc/<vmid>.yaml` to match reality or applying to make reality match the YAML.
 
 **Plan shows recreation of an existing resource.** This is more serious. Either an attribute that requires recreation has changed, or the state has lost track of the resource and Terraform thinks it needs to create a new one alongside the existing instance. Recreations are sometimes intended (a hostname change, for example) and sometimes catastrophic (a resource being recreated and replacing the running instance). Read the plan carefully before applying and confirm intent.
 
@@ -46,9 +46,9 @@ A configuration apply fails with an SSH or unreachable error.
 
 **The container is running but the SSH service is not yet up.** Newly provisioned containers have a brief window where they are running but the SSH service has not finished starting. Wait and retry; if it persists, the configuration role for SSH did not run, and the issue is a chicken-and-egg case where the first apply needs to bootstrap SSH itself.
 
-**The runner does not have an SSH key for the container.** Configuration apply expects a key to be available in the runner's mounted SSH directory. If the directory is missing or empty, or the key has not been distributed to the container, configuration cannot connect.
+**The runner does not have an SSH key for the container.** Configuration apply expects a key to be available in the runner's mounted SSH directory (`~/.ssh` on the runner). If the directory is missing or empty, or the key has not been distributed to the container, configuration cannot connect.
 
-**Network unreachable.** The runner cannot reach the container's address at all. Confirm the container's network attachment is correct and that the address matches what the runner is trying to reach. The VMID-to-address mapping is rigid; a mismatch here means the YAML or the actual network configuration has drifted.
+**Network unreachable.** The runner cannot reach the container's address at all. Confirm the container's network attachment is correct and that the address matches `10.20.1.<vmid>`. The VMID-to-address mapping is rigid; a mismatch here means `config/lxc/<vmid>.yaml` or the actual network configuration has drifted.
 
 ## The runner is offline
 
@@ -74,6 +74,6 @@ The CI run is green, but the change does not appear to have taken effect.
 
 ## When in doubt
 
-A surprising number of homelab failures resolve to one of two root causes: a missing piece of the lockstep checklist, or a missing secret. When triage gets stuck, walk through the [add-service](add-service.md) lockstep against the service in question, and inspect the runner's environment for the secrets the apply expects. One of the two will usually surface the problem.
+A surprising number of homelab failures resolve to one of two root causes: a missing piece of the lockstep checklist, or a missing secret in `/pve/secrets/`. When triage gets stuck, walk through the [add-service](add-service.md) lockstep against the service in question, and inspect the runner's environment for the secrets the apply expects. One of the two will usually surface the problem.
 
-If the problem is not in either, suspect drift between IaC and reality (something changed by hand on the host) and run a plan against the relevant control planes to surface it. Drift hides the truth in plain sight: the apply succeeds, but it is not applying the thing the operator thinks it is.
+If the problem is not in either, suspect drift between IaC and reality (something changed by hand on the host) and run a plan against the relevant control planes to surface it. Drift hides the truth in plain sight: the apply succeeds, but it is not applying the thing you think it is.

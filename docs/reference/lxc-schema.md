@@ -1,6 +1,6 @@
 # LXC schema
 
-Each container is fully described by one YAML file named after its VMID. The file is consumed by both control planes — Terraform reads the provisioning portion, Ansible reads the configuration portion — and is the single source of truth for "what is this container".
+Each container is fully described by one YAML file at `config/lxc/<vmid>.yaml`, named after its VMID with no exceptions. The file is consumed by both control planes — Terraform reads the provisioning portion, Ansible reads the configuration portion — and is the single source of truth for "what is this container".
 
 This document describes the schema. For the rationale behind the model, see [concepts/architecture](../concepts/architecture.md). For the procedural walkthrough of using it, see [runbooks/add-service](../runbooks/add-service.md).
 
@@ -12,7 +12,7 @@ A container file has up to three top-level sections:
 - An optional **hypervisor extras** section, consumed by Terraform, used for per-container Proxmox configuration that is not exposed through the standard provisioning fields (mount point lines, cgroup device permissions, kernel-level entries).
 - A **configuration** section, consumed by Ansible, declaring the roles to apply once the container is running.
 
-A file with only the provisioning section produces a bare container. A file without a configuration section is well-formed but rarely useful — the container exists but is not configured.
+The three top-level keys are `terraform:`, `pve_extra:`, and `ansible:`. A file with only the provisioning section produces a bare container. A file without a configuration section is well-formed but rarely useful — the container exists but is not configured.
 
 ## Provisioning fields
 
@@ -40,17 +40,17 @@ This section is intentionally lower-level than the rest of the schema. Edits her
 
 ## Configuration section
 
-The configuration section declares the Ansible roles to apply, in order. Each entry is either a bare role name (when the role's defaults are sufficient) or a role-with-variables form, where the role name is paired with a map of variable overrides specific to this container.
+The configuration section, under the `ansible:` key, declares the roles to apply (resolved against `ansible/roles/<name>/`), in order. Each entry is either a bare role name (when the role's defaults are sufficient) or a role-with-variables form, where the role name is paired with a map of variable overrides specific to this container.
 
-Variable values can pull from the runner's environment to surface secrets without committing them to the repository. This is how credentials reach the container; see [concepts/secrets-and-state](../concepts/secrets-and-state.md).
+Variable values can pull from the runner's environment using `lookup('ansible.builtin.env', '<NAME>')` to surface secrets without committing them to the repository. This is how credentials reach the container; see [concepts/secrets-and-state](../concepts/secrets-and-state.md).
 
-The order of roles is significant — they execute in the order listed, and the conventional order is base setup, then container runtime if needed, then hardware drivers if needed, then service-specific roles. See [concepts/service-lifecycle](../concepts/service-lifecycle.md).
+The order of roles is significant — they execute in the order listed, and the codeowner's convention is base setup, then container runtime if needed, then hardware drivers if needed, then service-specific roles. See [concepts/service-lifecycle](../concepts/service-lifecycle.md).
 
-A small inline-tasks form exists for one-off configuration that does not justify a role. Use it sparingly; when it grows past a handful of tasks, lift it into a role.
+A small inline-tasks form exists for one-off configuration that does not justify a role. Use it sparingly; when it grows past a handful of tasks, lift it into a role under `ansible/roles/<name>/`.
 
 ## VMID ranges
 
-The VMID space is partitioned by purpose: a low range for infrastructure containers, a middle range for applications, a high range for runners. The ranges are conventions, not enforced limits, and exist so that an operator looking at a number can immediately tell what kind of container it is. See [concepts/networking](../concepts/networking.md) for the addressing model that the VMID feeds into.
+The VMID space is partitioned by purpose: `100–199` for infrastructure containers, `200–499` for applications, `500–599` for runners. The ranges are conventions, not enforced limits, and exist so that anyone looking at a number can immediately tell what kind of container it is. See [concepts/networking](../concepts/networking.md) for the addressing model that the VMID feeds into.
 
 ## What the schema does not describe
 
