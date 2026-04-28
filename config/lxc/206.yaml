@@ -17,12 +17,8 @@ ansible:
   roles:
     - base
     - docker
-<<<<<<< feat/lint
-    - homeassistant
-=======
     - role: containers
       vars:
         containers:
           - name: homeassistant
             state: up
->>>>>>> main
