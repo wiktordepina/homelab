@@ -1,0 +1,29 @@
+---
+extends: default
+
+rules:
+  line-length: disable
+  comments-indentation: disable
+  document-start: disable
+  truthy:
+    check-keys: false
+    allowed-values: ['true', 'false', 'yes', 'no']
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+  braces:
+    max-spaces-inside: 1
+  comments:
+    min-spaces-from-content: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+
+# Ansible Jinja2 templates live alongside YAML and share the .yaml extension,
+# but contain `{% %}` blocks that yamllint cannot parse. Skip them; ansible
+# itself validates template rendering at playbook run time.
+ignore: |
+  .venv/
+  runner-toolbox/.venv/
+  **/.terraform/
+  ansible/**/templates/

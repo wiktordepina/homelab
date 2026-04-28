@@ -1,0 +1,152 @@
+#!/bin/bash
+#
+# lint - Run all repository linters with no infra access.
+#
+# Description:
+#   Runs terraform fmt + validate, yamllint, and ansible-lint against the
+#   working tree. Performs no network calls beyond `terraform init` provider
+#   downloads, mounts no secrets, and touches no remote state.
+#
+#   Intended to be invoked inside the runner-toolbox container with the repo
+#   mounted at /build. Use `./run/lint` from the host for the standard wrapper.
+#
+# Usage:
+#   lint
+#
+# Exit codes:
+#   0 - all checks passed
+#   1 - one or more checks failed (see output)
+
+set -uo pipefail
+
+# Source helper functions (sets ANSIBLE_CONFIG, defines lxc_config, etc).
+# Deliberately do NOT source /pve/secrets/*.sh — lint must run without secrets.
+for fnc in /opt/functions/*.sh; do
+  # shellcheck disable=SC1090
+  source "${fnc}"
+done
+
+cd /build
+
+# ansible-lint and ansible-playbook seed `.ansible/{collections,modules,roles}`
+# in the project dir as root. The `./run/lint` container is --rm, so the dirs
+# get left behind in the bind-mounted workspace and the host (non-root) runner
+# user can't clean them up on the next CI checkout.
+trap 'rm -rf /build/.ansible' EXIT
+
+failed=0
+fail() {
+  failed=1
+  printf '\n\033[31m✗ %s failed\033[0m\n' "${1}"
+}
+ok() {
+  printf '\033[32m✓ %s\033[0m\n' "${1}"
+}
+section() {
+  printf '\n\033[1;34m── %s ──\033[0m\n' "${1}"
+}
+
+# ─── terraform fmt ──────────────────────────────────────────────
+section 'terraform fmt'
+if terraform fmt -check -recursive terraform/; then
+  ok 'terraform fmt'
+else
+  fail 'terraform fmt (run `terraform fmt -recursive terraform/` to fix)'
+fi
+
+# ─── terraform validate ─────────────────────────────────────────
+# `validate` needs every required variable to be defined and the providers
+# installed. We drop a stub tfvars file with placeholder values for the
+# secrets-bound variables, then init with `-backend=false` (no state needed).
+validate_tf_dir() {
+  local dir="${1}"
+  local stub="${2}"
+  local rc=0
+
+  # Subshell scopes cwd; cleanup happens in the parent shell after to
+  # guarantee it runs regardless of how terraform exits.
+  (
+    cd "${dir}" || exit 1
+    printf '%s' "${stub}" > __lint.auto.tfvars
+
+    if ! terraform init -backend=false -input=false > /tmp/tf-init.log 2>&1; then
+      cat /tmp/tf-init.log
+      exit 1
+    fi
+    terraform validate
+  )
+  rc=$?
+
+  rm -f "${dir}/__lint.auto.tfvars"
+  rm -rf "${dir}/.terraform" "${dir}/.terraform.lock.hcl"
+
+  return ${rc}
+}
+
+section 'terraform validate (lxc)'
+if validate_tf_dir terraform/lxc 'hostname = "stub"
+ip_address = "10.0.0.1/16"
+root_password = "stub"
+'; then
+  ok 'terraform validate (lxc)'
+else
+  fail 'terraform validate (lxc)'
+fi
+
+section 'terraform validate (dns)'
+if validate_tf_dir terraform/dns 'tsig_key = "stub"
+'; then
+  ok 'terraform validate (dns)'
+else
+  fail 'terraform validate (dns)'
+fi
+
+# ─── yamllint ───────────────────────────────────────────────────
+section 'yamllint'
+if yamllint config/ ansible/ .github/; then
+  ok 'yamllint'
+else
+  fail 'yamllint'
+fi
+
+# ─── ansible-lint ───────────────────────────────────────────────
+section 'ansible-lint'
+if ansible-lint ansible/; then
+  ok 'ansible-lint'
+else
+  fail 'ansible-lint'
+fi
+
+# ─── playbook syntax check for every LXC config ─────────────────
+# This catches typos in LXC YAML that would only otherwise surface during a
+# real ansible_lxc run — bad role names, malformed pve_extra entries, etc.
+section 'render_lxc_playbook + ansible-playbook --syntax-check'
+syntax_failed=0
+for cfg in config/lxc/*.yaml; do
+  vmid=$(basename "${cfg}" .yaml)
+  playbook=$(render_lxc_playbook "${vmid}" 2>&1) || {
+    printf '  %s: render_lxc_playbook failed\n%s\n' "${vmid}" "${playbook}"
+    syntax_failed=1
+    continue
+  }
+  if ! printf '%s' "${playbook}" | ansible-playbook --syntax-check /dev/stdin > /tmp/syntax.log 2>&1; then
+    printf '  %s: syntax-check failed\n' "${vmid}"
+    cat /tmp/syntax.log
+    syntax_failed=1
+  fi
+done
+if [ "${syntax_failed}" -eq 0 ]; then
+  ok 'lxc playbook syntax-check'
+else
+  fail 'lxc playbook syntax-check'
+fi
+
+# ─── summary ────────────────────────────────────────────────────
+printf '\n'
+if [ "${failed}" -eq 0 ]; then
+  printf '\033[1;32mAll lint checks passed.\033[0m\n'
+  exit 0
+else
+  printf '\033[1;31mLint failures above. Fix them before pushing.\033[0m\n'
+  exit 1
+fi

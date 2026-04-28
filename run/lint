@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# lint - Run the repo linters in the runner-toolbox container.
+#
+# Description:
+#   Mounts only the working tree (no /pve/secrets, no /pve/terraform, no SSH
+#   keys) and runs the bundled `lint` script. Safe to run on any machine with
+#   Docker and the locally-built runner-toolbox image.
+#
+#   If the image is missing, build it once: `docker build runner-toolbox -t runner-toolbox:latest`
+#
+# Usage:
+#   ./run/lint
+
+set -euo pipefail
+
+if ! docker image inspect runner-toolbox:latest > /dev/null 2>&1; then
+  echo 'runner-toolbox:latest image not found locally.'
+  docker build runner-toolbox -t runner-toolbox:latest
+fi
+
+docker run --rm \
+  --name runner-lint \
+  -v "$(pwd):/build" \
+  -w /build \
+  runner-toolbox:latest \
+  lint

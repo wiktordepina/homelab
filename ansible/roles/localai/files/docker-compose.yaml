@@ -11,7 +11,7 @@ services:
     environment:
       - DEBUG=true
       - MODELS_PATH=/localai/models
-      - THREADS=1 
+      - THREADS=1
       - 'PRELOAD_MODELS=[{"url": "github:go-skynet/model-gallery/llama2-7b-chat-gguf.yaml", "name": "llama2-7b-chat-gguf"},{"url": "github:go-skynet/model-gallery/gpt4all-l13b-snoozy.yaml", "name": "gpt4all-l13b-snoozy"},{"url": "github:go-skynet/model-gallery/mistral.yaml", "name": "mistral"}]'
     volumes:
       - /localai:/localai

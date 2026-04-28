@@ -77,6 +77,6 @@ jobs:
     if: ${{ always() && !inputs.skip_notify }}
     needs:
       - RunLXC
-    steps: 
+    steps:
       - name: Ntfy
-        run: ./run/execute_runner ntfy_workflow_status '${{ github.workflow }} - ${{ inputs.vmid }} ${{ inputs.tf_action }}' '${{ needs.RunLXC.result }}' 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'        
+        run: ./run/execute_runner ntfy_workflow_status '${{ github.workflow }} - ${{ inputs.vmid }} ${{ inputs.tf_action }}' '${{ needs.RunLXC.result }}' 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'

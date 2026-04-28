@@ -30,4 +30,3 @@ ansible:
             state: up
           - name: arrs
             state: up
-

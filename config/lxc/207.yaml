@@ -21,4 +21,4 @@ ansible:
           - name: openwebui
             state: up
           - name: litellm
-            state: up      
+            state: up

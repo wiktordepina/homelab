@@ -1,0 +1,15 @@
+---
+profile: min
+
+exclude_paths:
+  - .venv/
+  - runner-toolbox/.venv/
+  - .github/
+
+skip_list:
+  - schema[meta]
+
+# We do not enforce style here — the goal is to catch real errors
+# (undefined variables, bad role references, malformed task syntax),
+# not to police task naming or FQCN usage. Style enforcement can be
+# tightened later by switching profile to `basic` or higher.
