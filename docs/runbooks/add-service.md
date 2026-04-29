@@ -49,6 +49,154 @@ Once the lockstep edits are committed and pushed, the GitHub Actions workflow in
 
 Each operation is independently re-runnable. If something fails, fix it and run the relevant operation again; do not run them all back to back as a recovery.
 
+The full set of `./run/execute_runner` operations:
+
+```bash
+# Per-LXC provisioning
+./run/execute_runner terraform_lxc <vmid> plan
+./run/execute_runner terraform_lxc <vmid> apply
+./run/execute_runner terraform_lxc <vmid> destroy
+
+# Per-LXC configuration
+./run/execute_runner ansible_lxc <vmid>
+
+# Cross-cutting DNS
+./run/execute_runner terraform_dns plan
+./run/execute_runner terraform_dns apply
+
+# Hypervisor configuration
+./run/execute_runner ansible_pve
+
+# Diagnostics: render the per-container playbook without running it
+./run/execute_runner render_lxc_playbook <vmid>
+```
+
+## Worked example: a new dedicated-LXC service
+
+Adding a hypothetical `myservice` on VMID 212 with a docker-compose stack and a browser UI proxied at `myservice.homelab.matagoth.com`. The lockstep below is a single commit covering all the layers.
+
+### 1. Container declaration
+
+`config/lxc/212.yaml`:
+
+```yaml
+---
+terraform:
+  vmid: 212
+  hostname: myservice
+  ip_address: 10.20.1.212/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 4
+  memory: 4096
+  swap: 512
+  start_on_boot: true
+  rootfs_size: 50G
+
+ansible:
+  roles:
+    - base
+    - docker
+    - role: containers
+      vars:
+        containers:
+          - name: myservice
+            state: up
+```
+
+### 2. Stack definition
+
+`config/docker/myservice/docker-compose.yaml`:
+
+```yaml
+---
+services:
+  myservice:
+    image: myimage:latest
+    container_name: myservice
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - myservice_data:/data
+    environment:
+      - API_KEY={{ lookup('ansible.builtin.env', 'MYSERVICE_API_KEY') }}
+
+volumes:
+  myservice_data:
+```
+
+Templated environment values are evaluated by Ansible at apply time; the secret is sourced from `/pve/secrets/<file>.sh` on the runner.
+
+### 3. Internal DNS
+
+In `terraform/dns/services.tf`:
+
+```terraform
+resource "dns_a_record_set" "myservice" {
+  zone      = "home.matagoth.com."
+  name      = "myservice"
+  addresses = ["10.20.1.212"]
+  ttl       = 500
+}
+```
+
+### 4. Reverse proxy entry
+
+In `terraform/dns/reverse_proxy.tf`, point the LAN-side proxy zone hostname at the proxy's address. The corresponding upstream entry goes into the `nginx_reverse_proxy` role's variables (under `ansible/roles/nginx_reverse_proxy/`), naming the friendly host and its `10.20.1.212:8080` backend.
+
+### 5. Apply
+
+```bash
+./run/execute_runner terraform_lxc 212 plan
+./run/execute_runner terraform_lxc 212 apply
+./run/execute_runner ansible_lxc 212
+./run/execute_runner terraform_dns apply
+./run/execute_runner ansible_lxc 110   # reverse proxy reload
+```
+
+### 6. Verify
+
+```bash
+# Resolves on the internal zone from another container
+dig @10.20.1.201 myservice.home.matagoth.com
+
+# Reachable through the proxy with a valid certificate
+curl -I https://myservice.homelab.matagoth.com
+```
+
+## Worked example: a stack on a shared host
+
+For a small service that fits onto an existing docker host (LXC 205, `dockerhost`), the change is much smaller — no new VMID, no new DNS for the host, just two coordinated edits.
+
+### 1. Stack definition
+
+`config/docker/wallos/docker-compose.yaml` — define the compose unit as for any other stack.
+
+### 2. Reference from the host LXC
+
+In `config/lxc/205.yaml`, append to the `containers:` list of the `containers` role:
+
+```yaml
+ansible:
+  roles:
+    - base
+    - docker
+    - role: containers
+      vars:
+        containers:
+          # ... existing entries
+          - name: wallos
+            state: up
+```
+
+### 3. Apply
+
+```bash
+./run/execute_runner ansible_lxc 205
+```
+
+If the stack publishes a UI, also add internal DNS, the reverse-proxy entry, and re-run `ansible_lxc 110`. The host's own address is the backend, on whatever port the stack publishes.
+
 ## Verifying the service is done
 
 A service is not done when its container is reachable by IP. The check list is:
