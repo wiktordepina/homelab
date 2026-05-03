@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# scp wrapper that resolves a homelab LXC by VMID. Bare IPs throughout so it
+# works when homelab DNS is down. Recursive by default so directories work
+# without -r. Run lxc-key-push <vmid> first if your laptop key isn't on the
+# LXC yet.
+#
+# Usage:
+#   lxc-scp <src> <dst>
+#
+# Either <src> or <dst> (or both) must be of the form <vmid>:<path>.
+#
+# Examples:
+#   lxc-scp ~/Documents/zen/daily-rhythm.yaml 206:/mnt/homeassistant/packages/
+#   lxc-scp 206:/mnt/homeassistant/configuration.yaml ./snapshot.yaml
+#   lxc-scp 206:/mnt/homeassistant/packages/ 210:/tmp/
+#
+# Environment overrides:
+#   LXC_USER   user inside the LXC (default: root)
+
+set -euo pipefail
+
+LXC_USER="${LXC_USER:-root}"
+LXC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config/lxc"
+
+usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; }
+
+if [[ $# -lt 2 || "$1" == "-h" || "$1" == "--help" ]]; then
+  usage; exit 0
+fi
+
+command -v yq >/dev/null || { echo "lxc-scp: yq not found in PATH" >&2; exit 1; }
+
+resolve_ip() {
+  local vmid="$1"
+  local yaml="$LXC_DIR/$vmid.yaml"
+  [[ -f "$yaml" ]] || { echo "lxc-scp: no config for VMID $vmid at $yaml" >&2; return 1; }
+  local cidr
+  cidr="$(yq -r '.terraform.ip_address' "$yaml")"
+  [[ -n "$cidr" && "$cidr" != "null" ]] || {
+    echo "lxc-scp: terraform.ip_address not found in $yaml" >&2; return 1
+  }
+  printf '%s' "${cidr%%/*}"
+}
+
+rewrite() {
+  local arg="$1"
+  if [[ "$arg" =~ ^([0-9]+):(.*)$ ]]; then
+    local ip
+    ip="$(resolve_ip "${BASH_REMATCH[1]}")"
+    printf '%s@%s:%s' "$LXC_USER" "$ip" "${BASH_REMATCH[2]}"
+  else
+    printf '%s' "$arg"
+  fi
+}
+
+src="$(rewrite "$1")"
+dst="$(rewrite "$2")"
+
+exec scp -r -o StrictHostKeyChecking=accept-new "$src" "$dst"

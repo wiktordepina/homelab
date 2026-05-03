@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Install a local public key into a homelab LXC's root authorized_keys.
+# Bootstrap step: LXCs are created with only worker_id_rsa.pub and
+# root_pve_id_rsa.pub seeded, so your laptop key is not there yet.
+# This routes via PVE (which DOES trust your laptop) and uses PVE's root
+# key (which the LXC trusts) to push the laptop's pubkey on. Idempotent.
+#
+# Usage:
+#   lxc-key-push <vmid> [pubkey-path]
+#
+# Default pubkey: ~/.ssh/id_ed25519.pub
+#
+# Examples:
+#   lxc-key-push 206
+#   lxc-key-push 206 ~/.ssh/id_rsa.pub
+#
+# Environment overrides:
+#   PVE_USER   user on the Proxmox jump host (default: root)
+#   PVE_HOST   IP of the Proxmox jump host   (default: 192.168.200.100)
+#   LXC_USER   user inside the LXC           (default: root)
+
+set -euo pipefail
+
+PVE_USER="${PVE_USER:-root}"
+PVE_HOST="${PVE_HOST:-192.168.200.100}"
+LXC_USER="${LXC_USER:-root}"
+LXC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config/lxc"
+
+usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; }
+
+if [[ $# -lt 1 || "$1" == "-h" || "$1" == "--help" ]]; then
+  usage; exit 0
+fi
+
+command -v yq >/dev/null || { echo "lxc-key-push: yq not found in PATH" >&2; exit 1; }
+
+vmid="$1"
+pubkey="${2:-$HOME/.ssh/id_ed25519.pub}"
+
+[[ -f "$pubkey" ]] || { echo "lxc-key-push: pubkey not found: $pubkey" >&2; exit 1; }
+
+yaml="$LXC_DIR/$vmid.yaml"
+[[ -f "$yaml" ]] || { echo "lxc-key-push: no config for VMID $vmid at $yaml" >&2; exit 1; }
+
+cidr="$(yq -r '.terraform.ip_address' "$yaml")"
+[[ -n "$cidr" && "$cidr" != "null" ]] || {
+  echo "lxc-key-push: terraform.ip_address not found in $yaml" >&2; exit 1
+}
+ip="${cidr%%/*}"
+
+# Base64-encode the pubkey so it survives word-splitting across two ssh hops.
+# A space-separated arg (algo data comment) would be re-split by every remote
+# shell along the way, losing everything after the first whitespace.
+key_b64="$(base64 -w0 < "$pubkey")"
+
+ssh "${PVE_USER}@${PVE_HOST}" bash -s -- "${LXC_USER}@${ip}" "$key_b64" <<'OUTER'
+set -euo pipefail
+target="$1"
+key_b64="$2"
+ssh -o StrictHostKeyChecking=accept-new "$target" bash -s -- "$key_b64" <<'INNER'
+set -euo pipefail
+key="$(printf '%s' "$1" | base64 -d)"
+umask 077
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+touch ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+if grep -qxF "$key" ~/.ssh/authorized_keys; then
+  echo "key already present"
+else
+  if [ -s ~/.ssh/authorized_keys ] && [ "$(tail -c1 ~/.ssh/authorized_keys)" != "" ]; then
+    printf '\n' >> ~/.ssh/authorized_keys
+  fi
+  printf '%s\n' "$key" >> ~/.ssh/authorized_keys
+  echo "key installed"
+fi
+INNER
+OUTER
+
+echo "lxc-key-push: done — try ./run/lxc-ssh $vmid"
