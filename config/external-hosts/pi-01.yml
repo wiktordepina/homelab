@@ -1,0 +1,22 @@
+---
+identity:
+  hostname: pi-01
+  fqdn: pi-01.home.matagoth.com
+  ip: 10.10.50.10
+  ssh_user: root
+
+manually_provisioned:
+  - operating_system        # Raspberry Pi OS Lite (64-bit)
+  - network_configuration   # static IP 10.10.50.10
+  - ssh_authorized_keys     # github-worker public key in /root/.ssh/authorized_keys
+
+ansible:
+  roles:
+    - base
+
+notes: |
+  Raspberry Pi 4B (8GB RAM). General-purpose external host.
+  Lives outside the Proxmox host because some intended workloads
+  (Bluetooth, GPIO sensors and actuators) need hardware the
+  hypervisor does not have. Numbered pi-NN so a future pi-02 is
+  the obvious extension.

@@ -54,6 +54,20 @@ jobs:
       vmid: ${{ matrix.vmid }}
       tf_action: ${{ inputs.tf_action || 'apply' }}
       skip_notify: ${{ inputs.skip_notify || false}}
+  DeployExternalHosts:
+    needs:
+      - BuildRunnerImage
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        hostname:
+          - pi-01   # general-purpose RPi (BT, GPIO)
+    uses: ./.github/workflows/_external_host.yml
+    secrets: inherit
+    with:
+      hostname: ${{ matrix.hostname }}
+      skip_notify: ${{ inputs.skip_notify || false }}
   UpdateDNSRecords:
     needs:
       - BuildRunnerImage

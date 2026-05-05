@@ -141,6 +141,33 @@ else
   fail 'lxc playbook syntax-check'
 fi
 
+# ─── playbook syntax check for every external-host config ──────
+# Same intent as the LXC loop above: catch typos in external-host YAML before
+# they surface during a real ansible_external_host run. The shopt is so an
+# empty config/external-hosts/ directory does not produce a literal pattern.
+section 'render_external_host_playbook + ansible-playbook --syntax-check'
+shopt -s nullglob
+ext_syntax_failed=0
+for cfg in config/external-hosts/*.yml; do
+  hostname=$(basename "${cfg}" .yml)
+  playbook=$(render_external_host_playbook "${hostname}" 2>&1) || {
+    printf '  %s: render_external_host_playbook failed\n%s\n' "${hostname}" "${playbook}"
+    ext_syntax_failed=1
+    continue
+  }
+  if ! printf '%s' "${playbook}" | ansible-playbook --syntax-check /dev/stdin > /tmp/syntax.log 2>&1; then
+    printf '  %s: syntax-check failed\n' "${hostname}"
+    cat /tmp/syntax.log
+    ext_syntax_failed=1
+  fi
+done
+shopt -u nullglob
+if [ "${ext_syntax_failed}" -eq 0 ]; then
+  ok 'external-host playbook syntax-check'
+else
+  fail 'external-host playbook syntax-check'
+fi
+
 # ─── summary ────────────────────────────────────────────────────
 printf '\n'
 if [ "${failed}" -eq 0 ]; then
