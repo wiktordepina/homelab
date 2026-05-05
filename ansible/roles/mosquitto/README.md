@@ -31,26 +31,37 @@ The password hashes are not stored in this repository. They are generated once p
 
 ## Generating a password hash
 
-Mosquitto stores passwords as PBKDF2-SHA512 with a per-user salt (the `$7$...` format). To generate a hash for a new user:
+Mosquitto stores passwords as PBKDF2-SHA512 with a per-user salt (the `$7$...` format). The broker holds the **hash**; clients authenticate with the **plaintext**. Both halves of the credential have to be stored on the runner so the broker and its clients are deployed consistently.
 
-```bash
-# On any machine with mosquitto-clients installed:
-touch /tmp/mq.passwd
-mosquitto_passwd -b /tmp/mq.passwd <username> <plaintext-password>
-cat /tmp/mq.passwd     # shows: <username>:$7$...
-rm /tmp/mq.passwd
-```
+To set up a new user:
 
-Copy the part after the colon (starting with `$7$`) into `/pve/secrets/mosquitto.sh` on the runner host:
+1. Pick a plaintext password.
+2. Generate the corresponding hash:
 
-```bash
-export MOSQUITTO_HASH_HOMEASSISTANT='$7$101$...'
-export MOSQUITTO_HASH_PI_01='$7$101$...'
-```
+   ```bash
+   # On any machine with mosquitto-clients installed:
+   touch /tmp/mq.passwd
+   mosquitto_passwd -b /tmp/mq.passwd <username> <plaintext-password>
+   cat /tmp/mq.passwd     # shows: <username>:$7$...
+   rm /tmp/mq.passwd
+   ```
 
-The role reads these at apply time via `lookup('ansible.builtin.env', ...)` and templates them into `/etc/mosquitto/passwd` on the broker.
+3. Add **both** the hash and the plaintext to `/pve/secrets/mosquitto.sh` on the runner host:
 
-If you ever need to rotate a password, regenerate the hash, update the env var, and re-run `ansible_lxc 212`. Existing clients will need their plaintext password updated to match.
+   ```bash
+   # Server side — used by the mosquitto role to template /etc/mosquitto/passwd
+   export MOSQUITTO_HASH_HOMEASSISTANT='$7$101$...'
+   export MOSQUITTO_HASH_PI_01='$7$101$...'
+
+   # Client side — used by client roles (switchbot_bridge, the HA stack)
+   # to authenticate with the broker
+   export MOSQUITTO_PASSWORD_HOMEASSISTANT='<plaintext>'
+   export MOSQUITTO_PASSWORD_PI_01='<plaintext>'
+   ```
+
+The mosquitto role reads the `MOSQUITTO_HASH_*` vars at apply time and templates them into `/etc/mosquitto/passwd` on the broker. Client roles read the matching `MOSQUITTO_PASSWORD_*` vars and place them on the client host (typically as a `0640`-mode file, never as a process argument or env var visible to `ps`).
+
+If you ever need to rotate a password, regenerate the hash from a new plaintext, update both env vars in lockstep, and re-run `ansible_lxc 212` plus the relevant client (`ansible_external_host pi-01`, etc.).
 
 ## Dependencies
 

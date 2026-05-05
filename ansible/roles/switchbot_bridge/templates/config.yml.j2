@@ -1,0 +1,23 @@
+---
+mqtt:
+  host: {{ switchbot_bridge_mqtt_host }}
+  port: {{ switchbot_bridge_mqtt_port | default(1883) }}
+  username: {{ switchbot_bridge_mqtt_username }}
+  password_file: /etc/switchbot-bridge/mqtt_password
+  client_id: {{ switchbot_bridge_mqtt_client_id | default(inventory_hostname + '-switchbot-bridge') }}
+
+discovery:
+  prefix: {{ switchbot_bridge_discovery_prefix | default('homeassistant') }}
+  state_topic_prefix: {{ switchbot_bridge_state_topic_prefix | default('switchbot') }}
+
+scan:
+  adapter: {{ switchbot_bridge_adapter | default('hci0') }}
+  mode: {{ switchbot_bridge_scan_mode | default('active') }}
+
+devices:
+{% for device in switchbot_bridge_devices | default([]) %}
+  - mac: "{{ device.mac }}"
+    friendly_name: "{{ device.friendly_name }}"
+{% else %}
+  []
+{% endfor %}
