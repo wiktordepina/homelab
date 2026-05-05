@@ -40,13 +40,15 @@ Invoking `./run/execute_runner` from a developer machine is unsupported by desig
 
 **Per-LXC configuration** (`ansible_lxc <vmid>`). Run the Ansible roles declared in `config/lxc/<vmid>.yaml`, in order. This assumes the container already exists and is reachable.
 
+**Per-external-host configuration** (`ansible_external_host <hostname>`). Run the Ansible roles declared in `config/external-hosts/<hostname>.yml`, in order. There is no provisioning equivalent because the repository does not provision external hosts; the SSH user used for the connection comes from the host's `identity.ssh_user` field. See [concepts/external-hosts](../concepts/external-hosts.md).
+
 **DNS management** (`terraform_dns <plan|apply>`). Plan or apply the Terraform configuration under `terraform/dns/` that owns the internal DNS zones. This is separate from per-LXC provisioning so that a DNS change can be applied without touching any container.
 
 **Hypervisor configuration** (`ansible_pve`). Run Ansible against the Proxmox host itself. Used for host-level concerns that are not specific to any container.
 
 **Repository linting** (`./run/lint`). Run the suite of static checks against the working tree. This is the one operation that is safe to run on a developer machine, since it neither reads secrets nor writes state.
 
-A few smaller operations exist for plumbing — `ntfy_workflow_status` for workflow notifications, `render_lxc_playbook` for generating the per-container playbook on demand — and are not normally invoked by hand.
+A few smaller operations exist for plumbing — `ntfy_workflow_status` for workflow notifications, `render_lxc_playbook` and `render_external_host_playbook` for generating per-host playbooks on demand — and are not normally invoked by hand.
 
 ## Lifecycle of the image
 

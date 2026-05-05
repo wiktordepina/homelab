@@ -34,3 +34,32 @@ run_ansible_lxc() {
 run_ansible_pve() {
   ansible-playbook -i "192.168.200.100," config/pve/playbook.yaml
 }
+
+# run_ansible_external_host - Run Ansible against an external (non-LXC) host.
+#
+# Description:
+#   This function runs Ansible against an external host declared under
+#   config/external-hosts/. The playbook is generated from the host's
+#   configuration file by render_external_host_playbook.
+#
+# Usage:
+#   run_ansible_external_host <hostname>
+#
+# Parameters:
+#   <hostname> - The hostname of the external host (matches the file name
+#                under config/external-hosts/, without the .yml suffix).
+#
+# Example:
+#   run_ansible_external_host pi-01
+run_ansible_external_host() {
+  local hostname="${1}" ; check_null hostname "${1}"
+
+  local host_ip ssh_user
+  host_ip=$(external_host_config "${hostname}" ".identity.ip")
+  ssh_user=$(external_host_config "${hostname}" ".identity.ssh_user")
+
+  render_external_host_playbook "${hostname}" > playbook.yaml
+  trap 'rm -rf /build/playbook.yaml' EXIT
+
+  ansible-playbook -i "${host_ip}," -u "${ssh_user}" playbook.yaml
+}
