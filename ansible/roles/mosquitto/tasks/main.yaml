@@ -1,0 +1,50 @@
+---
+- name: Install Mosquitto
+  ansible.builtin.apt:
+    name:
+      - mosquitto
+      - mosquitto-clients
+    state: present
+    update_cache: yes
+
+- name: Drop default listener config
+  ansible.builtin.file:
+    path: /etc/mosquitto/conf.d/default.conf
+    state: absent
+  notify:
+    - Restart Mosquitto
+
+- name: Listener config
+  ansible.builtin.template:
+    src: homelab.conf.j2
+    dest: /etc/mosquitto/conf.d/homelab.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Restart Mosquitto
+
+- name: Password file
+  ansible.builtin.template:
+    src: passwd.j2
+    dest: /etc/mosquitto/passwd
+    owner: mosquitto
+    group: mosquitto
+    mode: "0640"
+  no_log: true
+  notify:
+    - Restart Mosquitto
+
+- name: Persistence directory
+  ansible.builtin.file:
+    path: /var/lib/mosquitto
+    state: directory
+    owner: mosquitto
+    group: mosquitto
+    mode: "0750"
+
+- name: Enable service
+  ansible.builtin.service:
+    name: mosquitto
+    enabled: true
+    state: started

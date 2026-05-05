@@ -1,0 +1,22 @@
+---
+terraform:
+  vmid: 212
+  hostname: mosquitto
+  ip_address: 10.20.1.212/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 1
+  memory: 512
+  swap: 256
+  start_on_boot: true
+  rootfs_size: 8G
+
+ansible:
+  roles:
+    - base
+    - role: mosquitto
+      vars:
+        mosquitto_users:
+          - name: homeassistant
+            password_hash_env: MOSQUITTO_HASH_HOMEASSISTANT
+          - name: pi-01
+            password_hash_env: MOSQUITTO_HASH_PI_01
