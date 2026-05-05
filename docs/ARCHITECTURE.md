@@ -73,12 +73,14 @@ Durable explanations of *what* and *why*. Read these to build a model of the sys
 - [Runner model](concepts/runner-model.md) — the toolbox image lifecycle, the lint-versus-apply split, why the runner is the only execution surface.
 - [Service lifecycle](concepts/service-lifecycle.md) — the lockstep model, role ordering conventions, addition and removal.
 - [Reverse proxy](concepts/reverse-proxy.md) — proxy responsibilities, recurring footguns (WebSockets and similar live-update protocols).
+- [External hosts](concepts/external-hosts.md) — why some workloads run on bare metal outside the Proxmox host, and the boundary the repository draws around them.
 
 ### Reference
 
 Schemas and contracts. Read these to understand the shape of a configuration artefact.
 
 - [LXC schema](reference/lxc-schema.md) — the YAML contract for declaring a container.
+- [External-host schema](reference/external-host-schema.md) — the YAML contract for declaring an external host.
 - [Runner toolbox](reference/runner-toolbox.md) — what the toolbox provides and how it is invoked, by purpose.
 - [Docker stacks](reference/docker-stacks.md) — conventions for stacks running on the shared docker host.
 
@@ -87,6 +89,7 @@ Schemas and contracts. Read these to understand the shape of a configuration art
 Procedures. Read these to perform a specific operation.
 
 - [Add a service](runbooks/add-service.md) — the lockstep walkthrough.
+- [Add an external host](runbooks/add-external-host.md) — the lockstep walkthrough for a bare-metal host outside the Proxmox host.
 - [Create a GitHub Actions runner](runbooks/create-runner.md) — provisioning an additional self-hosted runner.
 - [Rotate the wildcard SSL certificate](runbooks/rotate-wildcard-cert.md) — renewal of the LAN-side wildcard cert.
 - [Replace a disk in the ZFS pool](runbooks/replace-zfs-disk.md) — physical disk replacement and resilver.
