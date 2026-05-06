@@ -1,0 +1,55 @@
+name: External Host
+run-name: External Host ${{ inputs.hostname }}
+
+on:
+  workflow_call:
+    inputs:
+      hostname:
+        type: string
+        required: true
+        description: external host name
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
+  workflow_dispatch:
+    inputs:
+      hostname:
+        type: string
+        required: true
+        description: external host name
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
+        description: skip notifications
+
+concurrency: external-host
+
+jobs:
+  RunExternalHost:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Ansible
+        id: ansible
+        run: ./run/execute_runner ansible_external_host ${{ inputs.hostname }}
+      - name: Generate Step Summary
+        if: always()
+        run: |
+          echo "### External Host" >> $GITHUB_STEP_SUMMARY
+          echo '#### Input parameters:' >> $GITHUB_STEP_SUMMARY
+          echo "- Hostname ***hostname*** = \`${{ inputs.hostname }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "#### Outcome:" >> $GITHUB_STEP_SUMMARY
+          an_status=':white_check_mark:'
+          [[ '${{ steps.ansible.outcome }}' != 'success' ]] && an_status=':x:'
+          echo "${an_status} Ansible step ***${{ steps.ansible.outcome }}***" >> $GITHUB_STEP_SUMMARY
+  Ntfy:
+    runs-on: self-hosted
+    if: ${{ always() && !inputs.skip_notify }}
+    needs:
+      - RunExternalHost
+    steps:
+      - name: Ntfy
+        run: ./run/execute_runner ntfy_workflow_status '${{ github.workflow }} - ${{ inputs.hostname }}' '${{ needs.RunExternalHost.result }}' 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'

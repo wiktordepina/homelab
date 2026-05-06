@@ -1,0 +1,35 @@
+---
+identity:
+  hostname: pi-01
+  fqdn: pi-01.home.matagoth.com
+  ip: 10.10.50.10
+  ssh_user: root
+
+manually_provisioned:
+  - operating_system        # Raspberry Pi OS Lite (64-bit)
+  - network_configuration   # static IP 10.10.50.10
+  - ssh_authorized_keys     # github-worker public key in /root/.ssh/authorized_keys
+
+ansible:
+  roles:
+    - base
+    - role: switchbot_bridge
+      vars:
+        switchbot_bridge_mqtt_host: mosquitto.home.matagoth.com
+        switchbot_bridge_mqtt_username: pi-01
+        switchbot_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_PI_01
+        # Leave empty until rooms are identified (see role README).
+        # Five meters are known to be in range — they will appear in HA as
+        # SwitchBot <last-4-of-mac> until friendly_name entries are added.
+        switchbot_bridge_devices: []
+
+notes: |
+  Raspberry Pi 4B (8GB RAM). General-purpose external host.
+  Lives outside the Proxmox host because some intended workloads
+  (Bluetooth, GPIO sensors and actuators) need hardware the
+  hypervisor does not have. Numbered pi-NN so a future pi-02 is
+  the obvious extension.
+
+  Currently runs the switchbot_bridge role: a passive BLE listener
+  that republishes SwitchBot Meter readings to the mosquitto broker
+  in Home Assistant discovery format.

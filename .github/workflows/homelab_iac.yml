@@ -47,12 +47,27 @@ jobs:
           - 209   # Signum miner
           - 210   # Prometheus & Grafana
           - 211   # n8n
+          - 212   # mosquitto
     uses: ./.github/workflows/_lxc.yml
     secrets: inherit
     with:
       vmid: ${{ matrix.vmid }}
       tf_action: ${{ inputs.tf_action || 'apply' }}
       skip_notify: ${{ inputs.skip_notify || false}}
+  DeployExternalHosts:
+    needs:
+      - BuildRunnerImage
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        hostname:
+          - pi-01   # general-purpose RPi (BT, GPIO)
+    uses: ./.github/workflows/_external_host.yml
+    secrets: inherit
+    with:
+      hostname: ${{ matrix.hostname }}
+      skip_notify: ${{ inputs.skip_notify || false }}
   UpdateDNSRecords:
     needs:
       - BuildRunnerImage

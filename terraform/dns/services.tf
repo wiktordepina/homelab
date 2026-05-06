@@ -40,6 +40,13 @@ resource "dns_a_record_set" "homeassistant" {
   ttl       = 500
 }
 
+resource "dns_a_record_set" "mosquitto" {
+  zone      = "home.matagoth.com."
+  name      = "mosquitto"
+  addresses = ["10.20.1.212"]
+  ttl       = 500
+}
+
 resource "dns_a_record_set" "mait" {
   zone      = "home.matagoth.com."
   name      = "mait"
