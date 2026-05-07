@@ -1,0 +1,34 @@
+---
+terraform:
+  vmid: 213
+  hostname: netalertx
+  ip_address: 10.20.1.213/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 2
+  memory: 2048
+  swap: 512
+  start_on_boot: true
+  rootfs_size: 20G
+  extra_networks:
+    - bridge: vmbr2
+      tag: 1
+      ip: 192.168.250.213/16
+    - bridge: vmbr2
+      tag: 10
+      ip: 10.10.250.213/16
+    - bridge: vmbr2
+      tag: 50
+      ip: 10.50.250.213/16
+
+pve_extra:
+  - mp0: /zpool/netalertx,mp=/mnt/netalertx,backup=0
+
+ansible:
+  roles:
+    - base
+    - docker
+    - role: containers
+      vars:
+        containers:
+          - name: netalertx
+            state: up
