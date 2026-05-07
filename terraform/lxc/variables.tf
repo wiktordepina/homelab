@@ -100,3 +100,13 @@ variable "mount_points" {
   }))
   default = []
 }
+
+variable "extra_networks" {
+  type = list(object({
+    bridge = string
+    tag    = optional(number)
+    ip     = optional(string, "manual")
+    gw     = optional(string)
+  }))
+  default = []
+}
