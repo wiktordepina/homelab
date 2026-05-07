@@ -48,6 +48,7 @@ jobs:
           - 210   # Prometheus & Grafana
           - 211   # n8n
           - 212   # mosquitto
+          - 213   # NetAlertX
     uses: ./.github/workflows/_lxc.yml
     secrets: inherit
     with:

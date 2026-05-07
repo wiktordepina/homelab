@@ -47,6 +47,13 @@ resource "dns_a_record_set" "mosquitto" {
   ttl       = 500
 }
 
+resource "dns_a_record_set" "netalertx" {
+  zone      = "home.matagoth.com."
+  name      = "netalertx"
+  addresses = ["10.20.1.213"]
+  ttl       = 500
+}
+
 resource "dns_a_record_set" "mait" {
   zone      = "home.matagoth.com."
   name      = "mait"

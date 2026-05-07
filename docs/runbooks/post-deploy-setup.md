@@ -94,6 +94,43 @@ This is *deferred* until monitoring is wired up, and is an *automation candidate
 
 Public access to `homeassistant.matagoth.com` is currently set up manually in the Cloudflare dashboard, the same way `ntfy.matagoth.com` is. See [concepts/domains-and-tls](../concepts/domains-and-tls.md) for context. This step is deferred and is an *automation candidate* when the tunnel routing itself moves into IaC.
 
+## NetAlertX
+
+### What the service is
+
+NetAlertX runs as a docker container deployed via the `containers` Ansible role from the stack at `config/docker/netalertx/`, in a dedicated LXC (213) at `10.20.1.213`. It uses host networking so that ARP-based discovery can reach every interface the LXC has.
+
+The container is unusual in that it has four NICs rather than the homelab's standard one. The primary `eth0` is the DMZ presence (`10.20.1.213`) and carries the default route. Three secondary interfaces attach to the VLAN-aware bridge `vmbr2` over PVE's `enp99s0`, with explicit 802.1Q tags for the management LAN, CORE, and IOT subnets. The secondary addresses follow the `<subnet>.250.<vmid>` convention. See [reference/lxc-schema](../reference/lxc-schema.md) for the schema and [reference/switch-and-ap](../reference/switch-and-ap.md) for the trunk shape on switch port 6.
+
+Persistent config flow: `/zpool/netalertx` on the Proxmox host → `/mnt/netalertx` in the LXC → `/app/config` and `/app/db` in the container.
+
+### 1. Configure scan subnets
+
+NetAlertX persists its scan settings in the SQLite database it manages itself, so the configuration cannot reasonably be templated from Ansible. After `ansible_lxc 213` completes, browse to `https://netalertx.homelab.matagoth.com` (or directly to `http://10.20.1.213:20211`) and configure the four scan subnets:
+
+- DMZ — `10.20.0.0/16` via `eth0`
+- mgmt — `192.168.200.0/16` via `eth1`
+- CORE — `10.10.0.0/16` via `eth2`
+- IOT — `10.50.0.0/16` via `eth3`
+
+The exact UI path is **Settings → Scan settings**, with one entry per subnet specifying the interface NetAlertX should ARP-scan from. Save and trigger an initial scan.
+
+### 2. Acknowledge the initial alert flood
+
+The first scan reports every device on every subnet as "new". This is expected on a first run. Walk through the device list and either acknowledge each as known, or use the bulk-acknowledge action if the UI exposes one in the version deployed. Once the baseline is set, alerts thereafter mean genuinely new or genuinely missing devices.
+
+### 3. OPNsense DHCP reservations for the secondary NICs
+
+The three secondary NICs come up with static IPs declared in the LXC's YAML, so they do not request DHCP. However, OPNsense's DHCP scopes are the working inventory of "what addresses are claimed on each subnet". To keep that inventory truthful, add a static-only reservation on each of mgmt, CORE, and IOT for the relevant LXC NIC MAC, mapped to the corresponding `.250.213` address. The MACs are visible from `ip -br link` inside the container after the first apply.
+
+This step is an *automation candidate* if/when OPNsense itself moves into IaC; until then the OPNsense UI is the canonical place for the reservation list.
+
+### 4. Notification channel
+
+NetAlertX supports several notification channels (ntfy, email, webhook, Apprise). To route alerts through the existing ntfy LXC (202), configure an Apprise endpoint pointing at `http://10.20.1.202/netalertx-alerts` (or whichever topic name you choose). The exact UI path is **Settings → Notifications**.
+
+This step is interactive: the channel selection, the topic name, and the alert thresholds are all UI-driven configuration that NetAlertX itself owns.
+
 ## Adding a new entry
 
 When provisioning a new service that has manual setup, add a section under this runbook using the same shape as the worked example: what the service is, then a numbered or bulleted list of post-deploy steps. For each step, name what cannot be automated and why; this both helps whoever performs the procedure next and identifies which steps are temporary versus inherent.

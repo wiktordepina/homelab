@@ -1,0 +1,14 @@
+---
+services:
+  netalertx:
+    image: ghcr.io/jokob-sk/netalertx:latest
+    container_name: netalertx
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=Europe/London
+      - PORT=20211
+    volumes:
+      - /mnt/netalertx/config:/app/config
+      - /mnt/netalertx/db:/app/db
+      - /etc/localtime:/etc/localtime:ro
