@@ -46,22 +46,21 @@ To set up a new user:
    rm /tmp/mq.passwd
    ```
 
-3. Add **both** the hash and the plaintext to `/pve/secrets/mosquitto.sh` on the runner host:
+3. Add **both** the hash and the plaintext to `/pve/secrets/mosquitto.sh` on the runner host, one pair per client:
 
    ```bash
    # Server side — used by the mosquitto role to template /etc/mosquitto/passwd
-   export MOSQUITTO_HASH_HOMEASSISTANT='$7$101$...'
-   export MOSQUITTO_HASH_PI_01='$7$101$...'
+   export MOSQUITTO_HASH_<CLIENT>='$7$101$...'
 
-   # Client side — used by client roles (switchbot_bridge, the HA stack)
-   # to authenticate with the broker
-   export MOSQUITTO_PASSWORD_HOMEASSISTANT='<plaintext>'
-   export MOSQUITTO_PASSWORD_PI_01='<plaintext>'
+   # Client side — used by client roles to authenticate with the broker
+   export MOSQUITTO_PASSWORD_<CLIENT>='<plaintext>'
    ```
+
+   The `<CLIENT>` slug should match the `name` used in `mosquitto_users`, upper-cased and with hyphens replaced by underscores (so `name: switchbot-bridge` pairs with `MOSQUITTO_HASH_SWITCHBOT_BRIDGE` / `MOSQUITTO_PASSWORD_SWITCHBOT_BRIDGE`).
 
 The mosquitto role reads the `MOSQUITTO_HASH_*` vars at apply time and templates them into `/etc/mosquitto/passwd` on the broker. Client roles read the matching `MOSQUITTO_PASSWORD_*` vars and place them on the client host (typically as a `0640`-mode file, never as a process argument or env var visible to `ps`).
 
-If you ever need to rotate a password, regenerate the hash from a new plaintext, update both env vars in lockstep, and re-run `ansible_lxc 212` plus the relevant client (`ansible_external_host pi-01`, etc.).
+If you ever need to rotate a password, regenerate the hash from a new plaintext, update both env vars in lockstep, and re-run the broker LXC apply plus the relevant client.
 
 ## Dependencies
 
@@ -78,8 +77,8 @@ ansible:
         mosquitto_users:
           - name: homeassistant
             password_hash_env: MOSQUITTO_HASH_HOMEASSISTANT
-          - name: pi-01
-            password_hash_env: MOSQUITTO_HASH_PI_01
+          # Add an entry per additional client — typically one per
+          # service or external host that publishes to the broker.
 ```
 
 ## Verifying the broker
