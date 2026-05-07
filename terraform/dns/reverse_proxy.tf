@@ -20,6 +20,7 @@ locals {
     "litellm",
     "mait",
     "homeassistant",
+    "netalertx",
   ]
 }
 
