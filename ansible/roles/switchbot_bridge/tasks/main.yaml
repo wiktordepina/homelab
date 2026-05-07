@@ -4,8 +4,15 @@
     name:
       - python3-venv
       - bluez
+      - dbus
     state: present
     update_cache: true
+
+- name: Bluetooth daemon
+  ansible.builtin.systemd:
+    name: bluetooth
+    enabled: true
+    state: started
 
 - name: System user
   ansible.builtin.user:

@@ -18,5 +18,5 @@ ansible:
         mosquitto_users:
           - name: homeassistant
             password_hash_env: MOSQUITTO_HASH_HOMEASSISTANT
-          - name: pi-01
-            password_hash_env: MOSQUITTO_HASH_PI_01
+          - name: switchbot-bridge
+            password_hash_env: MOSQUITTO_HASH_SWITCHBOT_BRIDGE
