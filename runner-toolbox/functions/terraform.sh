@@ -22,12 +22,28 @@ inject_tf_var_for_lxc() {
   local output_folder="${2}" ; check_null output_folder "${2}"
   local var_name="${3}"      ; check_null var_name "${3}"
 
-  local value
   local type
-  value=$(lxc_config "${vmid}" ".terraform.${var_name}")
   type=$(lxc_config "${vmid}" ".terraform.${var_name} | type")
-  [[ -n "${value}" && "${type}" == 'string' ]] && value="\"${value}\""
-  [ -n "${value}" ] && echo "${var_name}=${value}" >> "${output_folder}/terraform.tfvars"
+
+  local value
+  case "${type}" in
+    string)
+      value=$(lxc_config "${vmid}" ".terraform.${var_name}")
+      [[ -n "${value}" ]] && echo "${var_name}=\"${value}\"" >> "${output_folder}/terraform.tfvars"
+      ;;
+    array|object)
+      # JSON is a valid HCL value for matching variable types — used here for
+      # list/object inputs like extra_networks and mount_points.
+      value=$(lxc_config "${vmid}" ".terraform.${var_name} | tojson")
+      [[ -n "${value}" && "${value}" != 'null' ]] && echo "${var_name}=${value}" >> "${output_folder}/terraform.tfvars"
+      ;;
+    null)
+      ;;
+    *)
+      value=$(lxc_config "${vmid}" ".terraform.${var_name}")
+      [[ -n "${value}" ]] && echo "${var_name}=${value}" >> "${output_folder}/terraform.tfvars"
+      ;;
+  esac
 }
 
 # inject_tf_lxc_config - Injects set of Terraform variables for LXC containers from config.

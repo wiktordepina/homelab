@@ -29,6 +29,20 @@ Mount points expose host directories inside the container. Each mount point decl
 
 Mount points declared here are visible to Terraform and Proxmox in the standard way. Mount entries declared in the *hypervisor extras* section (see below) are an alternative path used when a non-standard form is required, for example to disable backup of a particular mount.
 
+## Extra network interfaces
+
+The standard provisioning gives a container one network interface (`eth0`) on the homelab DMZ subnet, with the address derived from the VMID and the gateway pointing at the upstream router. That is sufficient for almost every container.
+
+A small number of containers — those whose job is to observe traffic on subnets the LXC fleet does not normally see — need additional interfaces on bridges that carry other VLANs. The optional `extra_networks` list expresses this: each entry attaches a further interface (`eth1`, `eth2`, …) to a named Proxmox bridge, with an optional 802.1Q VLAN tag, an optional address, and an optional gateway.
+
+Conventions for extra interfaces:
+
+- The primary interface (`eth0`) remains the container's identity on the DMZ. It carries the default route. Extra interfaces should not declare a gateway; doing so creates routing conflicts that produce surprising failure modes.
+- The address on an extra interface is per-subnet, not VMID-derived. The convention in this homelab is `<subnet>.250.<vmid>` for any secondary presence on a non-DMZ subnet, mnemonic across CORE, IOT, and management. The convention has a ceiling at VMID 255.
+- The bridge a tagged interface attaches to must be VLAN-aware on the hypervisor and carry the relevant tag in its `bridge-vids` list.
+
+Reach for `extra_networks` only when the container's job genuinely requires multi-subnet visibility (network monitoring, captive-portal-style services). For everything else, the single-interface default is the right answer.
+
 ## Hypervisor extras
 
 The hypervisor extras section is an escape hatch for things that have to be expressed as raw lines in the Proxmox container configuration. The two recurring uses are:
