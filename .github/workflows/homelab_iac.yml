@@ -49,6 +49,7 @@ jobs:
           - 211   # n8n
           - 212   # mosquitto
           - 213   # NetAlertX
+          - 214   # switchbot bridge (BLE → MQTT, USB BT dongle)
     uses: ./.github/workflows/_lxc.yml
     secrets: inherit
     with:
@@ -63,7 +64,7 @@ jobs:
       max-parallel: 1
       matrix:
         hostname:
-          - pi-01   # general-purpose RPi (BT, GPIO)
+          - pi-01   # general-purpose RPi (GPIO)
     uses: ./.github/workflows/_external_host.yml
     secrets: inherit
     with:

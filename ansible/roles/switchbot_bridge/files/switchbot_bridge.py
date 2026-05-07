@@ -22,7 +22,7 @@ CONFIG_PATH = Path(
 
 # SwitchBot uses two service UUIDs across firmware generations.
 SWITCHBOT_SERVICE_UUIDS = (
-    "0000_0d00_-0000-1000-8000-00805f9b34fb",  # legacy WoSensorTH
+    "00000d00-0000-1000-8000-00805f9b34fb",  # legacy WoSensorTH
     "0000fd3d-0000-1000-8000-00805f9b34fb",  # newer firmware
 )
 

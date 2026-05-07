@@ -10,7 +10,8 @@ The bridge does not pair with the meters and does not poll them. It only listens
 
 ## Tasks
 
-- Installs `python3-venv` and `bluez`.
+- Installs `python3-venv`, `bluez`, and `dbus`.
+- Enables and starts `bluetooth.service` (so `bluetoothd` is up before the bridge tries to scan).
 - Creates a system user `switchbot-bridge` and adds it to the `bluetooth` group.
 - Builds a Python virtual environment under `/opt/switchbot-bridge/venv`.
 - Installs `bleak`, `paho-mqtt`, and `PyYAML` from the pinned `requirements.txt`.
@@ -21,8 +22,8 @@ The bridge does not pair with the meters and does not poll them. It only listens
 
 ## Requirements
 
-- Debian-based OS (Raspberry Pi OS Lite tested).
-- A working Bluetooth adapter (built-in for RPi 4B).
+- Debian-based OS (Raspberry Pi OS Lite and Debian LXC templates both tested).
+- A working Bluetooth adapter — either a built-in (e.g. RPi 4B) or a USB dongle. When the role runs inside a Proxmox LXC, the host must pass the dongle through (cgroup `c 189:* rwm` plus a bind of `/dev/bus/usb`); see `config/lxc/214.yaml` for the canonical example.
 - An MQTT broker reachable from the host (this homelab's `mosquitto` LXC).
 
 ## Variables

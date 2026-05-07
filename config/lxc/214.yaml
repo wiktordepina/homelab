@@ -1,0 +1,35 @@
+---
+terraform:
+  vmid: 214
+  hostname: switchbot-bridge
+  ip_address: 10.20.1.214/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 1
+  memory: 256
+  swap: 128
+  start_on_boot: true
+  rootfs_size: 4G
+  unprivileged: false
+
+# Privileged container is required so BlueZ + bleak (over D-Bus) can open
+# AF_BLUETOOTH sockets and drive the USB BT dongle. Same precedent as 204
+# (jellyfin / NVIDIA passthrough).
+#
+# Plug a Bluetooth USB dongle into the PVE host before applying. The bind
+# below exposes /dev/bus/usb wholesale, so the dongle works regardless of
+# which USB port it ends up on; the cgroup rule explicitly grants the
+# usb_device char-major 189.
+pve_extra:
+  - lxc.cgroup2.devices.allow: c 189:* rwm
+  - lxc.mount.entry: /dev/bus/usb dev/bus/usb none bind,create=dir
+
+ansible:
+  roles:
+    - base
+    - role: switchbot_bridge
+      vars:
+        switchbot_bridge_mqtt_host: mosquitto.home.matagoth.com
+        switchbot_bridge_mqtt_username: switchbot-bridge
+        switchbot_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_SWITCHBOT_BRIDGE
+        # Leave empty until rooms are identified (see role README).
+        switchbot_bridge_devices: []

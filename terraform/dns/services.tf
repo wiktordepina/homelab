@@ -54,6 +54,13 @@ resource "dns_a_record_set" "netalertx" {
   ttl       = 500
 }
 
+resource "dns_a_record_set" "switchbot_bridge" {
+  zone      = "home.matagoth.com."
+  name      = "switchbot-bridge"
+  addresses = ["10.20.1.214"]
+  ttl       = 500
+}
+
 resource "dns_a_record_set" "mait" {
   zone      = "home.matagoth.com."
   name      = "mait"

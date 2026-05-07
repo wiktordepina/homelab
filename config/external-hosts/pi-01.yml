@@ -13,23 +13,17 @@ manually_provisioned:
 ansible:
   roles:
     - base
-    - role: switchbot_bridge
-      vars:
-        switchbot_bridge_mqtt_host: mosquitto.home.matagoth.com
-        switchbot_bridge_mqtt_username: pi-01
-        switchbot_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_PI_01
-        # Leave empty until rooms are identified (see role README).
-        # Five meters are known to be in range — they will appear in HA as
-        # SwitchBot <last-4-of-mac> until friendly_name entries are added.
-        switchbot_bridge_devices: []
 
 notes: |
   Raspberry Pi 4B (8GB RAM). General-purpose external host.
   Lives outside the Proxmox host because some intended workloads
-  (Bluetooth, GPIO sensors and actuators) need hardware the
-  hypervisor does not have. Numbered pi-NN so a future pi-02 is
-  the obvious extension.
+  (GPIO sensors and actuators) need hardware the hypervisor does
+  not have. Numbered pi-NN so a future pi-02 is the obvious
+  extension.
 
-  Currently runs the switchbot_bridge role: a passive BLE listener
-  that republishes SwitchBot Meter readings to the mosquitto broker
-  in Home Assistant discovery format.
+  No service-specific role currently applied — the host is kept
+  running base only, against future GPIO use. The SwitchBot BLE
+  bridge previously ran here; once a USB BT dongle was available,
+  the bridge moved to LXC 214 (config/lxc/214.yaml) so it could
+  share the Proxmox host's resources rather than tying up a
+  dedicated piece of hardware.
