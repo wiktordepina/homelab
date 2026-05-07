@@ -19,9 +19,17 @@ terraform:
 # below exposes /dev/bus/usb wholesale, so the dongle works regardless of
 # which USB port it ends up on; the cgroup rule explicitly grants the
 # usb_device char-major 189.
+#
+# `lxc.seccomp.profile:` (empty value) disables the default Proxmox LXC
+# seccomp profile, which otherwise blocks `socket(AF_BLUETOOTH, …)` —
+# AF_BLUETOOTH is not in the syscall allowlist of common.seccomp.
+# Privileged + unconfined seccomp matches what BlueZ in an LXC actually
+# needs; nothing in the bridge's threat model would benefit from the
+# generic syscall allowlist.
 pve_extra:
   - lxc.cgroup2.devices.allow: c 189:* rwm
   - lxc.mount.entry: /dev/bus/usb dev/bus/usb none bind,create=dir
+  - lxc.seccomp.profile: ""
 
 ansible:
   roles:
