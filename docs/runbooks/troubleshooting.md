@@ -50,6 +50,8 @@ A configuration apply fails with an SSH or unreachable error.
 
 **Network unreachable.** The runner cannot reach the container's address at all. Confirm the container's network attachment is correct and that the address matches `10.20.1.<vmid>`. The VMID-to-address mapping is rigid; a mismatch here means `config/lxc/<vmid>.yaml` or the actual network configuration has drifted.
 
+**The container shares the host's network namespace and has no address of its own.** A small number of containers (those depending on a kernel subsystem scoped to the init netns, such as Bluetooth) opt out of having their own netns by setting `lxc.net.0.type: none` in their `pve_extra`. They cannot be reached on the homelab subnet at all and have no internal DNS record by design. If a container is in this category, `./run/lxc-ssh <vmid>` will hang rather than connect; reach it via `pct enter <vmid>` from the Proxmox host instead. The container's own YAML should mark this with a comment under `pve_extra`; if it does not, that is a documentation bug worth fixing rather than a real failure.
+
 ## The runner is offline
 
 GitHub reports the runner as offline; workflows queue but do not start.
