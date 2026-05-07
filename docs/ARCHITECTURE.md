@@ -83,6 +83,7 @@ Schemas and contracts. Read these to understand the shape of a configuration art
 - [External-host schema](reference/external-host-schema.md) — the YAML contract for declaring an external host.
 - [Runner toolbox](reference/runner-toolbox.md) — what the toolbox provides and how it is invoked, by purpose.
 - [Docker stacks](reference/docker-stacks.md) — conventions for stacks running on the shared docker host.
+- [Switch and access point](reference/switch-and-ap.md) — the working state of the managed switch and AP, including the VLAN-to-port and SSID-to-VLAN maps.
 
 ### Runbooks
 
