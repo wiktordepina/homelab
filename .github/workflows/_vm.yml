@@ -1,0 +1,82 @@
+name: VM
+run-name: VM ${{ inputs.vmid }}
+
+on:
+  workflow_call:
+    inputs:
+      vmid:
+        type: string
+        required: true
+        description: vm id
+      tf_action:
+        type: string
+        required: true
+        description: terraform action
+        default: plan
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
+  workflow_dispatch:
+    inputs:
+      vmid:
+        type: string
+        required: true
+        description: vm id
+      tf_action:
+        type: choice
+        required: true
+        description: terraform action
+        default: plan
+        options:
+          - plan
+          - apply
+          - plan_destroy
+          - destroy
+      skip_notify:
+        type: boolean
+        required: false
+        default: false
+        description: skip notifications
+
+concurrency: vm
+
+jobs:
+  RunVM:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Terraform
+        id: terraform
+        run: ./run/execute_runner terraform_vm ${{ inputs.vmid }} ${{ inputs.tf_action }}
+      - name: Ansible
+        id: ansible
+        if: ${{ inputs.tf_action == 'apply' }}
+        run: ./run/execute_runner ansible_vm ${{ inputs.vmid }}
+      - name: Generate Step Summary
+        if: always()
+        run: |
+          echo "### Virtual Machine VM" >> $GITHUB_STEP_SUMMARY
+          echo '#### Input parameters:' >> $GITHUB_STEP_SUMMARY
+          echo "- VM ID ***vmid*** = \`${{ inputs.vmid }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Terraform action ***tf_action*** = \`${{ inputs.tf_action }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "#### Outcome:" >> $GITHUB_STEP_SUMMARY
+          tf_status=':white_check_mark:'
+          [[ '${{ steps.terraform.outcome }}' != 'success' ]] && tf_status=':x:'
+          an_status=':white_check_mark:'
+          [[ '${{ steps.ansible.outcome }}' != 'success' ]] && an_status=':x:'
+          echo "${tf_status} Terraform ${{ inputs.tf_action }} step ***${{ steps.terraform.outcome }}***" >> $GITHUB_STEP_SUMMARY
+          if [[ '${{ inputs.tf_action }}' == 'apply' ]]; then
+            echo "${an_status} Ansible step ***${{ steps.ansible.outcome }}***" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ':no_entry_sign: Ansible step has been skipped' >> $GITHUB_STEP_SUMMARY
+          fi
+  Ntfy:
+    runs-on: self-hosted
+    if: ${{ always() && !inputs.skip_notify }}
+    needs:
+      - RunVM
+    steps:
+      - name: Ntfy
+        run: ./run/execute_runner ntfy_workflow_status '${{ github.workflow }} - ${{ inputs.vmid }} ${{ inputs.tf_action }}' '${{ needs.RunVM.result }}' 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'

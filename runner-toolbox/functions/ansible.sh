@@ -35,6 +35,33 @@ run_ansible_pve() {
   ansible-playbook -i "192.168.200.100," config/pve/playbook.yaml
 }
 
+# run_ansible_vm - Run Ansible against a Proxmox QEMU VM.
+#
+# Description:
+#   Mirror of run_ansible_lxc, targeting config/vm/<vmid>.yaml. Renders the
+#   playbook via render_vm_playbook and applies it over SSH on the VM's IP.
+#
+# Usage:
+#   run_ansible_vm <vmid>
+#
+# Parameters:
+#   <vmid> - The VMID.
+#
+# Example:
+#   run_ansible_vm 214
+run_ansible_vm() {
+  local vmid="${1}" ; check_null vmid "${1}"
+
+  local vm_ip
+  vm_ip=$(vm_config "${vmid}" ".terraform.ip_address")
+  vm_ip="${vm_ip%/*}"
+
+  render_vm_playbook "${vmid}" > playbook.yaml
+  trap 'rm -rf /build/playbook.yaml' EXIT
+
+  ansible-playbook -i "${vm_ip}," playbook.yaml
+}
+
 # run_ansible_external_host - Run Ansible against an external (non-LXC) host.
 #
 # Description:

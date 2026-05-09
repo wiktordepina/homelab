@@ -80,6 +80,7 @@ Durable explanations of *what* and *why*. Read these to build a model of the sys
 Schemas and contracts. Read these to understand the shape of a configuration artefact.
 
 - [LXC schema](reference/lxc-schema.md) — the YAML contract for declaring a container.
+- [VM schema](reference/vm-schema.md) — the YAML contract for declaring a full Proxmox VM, and the rule for choosing one over an LXC.
 - [External-host schema](reference/external-host-schema.md) — the YAML contract for declaring an external host.
 - [Runner toolbox](reference/runner-toolbox.md) — what the toolbox provides and how it is invoked, by purpose.
 - [Docker stacks](reference/docker-stacks.md) — conventions for stacks running on the shared docker host.
@@ -91,6 +92,7 @@ Procedures. Read these to perform a specific operation.
 
 - [Add a service](runbooks/add-service.md) — the lockstep walkthrough.
 - [Add an external host](runbooks/add-external-host.md) — the lockstep walkthrough for a bare-metal host outside the Proxmox host.
+- [Build the default VM template](runbooks/build-vm-template.md) — one-time PVE-host procedure to create the cloud-init template VMs clone from.
 - [Create a GitHub Actions runner](runbooks/create-runner.md) — provisioning an additional self-hosted runner.
 - [Rotate the wildcard SSL certificate](runbooks/rotate-wildcard-cert.md) — renewal of the LAN-side wildcard cert.
 - [Replace a disk in the ZFS pool](runbooks/replace-zfs-disk.md) — physical disk replacement and resilver.
