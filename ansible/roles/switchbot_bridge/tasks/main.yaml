@@ -3,6 +3,10 @@
   ansible.builtin.apt:
     name:
       - python3-venv
+      # ansible.builtin.pip imports `packaging` on the target to parse
+      # version specifiers; Debian 13's stock python3.13 does not ship it,
+      # so the apt package is required for the pip task below to work.
+      - python3-packaging
       - bluez
       - dbus
     state: present
