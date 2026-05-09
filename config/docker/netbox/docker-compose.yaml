@@ -14,7 +14,7 @@ services:
     user: "netbox:root"
     healthcheck:
       test: curl -f http://localhost:8080/login/ || exit 1
-      start_period: 120s
+      start_period: 300s
       timeout: 5s
       interval: 15s
       retries: 5
@@ -39,6 +39,7 @@ services:
       REDIS_CACHE_SSL: "false"
       REDIS_CACHE_INSECURE_SKIP_TLS_VERIFY: "false"
       SECRET_KEY: "{{ lookup('ansible.builtin.env', 'NETBOX_SECRET_KEY') }}"
+      API_TOKEN_PEPPER_1: "{{ lookup('ansible.builtin.env', 'NETBOX_API_TOKEN_PEPPER_1') }}"
       SKIP_SUPERUSER: "false"
       SUPERUSER_NAME: "{{ lookup('ansible.builtin.env', 'NETBOX_SUPERUSER_NAME') }}"
       SUPERUSER_EMAIL: "{{ lookup('ansible.builtin.env', 'NETBOX_SUPERUSER_EMAIL') }}"
