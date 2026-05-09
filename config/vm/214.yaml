@@ -16,10 +16,14 @@ terraform:
   start_on_boot: true
   rootfs_size: 4G
   usb_passthrough:
-    # TP-Link UB500 V2 (Realtek RTL8761B). The dongle must be physically
-    # plugged into the Proxmox host before apply; QEMU forwards it to the
-    # guest by vendor:product, so the USB port on the host does not matter.
-    - host: "37ad:0600"
+    # UGREEN BT5.4 USB adapter. The dongle must be physically plugged
+    # into the Proxmox host before apply; QEMU forwards it to the guest
+    # by vendor:product, so the USB port on the host does not matter.
+    # An earlier TP-Link UB500 V2 (37ad:0600) was abandoned because that
+    # PID is not in mainline btusb's quirk table — btrtl never loaded
+    # the firmware and the chip stayed dead. The UGREEN reports BT 5.4
+    # and initialises cleanly on stock Debian kernels.
+    - host: "33fa:0010"
 
 ansible:
   roles:
