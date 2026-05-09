@@ -7,8 +7,6 @@ resource "proxmox_vm_qemu" "vm" {
   full_clone = true
 
   agent    = 1
-  sockets  = var.cpu_socket_count
-  cores    = var.cpu_core_count
   memory   = var.memory
   scsihw   = "virtio-scsi-single"
   onboot   = var.start_on_boot
@@ -18,8 +16,13 @@ resource "proxmox_vm_qemu" "vm" {
   # booting the rootfs.
   boot = "order=scsi0"
 
+  # Once `cpu` block is used, the top-level cores/sockets/cpu_type fields
+  # are forbidden by the provider — moving them all inside the block is
+  # the documented path forward.
   cpu {
-    type = "host"
+    type    = "host"
+    cores   = var.cpu_core_count
+    sockets = var.cpu_socket_count
   }
 
   os_type    = "cloud-init"
