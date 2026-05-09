@@ -1,30 +1,30 @@
 #!/usr/bin/env bash
-# Install a local public key into a homelab LXC's root authorized_keys.
-# Bootstrap step: LXCs are created with only worker_id_rsa.pub and
-# root_pve_id_rsa.pub seeded, so your laptop key is not there yet.
+# Install a local public key into a homelab host's root authorized_keys.
+# Bootstrap step: hosts (LXC or VM) are created with only worker_id_rsa.pub
+# and root_pve_id_rsa.pub seeded, so your laptop key is not there yet.
 # This routes via PVE (which DOES trust your laptop) and uses PVE's root
-# key (which the LXC trusts) to push the laptop's pubkey on. Idempotent.
+# key (which the host trusts) to push the laptop's pubkey on. Idempotent.
 #
 # Usage:
-#   lxc-key-push <vmid> [pubkey-path]
+#   host-key-push <vmid> [pubkey-path]
 #
 # Default pubkey: ~/.ssh/id_ed25519.pub
 #
 # Examples:
-#   lxc-key-push 206
-#   lxc-key-push 206 ~/.ssh/id_rsa.pub
+#   host-key-push 206
+#   host-key-push 214 ~/.ssh/id_rsa.pub
 #
 # Environment overrides:
 #   PVE_USER   user on the Proxmox jump host (default: root)
 #   PVE_HOST   IP of the Proxmox jump host   (default: 192.168.200.100)
-#   LXC_USER   user inside the LXC           (default: root)
+#   HOST_USER  user inside the host          (default: root)
 
 set -euo pipefail
 
 PVE_USER="${PVE_USER:-root}"
 PVE_HOST="${PVE_HOST:-192.168.200.100}"
-LXC_USER="${LXC_USER:-root}"
-LXC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config/lxc"
+HOST_USER="${HOST_USER:-root}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; }
 
@@ -32,19 +32,34 @@ if [[ $# -lt 1 || "$1" == "-h" || "$1" == "--help" ]]; then
   usage; exit 0
 fi
 
-command -v yq >/dev/null || { echo "lxc-key-push: yq not found in PATH" >&2; exit 1; }
+command -v yq >/dev/null || { echo "host-key-push: yq not found in PATH" >&2; exit 1; }
 
 vmid="$1"
 pubkey="${2:-$HOME/.ssh/id_ed25519.pub}"
 
-[[ -f "$pubkey" ]] || { echo "lxc-key-push: pubkey not found: $pubkey" >&2; exit 1; }
+[[ -f "$pubkey" ]] || { echo "host-key-push: pubkey not found: $pubkey" >&2; exit 1; }
 
-yaml="$LXC_DIR/$vmid.yaml"
-[[ -f "$yaml" ]] || { echo "lxc-key-push: no config for VMID $vmid at $yaml" >&2; exit 1; }
+resolve_yaml() {
+  local vmid="$1"
+  local hits=()
+  for dir in lxc vm; do
+    [[ -f "$REPO_ROOT/config/$dir/$vmid.yaml" ]] && hits+=("$REPO_ROOT/config/$dir/$vmid.yaml")
+  done
+  if [[ ${#hits[@]} -eq 0 ]]; then
+    echo "host-key-push: no config for VMID $vmid in config/lxc/ or config/vm/" >&2
+    return 1
+  fi
+  if [[ ${#hits[@]} -gt 1 ]]; then
+    echo "host-key-push: VMID $vmid declared in multiple places: ${hits[*]}" >&2
+    return 1
+  fi
+  printf '%s' "${hits[0]}"
+}
 
+yaml="$(resolve_yaml "$vmid")"
 cidr="$(yq -r '.terraform.ip_address' "$yaml")"
 [[ -n "$cidr" && "$cidr" != "null" ]] || {
-  echo "lxc-key-push: terraform.ip_address not found in $yaml" >&2; exit 1
+  echo "host-key-push: terraform.ip_address not found in $yaml" >&2; exit 1
 }
 ip="${cidr%%/*}"
 
@@ -53,7 +68,7 @@ ip="${cidr%%/*}"
 # shell along the way, losing everything after the first whitespace.
 key_b64="$(base64 -w0 < "$pubkey")"
 
-ssh "${PVE_USER}@${PVE_HOST}" bash -s -- "${LXC_USER}@${ip}" "$key_b64" <<'OUTER'
+ssh "${PVE_USER}@${PVE_HOST}" bash -s -- "${HOST_USER}@${ip}" "$key_b64" <<'OUTER'
 set -euo pipefail
 target="$1"
 key_b64="$2"
@@ -77,4 +92,4 @@ fi
 INNER
 OUTER
 
-echo "lxc-key-push: done — try ./run/lxc-ssh $vmid"
+echo "host-key-push: done — try ./run/host-ssh $vmid"
