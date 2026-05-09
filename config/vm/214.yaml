@@ -33,5 +33,14 @@ ansible:
         switchbot_bridge_mqtt_host: mosquitto.home.matagoth.com
         switchbot_bridge_mqtt_username: switchbot-bridge
         switchbot_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_SWITCHBOT_BRIDGE
-        # Leave empty until rooms are identified (see role README).
-        switchbot_bridge_devices: []
+        switchbot_bridge_devices:
+          - mac: "CA:05:48:2B:09:A4"
+            friendly_name: "Bathroom"
+          - mac: "E8:22:5F:FF:F7:47"
+            friendly_name: "Downstairs Toilet"
+          - mac: "C5:34:C8:79:AF:6E"
+            friendly_name: "En Suite"
+          - mac: "F9:5F:26:A4:29:95"
+            friendly_name: "Kitchen"
+          - mac: "F7:98:CE:01:69:74"
+            friendly_name: "Spare Bedroom"
