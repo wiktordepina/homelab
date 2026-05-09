@@ -1,0 +1,24 @@
+---
+terraform:
+  vmid: 215
+  hostname: netbox
+  ip_address: 10.20.1.215/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 4
+  memory: 4096
+  swap: 1024
+  start_on_boot: true
+  rootfs_size: 30G
+
+pve_extra:
+  - mp0: /zpool/netbox,mp=/mnt/netbox,backup=0
+
+ansible:
+  roles:
+    - base
+    - docker
+    - role: containers
+      vars:
+        containers:
+          - name: netbox
+            state: up

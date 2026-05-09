@@ -39,6 +39,7 @@ on:
           - 211 - n8n
           - 212 - mosquitto
           - 213 - netalertx
+          - 215 - netbox
       tf_action:
         type: choice
         required: true

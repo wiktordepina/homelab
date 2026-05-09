@@ -1,0 +1,131 @@
+---
+services:
+  netbox: &netbox
+    image: docker.io/netboxcommunity/netbox:v4.6-5.0.1
+    container_name: netbox
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+    user: "netbox:root"
+    healthcheck:
+      test: curl -f http://localhost:8080/login/ || exit 1
+      start_period: 120s
+      timeout: 5s
+      interval: 15s
+      retries: 5
+    ports:
+      - "8080:8080"
+    environment:
+      ALLOWED_HOSTS: "netbox.homelab.matagoth.com,netbox.home.matagoth.com,10.20.1.215,localhost"
+      CSRF_TRUSTED_ORIGINS: "https://netbox.homelab.matagoth.com,https://netbox.home.matagoth.com"
+      TZ: "Europe/London"
+      DB_HOST: postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: "{{ lookup('ansible.builtin.env', 'NETBOX_DB_PASSWORD') }}"
+      REDIS_HOST: redis
+      REDIS_DATABASE: "0"
+      REDIS_PASSWORD: "{{ lookup('ansible.builtin.env', 'NETBOX_REDIS_PASSWORD') }}"
+      REDIS_SSL: "false"
+      REDIS_INSECURE_SKIP_TLS_VERIFY: "false"
+      REDIS_CACHE_HOST: redis-cache
+      REDIS_CACHE_DATABASE: "1"
+      REDIS_CACHE_PASSWORD: "{{ lookup('ansible.builtin.env', 'NETBOX_REDIS_CACHE_PASSWORD') }}"
+      REDIS_CACHE_SSL: "false"
+      REDIS_CACHE_INSECURE_SKIP_TLS_VERIFY: "false"
+      SECRET_KEY: "{{ lookup('ansible.builtin.env', 'NETBOX_SECRET_KEY') }}"
+      SKIP_SUPERUSER: "false"
+      SUPERUSER_NAME: "{{ lookup('ansible.builtin.env', 'NETBOX_SUPERUSER_NAME') }}"
+      SUPERUSER_EMAIL: "{{ lookup('ansible.builtin.env', 'NETBOX_SUPERUSER_EMAIL') }}"
+      SUPERUSER_PASSWORD: "{{ lookup('ansible.builtin.env', 'NETBOX_SUPERUSER_PASSWORD') }}"
+      SUPERUSER_API_TOKEN: "{{ lookup('ansible.builtin.env', 'NETBOX_SUPERUSER_API_TOKEN') }}"
+      EMAIL_SERVER: localhost
+      EMAIL_PORT: "25"
+      EMAIL_USE_SSL: "false"
+      EMAIL_USE_TLS: "false"
+      EMAIL_TIMEOUT: "5"
+      EMAIL_FROM: "netbox@home.matagoth.com"
+      GRAPHQL_ENABLED: "true"
+      WEBHOOKS_ENABLED: "true"
+      METRICS_ENABLED: "false"
+      MEDIA_ROOT: /opt/netbox/netbox/media
+    volumes:
+      - /mnt/netbox/media:/opt/netbox/netbox/media:rw
+      - /mnt/netbox/reports:/opt/netbox/netbox/reports:rw
+      - /mnt/netbox/scripts:/opt/netbox/netbox/scripts:rw
+
+  netbox-worker:
+    <<: *netbox
+    container_name: netbox-worker
+    depends_on:
+      netbox:
+        condition: service_healthy
+    ports: []
+    healthcheck:
+      test: ps -aux | grep -v grep | grep -q rqworker || exit 1
+      start_period: 30s
+      timeout: 5s
+      interval: 15s
+      retries: 5
+    command:
+      - /opt/netbox/venv/bin/python
+      - /opt/netbox/netbox/manage.py
+      - rqworker
+
+  postgres:
+    image: docker.io/postgres:18-alpine
+    container_name: netbox-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: netbox
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD: "{{ lookup('ansible.builtin.env', 'NETBOX_DB_PASSWORD') }}"
+    healthcheck:
+      test: pg_isready -q -t 2 -d $$POSTGRES_DB -U $$POSTGRES_USER
+      start_period: 20s
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    volumes:
+      - /mnt/netbox/postgres:/var/lib/postgresql
+
+  redis:
+    image: docker.io/valkey/valkey:9.0-alpine
+    container_name: netbox-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: "{{ lookup('ansible.builtin.env', 'NETBOX_REDIS_PASSWORD') }}"
+    command:
+      - sh
+      - -c
+      - valkey-server --appendonly yes --requirepass $$REDIS_PASSWORD
+    healthcheck: &redis-healthcheck
+      test: '[ $$(valkey-cli --pass "$${REDIS_PASSWORD}" ping) = ''PONG'' ]'
+      start_period: 5s
+      timeout: 3s
+      interval: 5s
+      retries: 5
+    volumes:
+      - /mnt/netbox/redis:/data
+
+  redis-cache:
+    image: docker.io/valkey/valkey:9.0-alpine
+    container_name: netbox-redis-cache
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: "{{ lookup('ansible.builtin.env', 'NETBOX_REDIS_CACHE_PASSWORD') }}"
+    command:
+      - sh
+      - -c
+      - valkey-server --requirepass $$REDIS_PASSWORD
+    healthcheck: *redis-healthcheck
+    volumes:
+      - netbox-redis-cache:/data
+
+volumes:
+  netbox-redis-cache:

@@ -21,6 +21,7 @@ locals {
     "mait",
     "homeassistant",
     "netalertx",
+    "netbox",
   ]
 }
 
