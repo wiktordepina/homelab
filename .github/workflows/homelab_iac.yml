@@ -49,8 +49,22 @@ jobs:
           - 211   # n8n
           - 212   # mosquitto
           - 213   # NetAlertX
-          - 214   # switchbot bridge (BLE → MQTT, USB BT dongle)
     uses: ./.github/workflows/_lxc.yml
+    secrets: inherit
+    with:
+      vmid: ${{ matrix.vmid }}
+      tf_action: ${{ inputs.tf_action || 'apply' }}
+      skip_notify: ${{ inputs.skip_notify || false}}
+  DeployVMs:
+    needs:
+      - BuildRunnerImage
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        vmid:
+          - 214   # vm-01 (general-purpose, currently switchbot BLE bridge)
+    uses: ./.github/workflows/_vm.yml
     secrets: inherit
     with:
       vmid: ${{ matrix.vmid }}

@@ -22,8 +22,8 @@ The bridge does not pair with the meters and does not poll them. It only listens
 
 ## Requirements
 
-- Debian-based OS (Raspberry Pi OS Lite and Debian LXC templates both tested).
-- A working Bluetooth adapter — either a built-in (e.g. RPi 4B) or a USB dongle. When the role runs inside a Proxmox LXC, the host must pass the dongle through (cgroup `c 189:* rwm` plus a bind of `/dev/bus/usb`); see `config/lxc/214.yaml` for the canonical example.
+- Debian-based OS (Raspberry Pi OS Lite and Debian generic-cloud both tested).
+- A working Bluetooth adapter — either a built-in (e.g. an RPi 4B) or a USB dongle. The Bluetooth subsystem requires `AF_BLUETOOTH` socket access; this works natively on a bare-metal host or inside a full VM with USB pass-through, but **not** inside an LXC, because the host kernel scopes `AF_BLUETOOTH` to its own network namespace.
 - An MQTT broker reachable from the host (this homelab's `mosquitto` LXC).
 
 ## Variables
@@ -54,8 +54,8 @@ ansible:
     - role: switchbot_bridge
       vars:
         switchbot_bridge_mqtt_host: mosquitto.home.matagoth.com
-        switchbot_bridge_mqtt_username: pi-01
-        switchbot_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_PI_01
+        switchbot_bridge_mqtt_username: switchbot-bridge
+        switchbot_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_SWITCHBOT_BRIDGE
         switchbot_bridge_devices:
           - mac: "E8:22:5F:FF:F7:47"
             friendly_name: "Living Room Meter"
@@ -81,8 +81,8 @@ Meters broadcast their MAC but not their location. On first deploy, leave `switc
 
 1. Pick one meter, walk it to a known location, watch which `SwitchBot <xxxx>` reading changes (e.g. by warming the meter in your hand). Record the MAC tail.
 2. Repeat for each meter.
-3. Add entries under `switchbot_bridge_devices` in `config/external-hosts/pi-01.yml` mapping each MAC to its friendly name.
-4. Re-apply: `./run/execute_runner ansible_external_host pi-01`. The daemon restarts and re-publishes discovery; HA picks up the new names.
+3. Add entries under `switchbot_bridge_devices` in the host's YAML mapping each MAC to its friendly name.
+4. Re-apply (`./run/execute_runner ansible_vm <vmid>` for a VM, `ansible_external_host <hostname>` for an external host). The daemon restarts and re-publishes discovery; HA picks up the new names.
 
 ## Verifying the bridge
 

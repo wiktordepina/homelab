@@ -21,8 +21,6 @@ The codeowner treats this rule as rigid because every other convenience in the s
 
 A small number of infrastructure containers (the internal nameserver, the reverse proxy) sit at addresses that are deliberately memorable rather than VMID-derived. These are the only exceptions; they are baked into the fabric and not expected to grow in number.
 
-A second, narrower carve-out exists for containers whose workload depends on a kernel subsystem the kernel itself scopes to the init network namespace — Bluetooth being the canonical example, where the bluetooth core unconditionally rejects socket creation outside `init_net`. Containers in that position cannot get their own netns at all; they share the host's, which means they have no VMID-derived address and no internal DNS record. They are reached through the hypervisor's container console rather than via SSH on the homelab subnet. This is an acknowledged trade — the alternative is moving the workload off the LXC fleet entirely — and the exception is captured per-container in `pve_extra` so that the YAML still describes the truth about how the container is shaped.
-
 ## Address ranges
 
 The VMID space is partitioned by purpose, not by allocation. The ranges are conventions, not enforced limits.
