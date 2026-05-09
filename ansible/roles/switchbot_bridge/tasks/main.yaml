@@ -49,13 +49,16 @@
     owner: root
     group: root
     mode: "0644"
-  register: requirements_file
 
+# Always run pip; the module is idempotent so already-installed packages
+# are a no-op. Gating on the requirements file's `changed` state was
+# tempting for speed but produced empty venvs whenever a prior run wrote
+# the file and then failed before pip — the next run saw the file
+# unchanged and skipped pip, leaving the daemon importing missing libs.
 - name: Install Python dependencies
   ansible.builtin.pip:
     requirements: /opt/switchbot-bridge/requirements.txt
     virtualenv: /opt/switchbot-bridge/venv
-  when: requirements_file.changed
   notify:
     - Restart switchbot-bridge
 
