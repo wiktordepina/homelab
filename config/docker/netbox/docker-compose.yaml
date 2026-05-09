@@ -21,8 +21,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      ALLOWED_HOSTS: "netbox.homelab.matagoth.com,netbox.home.matagoth.com,10.20.1.215,localhost"
-      CSRF_TRUSTED_ORIGINS: "https://netbox.homelab.matagoth.com,https://netbox.home.matagoth.com"
+      ALLOWED_HOSTS: "netbox.homelab.matagoth.com netbox.home.matagoth.com 10.20.1.215 localhost"
+      CSRF_TRUSTED_ORIGINS: "https://netbox.homelab.matagoth.com https://netbox.home.matagoth.com"
       TZ: "Europe/London"
       DB_HOST: postgres
       DB_NAME: netbox
