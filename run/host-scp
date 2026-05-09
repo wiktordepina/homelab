@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# scp wrapper that resolves a homelab host (LXC or VM) by VMID. Bare IPs
+# throughout so it works when homelab DNS is down. Recursive by default so
+# directories work without -r. Run host-key-push <vmid> first if your laptop
+# key isn't on the host yet.
+#
+# Usage:
+#   host-scp <src> <dst>
+#
+# Either <src> or <dst> (or both) must be of the form <vmid>:<path>.
+#
+# Examples:
+#   host-scp ~/Documents/zen/daily-rhythm.yaml 206:/mnt/homeassistant/packages/
+#   host-scp 206:/mnt/homeassistant/configuration.yaml ./snapshot.yaml
+#   host-scp 206:/mnt/homeassistant/packages/ 210:/tmp/
+#
+# Environment overrides:
+#   HOST_USER  user inside the host (default: root)
+
+set -euo pipefail
+
+HOST_USER="${HOST_USER:-root}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; }
+
+if [[ $# -lt 2 || "$1" == "-h" || "$1" == "--help" ]]; then
+  usage; exit 0
+fi
+
+command -v yq >/dev/null || { echo "host-scp: yq not found in PATH" >&2; exit 1; }
+
+resolve_ip() {
+  local vmid="$1"
+  local hits=()
+  for dir in lxc vm; do
+    [[ -f "$REPO_ROOT/config/$dir/$vmid.yaml" ]] && hits+=("$REPO_ROOT/config/$dir/$vmid.yaml")
+  done
+  if [[ ${#hits[@]} -eq 0 ]]; then
+    echo "host-scp: no config for VMID $vmid in config/lxc/ or config/vm/" >&2
+    return 1
+  fi
+  if [[ ${#hits[@]} -gt 1 ]]; then
+    echo "host-scp: VMID $vmid declared in multiple places: ${hits[*]}" >&2
+    return 1
+  fi
+  local cidr
+  cidr="$(yq -r '.terraform.ip_address' "${hits[0]}")"
+  [[ -n "$cidr" && "$cidr" != "null" ]] || {
+    echo "host-scp: terraform.ip_address not found in ${hits[0]}" >&2; return 1
+  }
+  printf '%s' "${cidr%%/*}"
+}
+
+rewrite() {
+  local arg="$1"
+  if [[ "$arg" =~ ^([0-9]+):(.*)$ ]]; then
+    local ip
+    ip="$(resolve_ip "${BASH_REMATCH[1]}")"
+    printf '%s@%s:%s' "$HOST_USER" "$ip" "${BASH_REMATCH[2]}"
+  else
+    printf '%s' "$arg"
+  fi
+}
+
+src="$(rewrite "$1")"
+dst="$(rewrite "$2")"
+
+exec scp -r -o StrictHostKeyChecking=accept-new "$src" "$dst"
