@@ -1,0 +1,33 @@
+---
+# General-purpose VM #1. Hosts workloads that need a real kernel rather than
+# an LXC's shared one — currently the SwitchBot BLE → MQTT bridge, which has
+# to live in a VM because the kernel scopes AF_BLUETOOTH to init_net and the
+# host kernel is intentionally minimal. Additional small services that fit
+# the same bill (kernel modules, Bluetooth, USB pass-through) land here too;
+# vm-02 is the obvious extension once vm-01 is full or a workload genuinely
+# wants its own host.
+terraform:
+  vmid: 214
+  hostname: vm-01
+  ip_address: 10.20.1.214/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 1
+  memory: 512
+  start_on_boot: true
+  rootfs_size: 4G
+  usb_passthrough:
+    # TP-Link UB500 V2 (Realtek RTL8761B). The dongle must be physically
+    # plugged into the Proxmox host before apply; QEMU forwards it to the
+    # guest by vendor:product, so the USB port on the host does not matter.
+    - host: "37ad:0600"
+
+ansible:
+  roles:
+    - base
+    - role: switchbot_bridge
+      vars:
+        switchbot_bridge_mqtt_host: mosquitto.home.matagoth.com
+        switchbot_bridge_mqtt_username: switchbot-bridge
+        switchbot_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_SWITCHBOT_BRIDGE
+        # Leave empty until rooms are identified (see role README).
+        switchbot_bridge_devices: []

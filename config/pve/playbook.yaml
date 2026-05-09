@@ -3,4 +3,3 @@
   hosts: 192.168.200.100
   roles:
     - telegraf
-    - bluetooth_host
