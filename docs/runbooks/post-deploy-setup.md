@@ -155,22 +155,25 @@ Before triggering `homelab_iac.yml` for VMID 215 the very first time:
 
    The UID `999` matches the postgres/valkey container user; the netbox container itself runs as `netbox:root` and writes to media/reports/scripts via root-group writability.
 
-2. **Runner secrets** in `/pve/secrets/` (or wherever the runner sources environment from). NetBox requires eight values; six are core, two are the auto-bootstrap superuser:
+2. **Runner secrets** in `/pve/secrets/` (or wherever the runner sources environment from). NetBox requires nine values; seven are core, two are the auto-bootstrap superuser:
 
    - `NETBOX_SECRET_KEY` — Django session key. Must be at least 50 characters, cryptographically random. Generate with `python -c 'import secrets; print(secrets.token_urlsafe(64))'`.
+   - `NETBOX_API_TOKEN_PEPPER_1` — pepper used to hash v2 API tokens. Without this set, NetBox refuses to materialise any API token (including the one bootstrapped from `NETBOX_SUPERUSER_API_TOKEN`) and logs `⚠️ No API token was created as API_TOKEN_PEPPERS is not set`. Generate with `python -c 'import secrets; print(secrets.token_urlsafe(50))'`. Rotating this value invalidates every existing API token.
    - `NETBOX_DB_PASSWORD` — Postgres password. Used by the netbox container *and* the postgres container; both reference the same secret.
    - `NETBOX_REDIS_PASSWORD` — password for the redis broker (queue).
    - `NETBOX_REDIS_CACHE_PASSWORD` — password for the redis cache. Distinct from the broker password by upstream convention.
    - `NETBOX_SUPERUSER_NAME` — typically `admin` or your own username.
    - `NETBOX_SUPERUSER_EMAIL` — used for password-reset email and as the `From:` address on outbound mail; can be a placeholder if email is not configured.
    - `NETBOX_SUPERUSER_PASSWORD` — the initial superuser password. Plan to rotate via the UI on first login.
-   - `NETBOX_SUPERUSER_API_TOKEN` — a 40-char hex string. Generate with `python -c 'import secrets; print(secrets.token_hex(20))'`. Pre-seeding it lets you script-bootstrap NetBox before logging in to issue one.
+   - `NETBOX_SUPERUSER_API_TOKEN` — a 40-char hex string. Generate with `python -c 'import secrets; print(secrets.token_hex(20))'`. Pre-seeding it lets you script-bootstrap NetBox before logging in to issue one. Requires `NETBOX_API_TOKEN_PEPPER_1` to be set or NetBox will silently skip token creation on first boot.
 
    The compose file references each via `lookup('ansible.builtin.env', 'NETBOX_*')`, the same pattern as litellm and the arrs. A missing secret surfaces as an Ansible templating error before the stack ever starts.
 
 ### 1. First boot
 
-After `terraform_lxc 215` and `ansible_lxc 215` succeed, the netbox container's startup script runs database migrations, applies static-asset collection, and creates the superuser from the `SUPERUSER_*` env vars. The whole thing typically takes 60–90 seconds; the healthcheck polls `/login/` every 15s and only marks healthy after that endpoint returns. The worker waits on the netbox healthcheck before starting; postgres and the two valkey instances must all be healthy before netbox starts.
+After `terraform_lxc 215` and `ansible_lxc 215` succeed, the netbox container's startup script runs database migrations, applies static-asset collection, and creates the superuser from the `SUPERUSER_*` env vars. On first boot this routinely takes 90–180 seconds; the healthcheck has a 300s `start_period` to keep `docker compose up -d` from declaring the dependent worker dead while migrations are still running. The healthcheck polls `/login/` every 15s and only marks the container healthy after that endpoint returns 200. Postgres and the two valkey instances must all be healthy before netbox starts; the worker waits on netbox's healthcheck before starting.
+
+If the Ansible apply fails with `dependency netbox failed to start: container netbox is unhealthy`, check whether netbox itself eventually went healthy — it usually does — and re-run the apply. The second run is a no-op for postgres/redis and lets the worker start now that netbox is past its bootstrap.
 
 Verify all five containers are healthy:
 
