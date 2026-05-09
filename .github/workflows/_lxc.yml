@@ -1,5 +1,5 @@
 name: LXC
-run-name: LXC ${{ inputs.vmid }}
+run-name: LXC ${{ inputs.vmid }} (${{ inputs.tf_action }})
 
 on:
   workflow_call:
@@ -20,9 +20,25 @@ on:
   workflow_dispatch:
     inputs:
       vmid:
-        type: string
+        type: choice
         required: true
         description: lxc id
+        options:
+          - 100 - pihole
+          - 110 - nginx
+          - 201 - bind9
+          - 202 - ntfy
+          - 203 - fileserver
+          - 204 - jellyfin
+          - 205 - dockerhost
+          - 206 - homeassistant
+          - 207 - localai
+          - 208 - cloudflared
+          - 209 - signumminer
+          - 210 - prometheus
+          - 211 - n8n
+          - 212 - mosquitto
+          - 213 - netalertx
       tf_action:
         type: choice
         required: true
@@ -44,16 +60,24 @@ concurrency: lxc
 jobs:
   RunLXC:
     runs-on: self-hosted
+    env:
+      VMID_RAW: ${{ inputs.vmid }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Resolve VMID
+        id: vmid
+        # Dropdown labels look like "212 - mosquitto"; the matrix passes raw
+        # "212". Strip everything after the first space; on a bare integer
+        # this is a no-op.
+        run: echo "value=${VMID_RAW%% *}" >> "$GITHUB_OUTPUT"
       - name: Terraform
         id: terraform
-        run: ./run/execute_runner terraform_lxc ${{ inputs.vmid }} ${{ inputs.tf_action }}
+        run: ./run/execute_runner terraform_lxc ${{ steps.vmid.outputs.value }} ${{ inputs.tf_action }}
       - name: Ansible
         id: ansible
         if: ${{ inputs.tf_action == 'apply' }}
-        run: ./run/execute_runner ansible_lxc ${{ inputs.vmid }}
+        run: ./run/execute_runner ansible_lxc ${{ steps.vmid.outputs.value }}
       - name: Generate Step Summary
         if: always()
         run: |

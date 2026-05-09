@@ -204,6 +204,40 @@ else
   fail 'external-host playbook syntax-check'
 fi
 
+# ─── workflow dropdown sync ─────────────────────────────────────
+# Confirm the workflow_dispatch dropdown options on _lxc.yml / _vm.yml stay
+# in 1:1 sync with the per-VMID YAML files. Catches the case where someone
+# adds a new container or VM and forgets to update the dropdown (or the
+# reverse — stale dropdown entry pointing at a VMID that no longer exists).
+check_workflow_dropdown() {
+  local kind="${1}"        # "lxc" or "vm"
+  local config_glob="${2}" # "config/lxc/*.yaml"
+  local workflow="${3}"    # ".github/workflows/_lxc.yml"
+
+  local expected actual
+  expected=$(shopt -s nullglob; for cfg in ${config_glob}; do
+    local vmid hostname
+    vmid=$(basename "${cfg}" .yaml)
+    hostname=$(yq -r '.terraform.hostname' "${cfg}")
+    echo "${vmid} - ${hostname}"
+  done | sort)
+  actual=$(yq -r '.["on"].workflow_dispatch.inputs.vmid.options[]' "${workflow}" | sort)
+
+  if [ "${expected}" = "${actual}" ]; then
+    ok "workflow dropdown sync (${kind})"
+  else
+    printf 'expected (from %s):\n%s\n\nactual (from %s):\n%s\n' \
+      "${config_glob}" "${expected}" "${workflow}" "${actual}"
+    fail "workflow dropdown sync (${kind})"
+  fi
+}
+
+section 'workflow dropdown sync (lxc)'
+check_workflow_dropdown lxc 'config/lxc/*.yaml' '.github/workflows/_lxc.yml'
+
+section 'workflow dropdown sync (vm)'
+check_workflow_dropdown vm 'config/vm/*.yaml' '.github/workflows/_vm.yml'
+
 # ─── summary ────────────────────────────────────────────────────
 printf '\n'
 if [ "${failed}" -eq 0 ]; then

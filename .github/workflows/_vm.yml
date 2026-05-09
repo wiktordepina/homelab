@@ -1,5 +1,5 @@
 name: VM
-run-name: VM ${{ inputs.vmid }}
+run-name: VM ${{ inputs.vmid }} (${{ inputs.tf_action }})
 
 on:
   workflow_call:
@@ -20,9 +20,11 @@ on:
   workflow_dispatch:
     inputs:
       vmid:
-        type: string
+        type: choice
         required: true
         description: vm id
+        options:
+          - 214 - vm-01
       tf_action:
         type: choice
         required: true
@@ -44,16 +46,24 @@ concurrency: vm
 jobs:
   RunVM:
     runs-on: self-hosted
+    env:
+      VMID_RAW: ${{ inputs.vmid }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Resolve VMID
+        id: vmid
+        # Dropdown labels look like "214 - vm-01"; the matrix passes raw
+        # "214". Strip everything after the first space; on a bare integer
+        # this is a no-op.
+        run: echo "value=${VMID_RAW%% *}" >> "$GITHUB_OUTPUT"
       - name: Terraform
         id: terraform
-        run: ./run/execute_runner terraform_vm ${{ inputs.vmid }} ${{ inputs.tf_action }}
+        run: ./run/execute_runner terraform_vm ${{ steps.vmid.outputs.value }} ${{ inputs.tf_action }}
       - name: Ansible
         id: ansible
         if: ${{ inputs.tf_action == 'apply' }}
-        run: ./run/execute_runner ansible_vm ${{ inputs.vmid }}
+        run: ./run/execute_runner ansible_vm ${{ steps.vmid.outputs.value }}
       - name: Generate Step Summary
         if: always()
         run: |
