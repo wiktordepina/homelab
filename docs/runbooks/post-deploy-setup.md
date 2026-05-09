@@ -131,6 +131,77 @@ NetAlertX supports several notification channels (ntfy, email, webhook, Apprise)
 
 This step is interactive: the channel selection, the topic name, and the alert thresholds are all UI-driven configuration that NetAlertX itself owns.
 
+## NetBox
+
+### What the service is
+
+NetBox is the homelab's IPAM and source-of-truth model: prefixes, IP addresses, VLANs, devices, virtual machines, and their relationships. It runs as a multi-container docker stack deployed via the `containers` Ansible role from `config/docker/netbox/`, in a dedicated LXC (215) at `10.20.1.215`. The stack contains five services: the NetBox web app (port `8080`), an RQ worker, a Postgres database, a Redis broker (queue), and a Redis cache. Persistent state for postgres, the redis broker, and media/reports/scripts is bind-mounted from `/zpool/netbox` on the host through `/mnt/netbox` in the LXC. The redis cache is intentionally ephemeral.
+
+NetBox is reached from a browser at `https://netbox.homelab.matagoth.com`. Behind the proxy it speaks plain HTTP on `:8080`.
+
+### Pre-flight (one-off)
+
+Before triggering `homelab_iac.yml` for VMID 215 the very first time:
+
+1. **PVE host:** create the dataset and the five subdirectories the stack will mount. Postgres and the redis broker each need their own subdir; the rest follow upstream's `/opt/netbox/netbox/{media,reports,scripts}` layout. Run on PVE as root:
+
+   ```
+   zfs create zpool/netbox
+   mkdir -p /zpool/netbox/{postgres,redis,media,reports,scripts}
+   chown -R 999:999 /zpool/netbox/postgres
+   chown -R 999:999 /zpool/netbox/redis
+   chown -R 0:0 /zpool/netbox/{media,reports,scripts}
+   ```
+
+   The UID `999` matches the postgres/valkey container user; the netbox container itself runs as `netbox:root` and writes to media/reports/scripts via root-group writability.
+
+2. **Runner secrets** in `/pve/secrets/` (or wherever the runner sources environment from). NetBox requires eight values; six are core, two are the auto-bootstrap superuser:
+
+   - `NETBOX_SECRET_KEY` — Django session key. Must be at least 50 characters, cryptographically random. Generate with `python -c 'import secrets; print(secrets.token_urlsafe(64))'`.
+   - `NETBOX_DB_PASSWORD` — Postgres password. Used by the netbox container *and* the postgres container; both reference the same secret.
+   - `NETBOX_REDIS_PASSWORD` — password for the redis broker (queue).
+   - `NETBOX_REDIS_CACHE_PASSWORD` — password for the redis cache. Distinct from the broker password by upstream convention.
+   - `NETBOX_SUPERUSER_NAME` — typically `admin` or your own username.
+   - `NETBOX_SUPERUSER_EMAIL` — used for password-reset email and as the `From:` address on outbound mail; can be a placeholder if email is not configured.
+   - `NETBOX_SUPERUSER_PASSWORD` — the initial superuser password. Plan to rotate via the UI on first login.
+   - `NETBOX_SUPERUSER_API_TOKEN` — a 40-char hex string. Generate with `python -c 'import secrets; print(secrets.token_hex(20))'`. Pre-seeding it lets you script-bootstrap NetBox before logging in to issue one.
+
+   The compose file references each via `lookup('ansible.builtin.env', 'NETBOX_*')`, the same pattern as litellm and the arrs. A missing secret surfaces as an Ansible templating error before the stack ever starts.
+
+### 1. First boot
+
+After `terraform_lxc 215` and `ansible_lxc 215` succeed, the netbox container's startup script runs database migrations, applies static-asset collection, and creates the superuser from the `SUPERUSER_*` env vars. The whole thing typically takes 60–90 seconds; the healthcheck polls `/login/` every 15s and only marks healthy after that endpoint returns. The worker waits on the netbox healthcheck before starting; postgres and the two valkey instances must all be healthy before netbox starts.
+
+Verify all five containers are healthy:
+
+```
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+```
+
+Expected output: `netbox`, `netbox-worker`, `netbox-postgres`, `netbox-redis`, `netbox-redis-cache`, all `Up ... (healthy)`.
+
+### 2. Trust the reverse proxy
+
+NetBox enforces `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` strictly. The compose pre-populates both with `netbox.homelab.matagoth.com`, `netbox.home.matagoth.com`, and the LXC IP. If you reach the UI through any other hostname (a Tailscale magic-DNS name, an alternative domain, etc.), the login form will POST a CSRF token and NetBox will reject it with a 403. The fix is to add the new hostname to both env vars in the compose, redeploy, and try again.
+
+### 3. Rotate the superuser password
+
+The superuser exists from first boot, with the password from `NETBOX_SUPERUSER_PASSWORD`. Log in at `https://netbox.homelab.matagoth.com/`, click the user menu, and change the password. The bootstrap secret is then unused; future logins use the new password. Rotate the secret in `/pve/secrets/` to match if you ever rebuild the LXC and want the bootstrap path to recreate the same user.
+
+### 4. Seed the model
+
+Before NetBox is useful as a source of truth, the homelab's existing topology has to be entered. The minimum viable seed:
+
+- **Sites:** one site, "homelab", representing the rack. NetBox uses sites as a primary grouping for everything that follows.
+- **VLANs:** declare VLAN 1 (management, untagged on most ports), VLAN 10 (CORE), VLAN 50 (IOT). Optionally VLAN ranges (`Cloud`, `LoT`) if you ever expand.
+- **Prefixes:** the five `/16`s (`192.168.0.0/16` mgmt, `10.20.0.0/16` DMZ, `10.10.0.0/16` CORE, `10.50.0.0/16` IOT, `10.100.0.0/16` DIRECT). Each prefix is bound to its VLAN and site.
+- **Virtual machines:** one entry per LXC + VM in the fleet, with the primary IP as `10.20.1.<vmid>` and the VMID stored in a custom field for searchability.
+- **IP addresses:** the static reservations from OPNsense (`192.168.200.x`) and the secondary-NIC entries for any multi-homed LXC like NetAlertX (`<subnet>.250.<vmid>`).
+
+CSV import is the path of least resistance for the prefixes and IP addresses. The MACs and hostnames are sourceable from the most recent OPNsense `config.xml` export.
+
+This step is *interactive and slow* the first time. Budget an hour. The reward is that every subsequent question of the form "is `<ip>` in use?" or "what device owns this MAC?" has a single authoritative answer.
+
 ## Adding a new entry
 
 When provisioning a new service that has manual setup, add a section under this runbook using the same shape as the worked example: what the service is, then a numbered or bulleted list of post-deploy steps. For each step, name what cannot be automated and why; this both helps whoever performs the procedure next and identifies which steps are temporary versus inherent.

@@ -54,6 +54,13 @@ resource "dns_a_record_set" "netalertx" {
   ttl       = 500
 }
 
+resource "dns_a_record_set" "netbox" {
+  zone      = "home.matagoth.com."
+  name      = "netbox"
+  addresses = ["10.20.1.215"]
+  ttl       = 500
+}
+
 resource "dns_a_record_set" "mait" {
   zone      = "home.matagoth.com."
   name      = "mait"

@@ -21,3 +21,4 @@ nginx_reverse_proxy_servers:
   mait: http://10.20.30.40:8080/
   homeassistant: http://10.20.1.206:8123/
   netalertx: http://10.20.1.213:20211/
+  netbox: http://10.20.1.215:8080/

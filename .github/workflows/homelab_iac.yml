@@ -49,6 +49,7 @@ jobs:
           - 211   # n8n
           - 212   # mosquitto
           - 213   # NetAlertX
+          - 215   # NetBox
     uses: ./.github/workflows/_lxc.yml
     secrets: inherit
     with:
