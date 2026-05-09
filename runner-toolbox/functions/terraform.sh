@@ -156,6 +156,90 @@ run_terraform_lxc() {
   run_terraform "${tf_action}" "${tf_dir}" "${tf_statefile}"
 }
 
+# inject_tf_var_for_vm - Injects a single Terraform variable for a VM.
+#
+# Description:
+#   Same shape as inject_tf_var_for_lxc but reads from config/vm/<vmid>.yaml.
+#
+# Usage:
+#   inject_tf_var_for_vm <vmid> <output_folder> <var_name>
+inject_tf_var_for_vm() {
+  local vmid="${1}"          ; check_null vmid "${1}"
+  local output_folder="${2}" ; check_null output_folder "${2}"
+  local var_name="${3}"      ; check_null var_name "${3}"
+
+  local type
+  type=$(vm_config "${vmid}" ".terraform.${var_name} | type")
+
+  local value
+  case "${type}" in
+    string)
+      value=$(vm_config "${vmid}" ".terraform.${var_name}")
+      [[ -n "${value}" ]] && echo "${var_name}=\"${value}\"" >> "${output_folder}/terraform.tfvars"
+      ;;
+    array|object)
+      value=$(vm_config "${vmid}" ".terraform.${var_name} | tojson")
+      [[ -n "${value}" && "${value}" != 'null' ]] && echo "${var_name}=${value}" >> "${output_folder}/terraform.tfvars"
+      ;;
+    null)
+      ;;
+    *)
+      value=$(vm_config "${vmid}" ".terraform.${var_name}")
+      [[ -n "${value}" ]] && echo "${var_name}=${value}" >> "${output_folder}/terraform.tfvars"
+      ;;
+  esac
+}
+
+# inject_tf_vm_config - Injects the full Terraform variable set for a VM.
+#
+# Description:
+#   Mirrors inject_tf_lxc_config. Reads .terraform fields from
+#   config/vm/<vmid>.yaml, plus the runner-side ssh keys and
+#   start_after_creation flag.
+#
+# Usage:
+#   inject_tf_vm_config <vmid> <output_folder>
+inject_tf_vm_config() {
+  local vmid="${1}"          ; check_null vmid "${1}"
+  local output_folder="${2}" ; check_null output_folder "${2}"
+
+  local keys
+  keys=$(vm_config "${vmid}" '.terraform | keys | @csv' | tr -d '"')
+  IFS=',' read -ra keys <<< "${keys}"
+  for key in "${keys[@]}"; do
+    inject_tf_var_for_vm "${vmid}" "${output_folder}" "${key}"
+  done
+  {
+    echo "ssh_public_keys = <<-EOT"
+    echo "$(cat config/worker_id_rsa.pub)"
+    echo "$(cat config/root_pve_id_rsa.pub)"
+    echo "EOT"
+  } >> "${output_folder}/terraform.tfvars"
+}
+
+# run_terraform_vm - Run Terraform scripts for a VM.
+#
+# Description:
+#   Mirror of run_terraform_lxc, targeting terraform/vm and a per-VMID
+#   statefile under TF_STATEFILE_BASEDIR.
+#
+# Usage:
+#   run_terraform_vm <vmid> <tf_action>
+#
+# Parameters:
+#   <vmid>      - The VMID.
+#   <tf_action> - plan|apply|plan_destroy|destroy
+run_terraform_vm() {
+  local vmid="${1}"      ; check_null vmid "${1}"
+  local tf_action="${2}" ; check_null tf_action "${2}"
+
+  local tf_dir='terraform/vm'
+  local tf_statefile="${TF_STATEFILE_BASEDIR}/vm-${vmid}.tfstate"
+
+  inject_tf_vm_config "${vmid}" "${tf_dir}"
+  run_terraform "${tf_action}" "${tf_dir}" "${tf_statefile}"
+}
+
 # run_terraform_dns - Run Terraform scripts for DNS records.
 #
 # Description:

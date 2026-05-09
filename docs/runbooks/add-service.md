@@ -8,9 +8,9 @@ The same lockstep applies, in reverse, to removing a service. A short section at
 
 Two decisions are worth making before touching any files.
 
-**LXC or stack?** If the service warrants its own kernel and address — needs host networking, exclusive device access, or substantial resources — give it a dedicated LXC. If it is a small docker-compose unit that can share a host with similar services, make it a stack under `config/docker/<name>/`. The reasoning is in [reference/docker-stacks](../reference/docker-stacks.md).
+**LXC, VM, or stack?** Default to an LXC. Pick a VM (`config/vm/<vmid>.yaml`) only when the workload needs a separate kernel — anything that depends on a kernel subsystem the host scopes to its own namespace (Bluetooth being the canonical example), needs to load modules the host should not be carrying, or needs USB pass-through smoother than LXC's cgroup/bind dance can deliver. The decision rule is in [reference/vm-schema](../reference/vm-schema.md). Pick a stack under `config/docker/<name>/` for small docker-compose units that can share a host with similar services; the reasoning is in [reference/docker-stacks](../reference/docker-stacks.md).
 
-**Pick a VMID.** Choose a free number in the appropriate range: `100–199` for infrastructure, `200–499` for applications, `500–599` for runners. The number becomes the service's identity (its address `10.20.1.<vmid>`, its hostname under `home.matagoth.com`, its file `config/lxc/<vmid>.yaml`) for as long as the service exists; choose deliberately.
+**Pick a VMID.** Choose a free number in the appropriate range: `100–199` for infrastructure, `200–499` for applications, `500–599` for runners. The number becomes the service's identity (its address `10.20.1.<vmid>`, its hostname under `home.matagoth.com`, its file `config/lxc/<vmid>.yaml` or `config/vm/<vmid>.yaml`) for as long as the service exists; choose deliberately. VMs and LXCs share the VMID space — Proxmox enforces uniqueness across both.
 
 For a stack, no VMID is allocated — the stack inherits the host LXC's identity.
 
@@ -27,6 +27,23 @@ A new LXC service touches the following layers. All of them belong in one commit
 7. **Secrets**, if the service needs them. Add the credentials to `/pve/secrets/` on the host in the same shell-script form as the others, and reference them from the role's variables (via `lookup('ansible.builtin.env', '<NAME>')`) or from a templated environment value in the relevant compose file.
 
 Anything genuinely service-specific that you would need to know later — credentials it needs, manual steps after first apply, idiosyncratic upstream behaviour — is captured either in the role's notes or in the [post-deploy-setup runbook](post-deploy-setup.md).
+
+## The lockstep, for a new VM
+
+A VM service touches the same layers as an LXC, with two structural differences: the declaration lives under `config/vm/<vmid>.yaml`, and the `bluetooth_host`-style host-side companion role of an LXC special case is not needed because VMs have their own kernel.
+
+1. **VM declaration.** Add `config/vm/<vmid>.yaml`. Schema and field reference: [reference/vm-schema](../reference/vm-schema.md). USB pass-through, when needed, is declared as a list under `usb_passthrough:` — no host-side cgroup or bind-mount setup required.
+2. **Configuration role, if needed.** Roles target the VM over SSH on the same `10.20.1.<vmid>` address as for LXCs; an Ansible role written for an LXC works inside a VM unchanged unless it relies on LXC-specific kernel behaviour.
+3. **Internal DNS, reverse proxy, monitoring scrape, secrets.** Identical to the LXC procedure; the kind of guest is invisible to these layers.
+4. **CI matrix.** Add the VMID under the `DeployVMs` job in `.github/workflows/homelab_iac.yml` (separate matrix from `DeployLXCs`).
+5. **Cloud-init template.** A VM clones from the default Debian template at VMID 9000. If it does not yet exist, build it once via [build-vm-template](build-vm-template.md) — this is a one-off bootstrap, not part of every-service procedure.
+
+Apply the VM the same way as an LXC, replacing `terraform_lxc`/`ansible_lxc` with `terraform_vm`/`ansible_vm`:
+
+```bash
+./run/execute_runner terraform_vm <vmid> apply
+./run/execute_runner ansible_vm <vmid>
+```
 
 ## The lockstep, for a stack on a shared host
 
@@ -60,6 +77,14 @@ The full set of `./run/execute_runner` operations:
 # Per-LXC configuration
 ./run/execute_runner ansible_lxc <vmid>
 
+# Per-VM provisioning
+./run/execute_runner terraform_vm <vmid> plan
+./run/execute_runner terraform_vm <vmid> apply
+./run/execute_runner terraform_vm <vmid> destroy
+
+# Per-VM configuration
+./run/execute_runner ansible_vm <vmid>
+
 # Cross-cutting DNS
 ./run/execute_runner terraform_dns plan
 ./run/execute_runner terraform_dns apply
@@ -67,8 +92,9 @@ The full set of `./run/execute_runner` operations:
 # Hypervisor configuration
 ./run/execute_runner ansible_pve
 
-# Diagnostics: render the per-container playbook without running it
+# Diagnostics: render the per-host playbook without running it
 ./run/execute_runner render_lxc_playbook <vmid>
+./run/execute_runner render_vm_playbook <vmid>
 ```
 
 ## Worked example: a new dedicated-LXC service

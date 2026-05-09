@@ -93,6 +93,15 @@ else
   fail 'terraform validate (lxc)'
 fi
 
+section 'terraform validate (vm)'
+if validate_tf_dir terraform/vm 'hostname = "stub"
+ip_address = "10.0.0.1/16"
+'; then
+  ok 'terraform validate (vm)'
+else
+  fail 'terraform validate (vm)'
+fi
+
 section 'terraform validate (dns)'
 if validate_tf_dir terraform/dns 'tsig_key = "stub"
 '; then
@@ -139,6 +148,33 @@ if [ "${syntax_failed}" -eq 0 ]; then
   ok 'lxc playbook syntax-check'
 else
   fail 'lxc playbook syntax-check'
+fi
+
+# ─── playbook syntax check for every VM config ─────────────────
+# Same intent as the LXC loop: catch typos in VM YAML before they surface
+# during a real ansible_vm run. The shopt is so an empty config/vm/
+# directory does not produce a literal pattern.
+section 'render_vm_playbook + ansible-playbook --syntax-check'
+shopt -s nullglob
+vm_syntax_failed=0
+for cfg in config/vm/*.yaml; do
+  vmid=$(basename "${cfg}" .yaml)
+  playbook=$(render_vm_playbook "${vmid}" 2>&1) || {
+    printf '  %s: render_vm_playbook failed\n%s\n' "${vmid}" "${playbook}"
+    vm_syntax_failed=1
+    continue
+  }
+  if ! printf '%s' "${playbook}" | ansible-playbook --syntax-check /dev/stdin > /tmp/syntax.log 2>&1; then
+    printf '  %s: syntax-check failed\n' "${vmid}"
+    cat /tmp/syntax.log
+    vm_syntax_failed=1
+  fi
+done
+shopt -u nullglob
+if [ "${vm_syntax_failed}" -eq 0 ]; then
+  ok 'vm playbook syntax-check'
+else
+  fail 'vm playbook syntax-check'
 fi
 
 # ─── playbook syntax check for every external-host config ──────

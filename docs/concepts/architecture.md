@@ -32,7 +32,7 @@ See [runner-model](runner-model.md) and [secrets-and-state](secrets-and-state.md
 
 The homelab is one box. The codeowner considered a cluster and rejected it: a cluster would introduce orchestration, scheduling, distributed state, and a category of operational concerns that are uninteresting at this scale. One Proxmox host is sufficient and stays sufficient.
 
-LXC was chosen over full virtual machines because most services here are Linux processes that benefit from low overhead and direct kernel access (especially for GPU passthrough, host networking, and ZFS mounts). Full VMs are reserved for cases that genuinely need a separate kernel, of which there are currently none.
+LXC is the default for most services because Linux processes benefit from the low overhead and direct kernel access (GPU passthrough, host networking, ZFS mounts). Full VMs are supported alongside LXCs for the cases an LXC cannot serve cleanly: workloads that depend on a kernel subsystem the host kernel scopes to its own namespace (Bluetooth being the canonical example), workloads that need kernel modules the host should not run, or workloads that need a different kernel entirely. The decision rule is in [reference/vm-schema](../reference/vm-schema.md): pick LXC unless something specific forces a VM, and pay the extra memory and slower boot only when you have to.
 
 Containers run *one service each*, with rare exceptions where a shared docker host makes more sense (small stacks that do not justify a dedicated container). That carve-out is described in [reference/docker-stacks](../reference/docker-stacks.md).
 

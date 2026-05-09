@@ -48,6 +48,30 @@ lxc_config() {
   yq -r "${query}" "config/lxc/${vmid}.yaml"
 }
 
+# vm_config - Gets VM settings.
+#
+# Description:
+#   This function returns configuration for a Proxmox QEMU VM.
+#
+# Usage:
+#   vm_config <vmid> <query>
+#
+# Parameters:
+#   <vmid>  - The ID of the VM.
+#   <query> - The query to be executed on the VM configuration file.
+#
+# Returns:
+#   The value of the query executed on the VM configuration file.
+#
+# Example:
+#   vm_config 214 '.terraform.ip_address'
+vm_config() {
+  local vmid="${1}"  ; check_null vmid "${1}"
+  local query="${2}" ; check_null query "${2}"
+
+  yq -r "${query}" "config/vm/${vmid}.yaml"
+}
+
 # external_host_config - Gets external-host settings.
 #
 # Description:
