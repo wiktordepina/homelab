@@ -71,6 +71,11 @@ variable "usb_passthrough" {
     host = string
   }))
   default = []
+
+  validation {
+    condition     = length(var.usb_passthrough) <= 1
+    error_message = "The VM module currently exposes only one USB slot (usb0). Extend main.tf with usb1..usb4 dynamic blocks before increasing this limit."
+  }
 }
 
 variable "extra_networks" {
