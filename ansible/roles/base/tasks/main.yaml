@@ -4,14 +4,15 @@
     update_cache: true
     upgrade: "yes"
 
-# qemu-guest-agent ships preinstalled on Debian generic-cloud images but is
-# not enabled on first boot. Without it running, `agent = 1` in the VM's
-# Terraform resource is a lie — Proxmox falls back to ACPI for shutdowns and
-# `qm guest cmd` fails. The role gates on virtualization type so LXCs and
-# bare-metal hosts are unaffected.
-- name: QEMU guest agent (KVM guests only)
+# Block of KVM-guest-only setup. Each task gates on virtualization type so
+# LXCs and bare-metal hosts are unaffected.
+- name: KVM guest setup
   when: ansible_virtualization_type == "kvm"
   block:
+    # qemu-guest-agent ships preinstalled on Debian generic-cloud images but
+    # is not enabled on first boot. Without it running, `agent = 1` in the
+    # VM's Terraform resource is a lie — Proxmox falls back to ACPI for
+    # shutdowns and `qm guest cmd` fails.
     - name: Install qemu-guest-agent
       ansible.builtin.apt:
         name: qemu-guest-agent
@@ -21,3 +22,26 @@
         name: qemu-guest-agent
         enabled: true
         state: started
+
+    # The Debian generic-cloud image we clone from ships the *cloud* kernel,
+    # which is a minimised build that omits whole driver subsystems (USB,
+    # most of bluetooth, several SCSI HBAs). For homelab guests with USB
+    # pass-through or any non-trivial hardware, we need the full kernel.
+    # Install it, purge the cloud one, and reboot if anything changed.
+    - name: Install full Debian kernel
+      ansible.builtin.apt:
+        name: linux-image-amd64
+        state: present
+      register: full_kernel_install
+    - name: Purge cloud kernel meta-package and image
+      ansible.builtin.apt:
+        name:
+          - linux-image-cloud-amd64
+        state: absent
+        purge: true
+        autoremove: true
+      register: cloud_kernel_purge
+    - name: Reboot into the full kernel
+      ansible.builtin.reboot:
+        msg: Switching from cloud kernel to full Debian kernel
+      when: full_kernel_install.changed or cloud_kernel_purge.changed
