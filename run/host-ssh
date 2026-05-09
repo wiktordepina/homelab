@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# SSH into a homelab host (LXC or VM) by VMID. Resolves the IP from
+# config/lxc/<vmid>.yaml or config/vm/<vmid>.yaml and connects directly. Bare
+# IPs throughout so it works when homelab DNS is down. Run host-key-push <vmid>
+# first if your laptop key isn't on the host yet.
+#
+# Usage:
+#   host-ssh <vmid> [ssh-args | remote-command]
+#
+# Examples:
+#   host-ssh 206
+#   host-ssh 206 systemctl status docker
+#   host-ssh 214 -L 8123:localhost:8123
+#
+# Environment overrides:
+#   HOST_USER  user inside the host (default: root)
+
+set -euo pipefail
+
+HOST_USER="${HOST_USER:-root}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; }
+
+if [[ $# -lt 1 || "$1" == "-h" || "$1" == "--help" ]]; then
+  usage; exit 0
+fi
+
+command -v yq >/dev/null || { echo "host-ssh: yq not found in PATH" >&2; exit 1; }
+
+vmid="$1"; shift
+
+resolve_yaml() {
+  local vmid="$1"
+  local hits=()
+  for dir in lxc vm; do
+    [[ -f "$REPO_ROOT/config/$dir/$vmid.yaml" ]] && hits+=("$REPO_ROOT/config/$dir/$vmid.yaml")
+  done
+  if [[ ${#hits[@]} -eq 0 ]]; then
+    echo "host-ssh: no config for VMID $vmid in config/lxc/ or config/vm/" >&2
+    return 1
+  fi
+  if [[ ${#hits[@]} -gt 1 ]]; then
+    echo "host-ssh: VMID $vmid declared in multiple places: ${hits[*]}" >&2
+    return 1
+  fi
+  printf '%s' "${hits[0]}"
+}
+
+yaml="$(resolve_yaml "$vmid")"
+cidr="$(yq -r '.terraform.ip_address' "$yaml")"
+[[ -n "$cidr" && "$cidr" != "null" ]] || {
+  echo "host-ssh: terraform.ip_address not found in $yaml" >&2; exit 1
+}
+ip="${cidr%%/*}"
+
+exec ssh -o StrictHostKeyChecking=accept-new "${HOST_USER}@${ip}" "$@"
