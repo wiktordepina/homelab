@@ -3,3 +3,21 @@
   ansible.builtin.apt:
     update_cache: true
     upgrade: "yes"
+
+# qemu-guest-agent ships preinstalled on Debian generic-cloud images but is
+# not enabled on first boot. Without it running, `agent = 1` in the VM's
+# Terraform resource is a lie — Proxmox falls back to ACPI for shutdowns and
+# `qm guest cmd` fails. The role gates on virtualization type so LXCs and
+# bare-metal hosts are unaffected.
+- name: QEMU guest agent (KVM guests only)
+  when: ansible_virtualization_type == "kvm"
+  block:
+    - name: Install qemu-guest-agent
+      ansible.builtin.apt:
+        name: qemu-guest-agent
+        state: present
+    - name: Enable qemu-guest-agent service
+      ansible.builtin.systemd:
+        name: qemu-guest-agent
+        enabled: true
+        state: started

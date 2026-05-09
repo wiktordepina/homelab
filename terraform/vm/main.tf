@@ -10,7 +10,7 @@ resource "proxmox_vm_qemu" "vm" {
   sockets  = var.cpu_socket_count
   cores    = var.cpu_core_count
   memory   = var.memory
-  scsihw   = "virtio-scsi-pci"
+  scsihw   = "virtio-scsi-single"
   onboot   = var.start_on_boot
   vm_state = "running"
   # The clone-from-template path resets boot order to net0 (PXE) unless we
