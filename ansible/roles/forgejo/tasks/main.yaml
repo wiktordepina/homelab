@@ -1,4 +1,16 @@
 ---
+- name: Install forgejo host dependencies
+  # Forgejo shells out to git for every repository operation and to git-lfs
+  # when LFS is enabled; both must be on the host PATH or the web server
+  # exits during initialisation.
+  ansible.builtin.apt:
+    name:
+      - git
+      - git-lfs
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
 - name: Create forgejo group
   ansible.builtin.group:
     name: "{{ forgejo_group }}"
