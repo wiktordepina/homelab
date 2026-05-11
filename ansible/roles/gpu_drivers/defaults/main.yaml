@@ -1,0 +1,8 @@
+---
+# Auto-detect: bare metal (PVE host) wants the kernel module, LXC wants
+# only userspace. Override per-call when this needs forcing either way.
+gpu_drivers_install_kernel_module: "{{ ansible_virtualization_type != 'lxc' }}"
+
+# NVIDIA's CUDA apt repo for Debian 13 (trixie). Same source on host and
+# guests so kernel-module and userspace versions stay locked together.
+gpu_drivers_nvidia_repo_base: https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64

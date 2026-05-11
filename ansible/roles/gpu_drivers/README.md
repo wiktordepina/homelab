@@ -1,51 +1,60 @@
 # gpu_drivers
 
-NVIDIA GPU driver installation role.
+NVIDIA proprietary driver installation, sourced from NVIDIA's CUDA apt repo (Debian 13).
 
 ## Description
 
-This role installs NVIDIA GPU drivers for hardware acceleration in LXC containers.
+Installs the NVIDIA driver in one of two modes, auto-selected by host type:
 
-## Tasks
+- **Bare metal (PVE host)** — kernel headers (tracking the running kernel via `proxmox-default-headers`), DKMS-built kernel module, full userspace, and the persistence daemon. DKMS rebuilds the module on every kernel upgrade.
+- **LXC** — userspace only (`nvidia-driver-cuda` and the libs it pulls: `libnvidia-encode1`, `libnvcuvid1`, `nvidia-smi`, `nvidia-persistenced`). The kernel module is supplied by the host via bind-mounted `/dev/nvidia*` device files declared in the container's `pve_extra` section.
 
-- Installs NVIDIA driver packages
-- Configures driver for container use
-
-## Requirements
-
-- Debian-based OS
-- NVIDIA GPU passed through to container
-- Privileged container mode
+Both modes use the same apt source so kernel-module and userspace versions stay locked together — userspace libs talk to the kernel module via a versioned ABI and a mismatch breaks `nvidia-smi`, NVENC, and CUDA workloads.
 
 ## Variables
 
-Refer to `vars/main.yaml` for driver version configuration.
+- `gpu_drivers_install_kernel_module` — whether to install the kernel module and headers. Defaults to `true` on bare metal, `false` inside an LXC. Override only when you need to force one mode (e.g. test the userspace path on a bare-metal box).
+- `gpu_drivers_nvidia_repo_base` — base URL of the NVIDIA CUDA apt repo. Defaults to NVIDIA's debian13 path.
 
 ## Dependencies
 
 - `base`
 
-## Example Usage
+## Example usage
+
+On the PVE host (`config/pve/playbook.yaml`):
+
+```yaml
+- name: PVE Extras
+  hosts: 192.168.200.100
+  roles:
+    - gpu_drivers
+```
+
+In an LXC that needs GPU access (`config/lxc/<vmid>.yaml`):
 
 ```yaml
 terraform:
-  unprivileged: false  # Required
+  unprivileged: false  # required for device passthrough
 
 pve_extra:
   - lxc.cgroup2.devices.allow: c 195:* rwm
   - lxc.cgroup2.devices.allow: c 234:* rwm
+  - lxc.cgroup2.devices.allow: c 238:* rwm
   - lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file
   - lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file
   - lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file
+  - lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file
 
 ansible:
   roles:
     - base
     - gpu_drivers
+    - jellyfin
 ```
 
 ## Notes
 
-- Proxmox host must have NVIDIA drivers installed
-- Container must be privileged for GPU device access
-- Used by services requiring hardware transcoding (Jellyfin) or AI workloads (LocalAI)
+- The NVIDIA CUDA repo for debian13 currently ships driver branches 590, 595, and 610. The `cuda-drivers` meta-package picks the latest. Pin via `nvidia-driver-pinning-<branch>` if you need to hold a specific branch (for example, when newer branches drop support for an older GPU generation).
+- Pascal cards (P-series Quadro, GTX 10-series) are still supported by the 590 branch but NVIDIA will eventually drop them. When that happens, install `nvidia-driver-pinning-<lastsupported>` before bumping further.
+- `nvidia-container-toolkit` (separate role) is only needed inside LXCs that run Docker workloads with GPU access. It is not used by Jellyfin (native install).
