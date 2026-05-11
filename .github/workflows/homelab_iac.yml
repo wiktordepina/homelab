@@ -51,6 +51,7 @@ jobs:
           - 213   # NetAlertX
           - 215   # NetBox
           - 216   # Forgejo
+          - 217   # Hermes Agent
     uses: ./.github/workflows/_lxc.yml
     secrets: inherit
     with:

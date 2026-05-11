@@ -1,0 +1,133 @@
+---
+- name: Install Hermes host dependencies
+  ansible.builtin.apt:
+    name:
+      - git
+      - ripgrep
+      - ffmpeg
+      - nodejs
+      - npm
+      - python3
+      - python3-pip
+      - python3-venv
+      - nftables
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create hermes group
+  ansible.builtin.group:
+    name: "{{ hermes_group }}"
+    state: present
+
+- name: Create hermes user
+  ansible.builtin.user:
+    name: "{{ hermes_user }}"
+    group: "{{ hermes_group }}"
+    home: "{{ hermes_home }}"
+    shell: /bin/bash
+    system: true
+    create_home: false
+
+- name: Create hermes config and state directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_group }}"
+    mode: '0750'
+  loop:
+    - "{{ hermes_config_dir }}"
+    - "{{ hermes_home }}"
+
+- name: Install uv into system Python
+  # uv handles the project venv at hermes_install_dir/.venv. Pinned via pip
+  # so we know exactly which uv is on the host.
+  ansible.builtin.pip:
+    name: uv
+    state: present
+    executable: pip3
+    extra_args: --break-system-packages
+
+- name: Clone hermes-agent at pinned tag
+  ansible.builtin.git:
+    repo: "{{ hermes_repo }}"
+    dest: "{{ hermes_install_dir }}"
+    version: "{{ hermes_version }}"
+    force: false
+    update: true
+  notify: Restart hermes gateway
+
+- name: Own the install dir to the hermes user
+  ansible.builtin.file:
+    path: "{{ hermes_install_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_group }}"
+
+- name: Sync hermes Python deps via uv
+  ansible.builtin.command:
+    cmd: /usr/local/bin/uv sync --frozen
+    chdir: "{{ hermes_install_dir }}"
+    creates: "{{ hermes_install_dir }}/.venv/bin/hermes"
+  become: true
+  become_user: "{{ hermes_user }}"
+  notify: Restart hermes gateway
+
+- name: Symlink hermes binary into PATH
+  ansible.builtin.file:
+    src: "{{ hermes_install_dir }}/.venv/bin/hermes"
+    dest: "{{ hermes_binary_link }}"
+    state: link
+
+- name: Template hermes config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ hermes_home }}/config.yaml"
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_group }}"
+    mode: '0640'
+  notify: Restart hermes gateway
+
+- name: Render hermes secrets env file
+  # Secrets sourced from /pve/secrets/hermes.sh on the runner at apply time.
+  # See README.md for the variables it must define.
+  ansible.builtin.template:
+    src: secrets.env.j2
+    dest: "{{ hermes_config_dir }}/secrets.env"
+    owner: root
+    group: "{{ hermes_group }}"
+    mode: '0640'
+  notify: Restart hermes gateway
+
+- name: Install hermes-gateway systemd unit
+  ansible.builtin.template:
+    src: hermes-gateway.service.j2
+    dest: /etc/systemd/system/hermes-gateway.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart hermes gateway
+
+- name: Template nftables ruleset
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload nftables
+
+- name: Enable and start nftables
+  ansible.builtin.systemd_service:
+    name: nftables
+    state: started
+    enabled: true
+
+- name: Enable and start hermes-gateway
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: hermes-gateway
+    state: started
+    enabled: true
