@@ -1,58 +1,31 @@
 ---
-# NVIDIA proprietary driver via apt, sourced from NVIDIA's CUDA repo.
-# Same source for the PVE host (kernel module + userspace) and any LXC
-# that needs only userspace (transcoding, CUDA workloads). Locking both
-# sides to one repo means kernel module and userspace libs cannot drift
-# apart across kernel upgrades.
+# NVIDIA proprietary driver via Debian's non-free repo, using the Tesla
+# 535 LTSB packages. 535 is NVIDIA's Long-Term Support Branch — the only
+# branch that still supports older GPUs (Pascal P-series, Quadro,
+# GTX 10xx) AND tracks current kernel ABI changes. The standard
+# nvidia-driver package (550.x in trixie/non-free) does not yet build
+# against kernel 6.17; the 590+ branches in NVIDIA's CUDA repo dropped
+# Pascal entirely.
+#
+# Same source on host and LXC keeps kernel module and userspace libs in
+# lockstep.
 
-- name: Install NVIDIA repo keyring
-  ansible.builtin.apt:
-    deb: "{{ gpu_drivers_nvidia_repo_base }}/cuda-keyring_1.1-1_all.deb"
-  register: gpu_drivers_keyring
-
-- name: Refresh apt cache after installing NVIDIA keyring
-  ansible.builtin.apt:
-    update_cache: true
-  when: gpu_drivers_keyring.changed
-
-# The pinning package writes /etc/apt/preferences.d/nvidia-driver-pin
-# pinning all nvidia-related packages to the chosen branch. It must be
-# installed in its own apt transaction *before* cuda-drivers, otherwise
-# apt resolves cuda-drivers to the latest version before the pin file
-# is in place.
-- name: Install driver branch pin
-  ansible.builtin.apt:
-    name: "nvidia-driver-pinning-{{ gpu_drivers_branch }}"
-    state: present
-  when: gpu_drivers_branch | length > 0
-
-# nouveau and the proprietary driver cannot share a card. Blacklist it
-# wherever the kernel module will be loaded; harmless inside an LXC.
-- name: Blacklist nouveau
-  ansible.builtin.copy:
-    dest: /etc/modprobe.d/blacklist-nouveau.conf
-    mode: "0644"
-    content: |
-      blacklist nouveau
-      options nouveau modeset=0
-  when: gpu_drivers_install_kernel_module
-  register: gpu_drivers_nouveau
-
-- name: Rebuild initramfs after blacklisting nouveau
-  ansible.builtin.command: update-initramfs -u
-  when: gpu_drivers_nouveau.changed
-
-# Host: kernel headers for the running kernel AND the default-headers
-# meta-package so DKMS rebuilds the module against (a) the current boot
-# immediately, and (b) every future kernel that proxmox-default-headers
-# tracks. cuda-drivers pulls nvidia-kernel-dkms + the userspace stack.
+# Host: kernel headers for the running kernel SERIES (e.g. 6.17). Series
+# meta-packages survive point-release upgrades (6.17.13-4 → 6.17.13-7
+# without intervention) but do NOT chase a major bump (6.17 → 7.0) that
+# the driver may not yet support. nvidia-tesla-535-driver pulls the DKMS
+# kernel module package, the userspace stack, and the persistence
+# daemon.
 - name: Install kernel module + userspace (host)
   ansible.builtin.apt:
-    name:
-      - proxmox-default-headers
-      - "proxmox-headers-{{ ansible_kernel }}"
-      - cuda-drivers
+    name: "{{ gpu_drivers_host_packages }}"
     state: present
+  vars:
+    gpu_drivers_kernel_series: "{{ ansible_kernel.split('.')[:2] | join('.') }}"
+    gpu_drivers_host_packages:
+      - "proxmox-headers-{{ gpu_drivers_kernel_series }}"
+      - nvidia-tesla-535-driver
+      - nvidia-tesla-535-kernel-dkms
   when: gpu_drivers_install_kernel_module
 
 - name: Load nvidia kernel modules
@@ -65,20 +38,16 @@
     - nvidia_modeset
   when: gpu_drivers_install_kernel_module
 
-- name: Enable nvidia-persistenced
-  ansible.builtin.systemd:
-    name: nvidia-persistenced
-    enabled: true
-    state: started
-  when: gpu_drivers_install_kernel_module
-
-# LXC: userspace only. nvidia-driver-cuda pulls libnvidia-encode1,
-# libnvcuvid1, nvidia-smi, and the persistence daemon — everything
-# Jellyfin's NVENC/NVDEC path needs. The kernel module is supplied by
-# the host via the bind-mounted /dev/nvidia* device files declared in
-# the container's pve_extra section.
+# LXC: userspace bits sufficient for hardware-accelerated transcoding
+# (Jellyfin's ffmpeg path). encode1 = NVENC, nvcuvid1 = NVDEC, smi for
+# diagnostics. The kernel module is supplied by the host via the
+# bind-mounted /dev/nvidia* device files declared in the container's
+# pve_extra section.
 - name: Install userspace driver (LXC)
   ansible.builtin.apt:
-    name: nvidia-driver-cuda
+    name:
+      - nvidia-tesla-535-smi
+      - libnvidia-tesla-535-encode1
+      - libnvidia-tesla-535-nvcuvid1
     state: present
   when: not gpu_drivers_install_kernel_module
