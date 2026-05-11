@@ -17,8 +17,10 @@ SSH_PORT = {{ forgejo_ssh_port }}
 SSH_LISTEN_PORT = {{ forgejo_ssh_port }}
 APP_DATA_PATH = {{ forgejo_data_dir }}/data
 LFS_START_SERVER = true
-LFS_CONTENT_PATH = {{ forgejo_data_dir }}/data/lfs
 OFFLINE_MODE = true
+
+[lfs]
+PATH = {{ forgejo_data_dir }}/data/lfs
 
 [database]
 DB_TYPE = sqlite3
