@@ -27,5 +27,9 @@ pve_extra:
 ansible:
   roles:
     - base
-    - gpu_drivers
+    # gpu_drivers intentionally omitted: this LXC is on Debian bookworm,
+    # which ships nvidia-tesla-535 at 535.216.03; the PVE host on trixie
+    # ships 535.274.02. NVML enforces strict version match so userspace
+    # libs in the container cannot talk to the host's kernel module.
+    # Re-add this role after upgrading the LXC to trixie.
     - jellyfin
