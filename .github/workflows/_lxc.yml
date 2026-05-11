@@ -40,6 +40,7 @@ on:
           - 212 - mosquitto
           - 213 - netalertx
           - 215 - netbox
+          - 216 - forge
       tf_action:
         type: choice
         required: true

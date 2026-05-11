@@ -1,0 +1,29 @@
+---
+terraform:
+  vmid: 216
+  hostname: forge
+  ip_address: 10.20.1.216/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 2
+  memory: 1024
+  swap: 512
+  start_on_boot: true
+  rootfs_size: 10G
+  extra_networks:
+    - bridge: vmbr2
+      tag: 1
+      ip: 192.168.250.216/16
+    - bridge: vmbr2
+      tag: 10
+      ip: 10.10.250.216/16
+    - bridge: vmbr2
+      tag: 50
+      ip: 10.50.250.216/16
+
+pve_extra:
+  - mp0: /zpool/forgejo,mp=/mnt/forgejo,backup=0
+
+ansible:
+  roles:
+    - base
+    - forgejo

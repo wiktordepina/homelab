@@ -46,3 +46,10 @@ scrape_configs:
       - targets: ["10.20.30.40:8080"]
         labels:
           app: mait_gateway
+  - job_name: forgejo
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["10.20.1.216:3000"]
+        labels:
+          app: forgejo

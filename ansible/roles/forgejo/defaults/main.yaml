@@ -1,0 +1,20 @@
+---
+forgejo_version: "15.0.1"
+
+forgejo_user: git
+forgejo_group: git
+
+forgejo_data_dir: /mnt/forgejo
+forgejo_config_dir: /etc/forgejo
+forgejo_log_dir: /var/log/forgejo
+forgejo_binary: /usr/local/bin/forgejo
+
+forgejo_http_addr: 0.0.0.0
+forgejo_http_port: 3000
+forgejo_ssh_addr: 0.0.0.0
+forgejo_ssh_port: 2222
+
+forgejo_domain: forge.home.matagoth.com
+forgejo_root_url: https://forge.homelab.matagoth.com/
+
+forgejo_disable_registration: true
