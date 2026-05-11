@@ -5,7 +5,7 @@ terraform:
   ip_address: 10.20.1.217/16
   nameserver: 10.20.0.1
   cpu_core_count: 4
-  memory: 4096
+  memory: 8192
   swap: 1024
   start_on_boot: true
   rootfs_size: 30G

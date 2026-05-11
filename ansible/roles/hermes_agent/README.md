@@ -1,44 +1,41 @@
 # hermes_agent
 
-Installs Hermes Agent ([NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)) as a native systemd-managed service inside the LXC, fronted by Forgejo for state and LiteLLM for LLM traffic. Replaces the bespoke `mait-gateway` service on VM 6000.
+Prepares an LXC to host Hermes Agent ([NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)). Scope is **host preparation only** — package dependencies, the `hermes` system user, the bind-mounted `HERMES_HOME`, and the egress/inbound firewall. Hermes itself is installed manually post-deploy via the upstream installer so the codeowner controls the version and installation moment.
 
-## What lives where
+## What this role does
 
-| Path | Contents |
-|------|----------|
-| `/opt/hermes-agent` | Repo clone at the pinned tag. `.venv/` is populated by `uv sync`. |
-| `/usr/local/bin/hermes` | Symlink to the venv binary so the CLI is on PATH. |
-| `/mnt/hermes` | `HERMES_HOME` — config, sessions, memories, skills, cron, logs. Bind-mounted from `/zpool/hermes`. |
-| `/etc/hermes/secrets.env` | `EnvironmentFile` for the systemd unit; LiteLLM virtual key sourced from `/pve/secrets/hermes.sh` on the runner. |
-| `/etc/nftables.conf` | Firewall ruleset (see *Network posture* below). |
+| Layer | Result |
+|------|--------|
+| APT | `git`, `ripgrep`, `ffmpeg`, `nodejs`, `npm`, `python3` (+ `pip`, `venv`), `curl`, `ca-certificates`, `nftables`. These are what the upstream installer expects on the host. |
+| User | System user `hermes` with home set to `/mnt/hermes` (the bind-mounted ZFS dataset). |
+| Filesystem | `/mnt/hermes` owned by `hermes:hermes`. |
+| Firewall | `/etc/nftables.conf` rendered from the template, service enabled. |
+
+What it deliberately does *not* do: install Hermes, render its `config.yaml`, render `.env`, or install a systemd unit. Those land via the upstream installer (`curl ... | bash`) at install time.
 
 ## Network posture
 
-- **Inbound:** any port from the homelab subnets (`10.20.0.0/16`, the `vmbr2` VLAN ranges, and `192.168.200.0/24`). Apps the agent builds and binds on arbitrary ports are reachable without per-port firewall edits. Everything else dropped.
-- **Outbound:** DNS/NTP to the homelab nameserver, the named internal services in `defaults/main.yaml`, and TCP `80`/`443` to anywhere. APT updates work; LLM traffic always goes through the LiteLLM endpoint.
-- **Provider key safety:** Hermes only ever holds a LiteLLM *virtual* key. The upstream Anthropic/OpenAI/etc. keys live on the LiteLLM LXC and never reach this host.
+- **Inbound:** any port from the homelab subnets (`10.20.0.0/16`, the three `vmbr2` VLAN ranges, and `192.168.200.0/24`). Apps the agent builds and binds on arbitrary ports are reachable from the LAN without per-port firewall edits. Everything else dropped.
+- **Outbound:** DNS/NTP to the homelab nameserver, the named internal services in `defaults/main.yaml`, and TCP `80`/`443` to anywhere. APT updates work; the upstream Hermes installer can reach GitHub and astral.sh.
+- **Provider key safety:** LLM traffic is expected to go through LiteLLM. The role doesn't enforce this at the network layer beyond making LiteLLM the obvious path — the upstream provider FQDNs are reachable on `443` if you point Hermes at them directly. The intended posture is that Hermes only ever holds a LiteLLM virtual key; upstream provider keys live on the LiteLLM LXC.
 
-## Pre-apply requirements
+## Post-deploy: install Hermes
 
-1. `/pve/secrets/hermes.sh` on the runner exports `HERMES_LITELLM_KEY=<virtual-key>`. Create the virtual key on the LiteLLM admin with a sensible monthly budget cap and conservative TPM/RPM limits before applying this role.
-2. LiteLLM is on `v1.83.0` or later (April 2026 security hardening).
+After `terraform_lxc 217 apply` + `ansible_lxc 217` and `host-key-push 217`:
 
-## Post-deploy steps
+```bash
+./run/host-ssh 217 'runuser -u hermes -- bash -lc "
+  cd ~ &&
+  curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/<tag>/scripts/install.sh | bash
+"'
+```
 
-1. Generate the agent's SSH keypair as the `hermes` user:
-   ```bash
-   ./run/host-ssh 217 'runuser -u hermes -- ssh-keygen -t ed25519 -N "" -f /mnt/hermes/.ssh/id_ed25519 -C agent-bot@hermes'
-   ./run/host-ssh 217 'cat /mnt/hermes/.ssh/id_ed25519.pub'
-   ```
-2. Register that public key as a *deploy key with write access* on each of `agent-bot/hermes-skills`, `agent-bot/hermes-memory`, `agent-bot/hermes-config` in Forgejo (web UI: repo → Settings → Deploy Keys → Add Key, tick "Allow write access").
-3. Add `forge.home.matagoth.com:2222` to `~hermes/.ssh/known_hosts` (`ssh-keyscan -p 2222 forge.home.matagoth.com >> /mnt/hermes/.ssh/known_hosts`).
-4. Initialise the three repos as git working copies under `/mnt/hermes/{skills,memories,config}` and set their remotes to `ssh://git@forge.home.matagoth.com:2222/agent-bot/hermes-<name>.git`.
-5. Run an initial `hermes` interactive session to validate the config and let Hermes write any missing schema-required keys.
+Replace `<tag>` with the pinned release (latest at time of writing: `v2026.5.7`). Pulling from `main` is upstream's documented path but defeats reproducibility; prefer pinning.
 
-## Upgrading
-
-Bump `hermes_version` in `defaults/main.yaml`. The role re-clones to the new tag and re-runs `uv sync --frozen`. The handler restarts the gateway. Review upstream release notes before crossing minor versions — Hermes is pre-1.0 and config schema changes are documented in the release notes.
+Once installed, configure:
+- `~/.hermes/.env` — `HERMES_LITELLM_KEY` from the LiteLLM admin (virtual key with a sensible monthly budget and TPM/RPM caps).
+- `~/.hermes/config.yaml` — LLM base URL at `http://10.20.1.207:4000`, model of choice, `terminal.backend: docker`, `approval.mode: manual`.
 
 ## Gaps from `mait-gateway`
 
-See `~/Documents/hermes_adoption/README.md` for the full inventory. The high-priority ones — output sanitiser and Prometheus `/metrics` exporter — are not in this PR.
+See `~/Documents/hermes_adoption/README.md` for the inventory. The high-priority items (output sanitiser, Prometheus `/metrics` exporter) are not in this PR.
