@@ -1,0 +1,18 @@
+[Unit]
+Description=Forgejo
+After=syslog.target
+After=network.target
+
+[Service]
+Type=simple
+User=git
+Group=git
+WorkingDirectory=/mnt/forgejo
+ExecStart=/usr/local/bin/forgejo web --config /etc/forgejo/app.ini
+EnvironmentFile=/etc/forgejo/secrets.env
+Environment=USER=git HOME=/mnt/forgejo
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

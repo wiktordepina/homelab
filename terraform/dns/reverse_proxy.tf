@@ -22,6 +22,7 @@ locals {
     "homeassistant",
     "netalertx",
     "netbox",
+    "forge",
   ]
 }
 

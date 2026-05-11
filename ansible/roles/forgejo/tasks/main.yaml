@@ -1,0 +1,84 @@
+---
+- name: Create forgejo group
+  ansible.builtin.group:
+    name: "{{ forgejo_group }}"
+    state: present
+
+- name: Create forgejo user
+  ansible.builtin.user:
+    name: "{{ forgejo_user }}"
+    group: "{{ forgejo_group }}"
+    home: "{{ forgejo_data_dir }}"
+    shell: /bin/bash
+    system: true
+    create_home: false
+
+- name: Create forgejo directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ forgejo_user }}"
+    group: "{{ forgejo_group }}"
+    mode: '0750'
+  loop:
+    - "{{ forgejo_config_dir }}"
+    - "{{ forgejo_log_dir }}"
+    - "{{ forgejo_data_dir }}/data"
+    - "{{ forgejo_data_dir }}/data/repositories"
+    - "{{ forgejo_data_dir }}/data/lfs"
+    - "{{ forgejo_data_dir }}/custom"
+
+- name: Download forgejo binary
+  ansible.builtin.get_url:
+    url: "https://codeberg.org/forgejo/forgejo/releases/download/v{{ forgejo_version }}/forgejo-{{ forgejo_version }}-linux-amd64"
+    dest: "{{ forgejo_binary }}"
+    owner: root
+    group: root
+    mode: '0755'
+  notify: Restart forgejo service
+
+- name: Generate forgejo secrets (one-time)
+  # Generated once on first apply, persisted on the LXC rootfs.
+  # Loaded by the systemd unit via EnvironmentFile.
+  ansible.builtin.shell:
+    cmd: |
+      umask 077
+      SECRET_KEY=$(openssl rand -hex 32)
+      INTERNAL_TOKEN=$(openssl rand -hex 64)
+      JWT_SECRET=$(openssl rand -hex 32)
+      LFS_JWT_SECRET=$(openssl rand -hex 32)
+      cat > {{ forgejo_config_dir }}/secrets.env <<EOF
+      FORGEJO__SECURITY__SECRET_KEY=$SECRET_KEY
+      FORGEJO__SECURITY__INTERNAL_TOKEN=$INTERNAL_TOKEN
+      FORGEJO__OAUTH2__JWT_SECRET=$JWT_SECRET
+      FORGEJO__SERVER__LFS_JWT_SECRET=$LFS_JWT_SECRET
+      EOF
+      chown root:{{ forgejo_group }} {{ forgejo_config_dir }}/secrets.env
+      chmod 0640 {{ forgejo_config_dir }}/secrets.env
+    creates: "{{ forgejo_config_dir }}/secrets.env"
+  notify: Restart forgejo service
+
+- name: Template forgejo config
+  ansible.builtin.template:
+    src: app.ini.j2
+    dest: "{{ forgejo_config_dir }}/app.ini"
+    owner: "{{ forgejo_user }}"
+    group: "{{ forgejo_group }}"
+    mode: '0640'
+  notify: Restart forgejo service
+
+- name: Install forgejo systemd unit
+  ansible.builtin.copy:
+    src: forgejo.service
+    dest: /etc/systemd/system/forgejo.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart forgejo service
+
+- name: Enable and start forgejo
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: forgejo
+    state: started
+    enabled: true

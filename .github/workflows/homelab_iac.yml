@@ -50,6 +50,7 @@ jobs:
           - 212   # mosquitto
           - 213   # NetAlertX
           - 215   # NetBox
+          - 216   # Forgejo
     uses: ./.github/workflows/_lxc.yml
     secrets: inherit
     with:

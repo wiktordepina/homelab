@@ -67,3 +67,10 @@ resource "dns_a_record_set" "mait" {
   addresses = ["10.20.30.40"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "forge" {
+  zone      = "home.matagoth.com."
+  name      = "forge"
+  addresses = ["10.20.1.216"]
+  ttl       = 500
+}
