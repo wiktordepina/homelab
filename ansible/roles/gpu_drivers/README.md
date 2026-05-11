@@ -15,6 +15,7 @@ Both modes use the same apt source so kernel-module and userspace versions stay 
 
 - `gpu_drivers_install_kernel_module` — whether to install the kernel module and headers. Defaults to `true` on bare metal, `false` inside an LXC. Override only when you need to force one mode (e.g. test the userspace path on a bare-metal box).
 - `gpu_drivers_nvidia_repo_base` — base URL of the NVIDIA CUDA apt repo. Defaults to NVIDIA's debian13 path.
+- `gpu_drivers_branch` — driver branch to pin via `nvidia-driver-pinning-<branch>`. Defaults to `"590"` to keep Pascal-era cards (P2000) supported. Set to `""` to take whatever `cuda-drivers` resolves to (currently 595).
 
 ## Dependencies
 
@@ -55,6 +56,6 @@ ansible:
 
 ## Notes
 
-- The NVIDIA CUDA repo for debian13 currently ships driver branches 590, 595, and 610. The `cuda-drivers` meta-package picks the latest. Pin via `nvidia-driver-pinning-<branch>` if you need to hold a specific branch (for example, when newer branches drop support for an older GPU generation).
-- Pascal cards (P-series Quadro, GTX 10-series) are still supported by the 590 branch but NVIDIA will eventually drop them. When that happens, install `nvidia-driver-pinning-<lastsupported>` before bumping further.
+- The NVIDIA CUDA repo for debian13 currently ships driver branches 590, 595, and 610. The role pins to 590 by default (see `gpu_drivers_branch`); when NVIDIA drops Pascal from 590, raise the pin to the highest branch that still supports the cards in use.
+- The host install also brings in `proxmox-headers-{{ ansible_kernel }}` for the running kernel alongside `proxmox-default-headers`, so DKMS can build the module immediately without waiting for a reboot into whatever kernel `proxmox-default-headers` happens to track.
 - `nvidia-container-toolkit` (separate role) is only needed inside LXCs that run Docker workloads with GPU access. It is not used by Jellyfin (native install).

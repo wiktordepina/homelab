@@ -8,22 +8,23 @@
 - name: Install NVIDIA repo keyring
   ansible.builtin.apt:
     deb: "{{ gpu_drivers_nvidia_repo_base }}/cuda-keyring_1.1-1_all.deb"
+  register: gpu_drivers_keyring
 
-- name: Add NVIDIA CUDA apt source
-  ansible.builtin.copy:
-    dest: /etc/apt/sources.list.d/nvidia-cuda.sources
-    mode: "0644"
-    content: |
-      Types: deb
-      URIs: {{ gpu_drivers_nvidia_repo_base }}/
-      Suites: /
-      Signed-By: /usr/share/keyrings/cuda-archive-keyring.gpg
-  register: gpu_drivers_repo
-
-- name: Refresh apt cache after adding NVIDIA repo
+- name: Refresh apt cache after installing NVIDIA keyring
   ansible.builtin.apt:
     update_cache: true
-  when: gpu_drivers_repo.changed
+  when: gpu_drivers_keyring.changed
+
+# The pinning package writes /etc/apt/preferences.d/nvidia-driver-pin
+# pinning all nvidia-related packages to the chosen branch. It must be
+# installed in its own apt transaction *before* cuda-drivers, otherwise
+# apt resolves cuda-drivers to the latest version before the pin file
+# is in place.
+- name: Install driver branch pin
+  ansible.builtin.apt:
+    name: "nvidia-driver-pinning-{{ gpu_drivers_branch }}"
+    state: present
+  when: gpu_drivers_branch | length > 0
 
 # nouveau and the proprietary driver cannot share a card. Blacklist it
 # wherever the kernel module will be loaded; harmless inside an LXC.
@@ -41,18 +42,18 @@
   ansible.builtin.command: update-initramfs -u
   when: gpu_drivers_nouveau.changed
 
-# Host: kernel headers tracking the running kernel, then the full driver
-# meta-package (DKMS module + userspace + nvidia-persistenced). DKMS
-# rebuilds the module on every kernel upgrade as long as the headers
-# meta-package is in place.
+# Host: kernel headers for the running kernel AND the default-headers
+# meta-package so DKMS rebuilds the module against (a) the current boot
+# immediately, and (b) every future kernel that proxmox-default-headers
+# tracks. cuda-drivers pulls nvidia-kernel-dkms + the userspace stack.
 - name: Install kernel module + userspace (host)
   ansible.builtin.apt:
     name:
       - proxmox-default-headers
+      - "proxmox-headers-{{ ansible_kernel }}"
       - cuda-drivers
     state: present
   when: gpu_drivers_install_kernel_module
-  register: gpu_drivers_host_install
 
 - name: Load nvidia kernel modules
   community.general.modprobe:
@@ -78,7 +79,6 @@
 # the container's pve_extra section.
 - name: Install userspace driver (LXC)
   ansible.builtin.apt:
-    name:
-      - nvidia-driver-cuda
+    name: nvidia-driver-cuda
     state: present
   when: not gpu_drivers_install_kernel_module
