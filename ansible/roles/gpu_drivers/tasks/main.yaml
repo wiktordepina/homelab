@@ -7,8 +7,28 @@
 # against kernel 6.17; the 590+ branches in NVIDIA's CUDA repo dropped
 # Pascal entirely.
 #
-# Same source on host and LXC keeps kernel module and userspace libs in
-# lockstep.
+# Same branch on host and LXC keeps kernel module and userspace libs in
+# lockstep. Point releases within the 535 LTSB maintain ABI compat, so
+# bookworm LXCs (535.216) can talk to a trixie host's kernel module
+# (535.274) — the kernel side is forward-compatible with older
+# userspace ioctl versions.
+
+# The non-free component is required and not enabled in the default
+# Debian LXC template. Drop our own source list rather than editing
+# the system one — apt deduplicates so this is safe even on hosts
+# (like PVE) that already have non-free enabled.
+- name: Enable Debian non-free apt source
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/debian-non-free.list
+    mode: "0644"
+    content: |
+      deb http://deb.debian.org/debian {{ ansible_distribution_release }} main contrib non-free non-free-firmware
+  register: gpu_drivers_non_free
+
+- name: Refresh apt cache after enabling non-free
+  ansible.builtin.apt:
+    update_cache: true
+  when: gpu_drivers_non_free.changed
 
 # Host: kernel headers for the running kernel SERIES (e.g. 6.17). Series
 # meta-packages survive point-release upgrades (6.17.13-4 → 6.17.13-7
