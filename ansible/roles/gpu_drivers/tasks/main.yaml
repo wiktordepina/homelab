@@ -1,28 +1,84 @@
 ---
-- name: Enable i386 arch
-  ansible.builtin.lineinfile:
-    dest: /var/lib/dpkg/arch
-    line: i386
-    create: yes
-  register: pdkg_config
+# NVIDIA proprietary driver via apt, sourced from NVIDIA's CUDA repo.
+# Same source for the PVE host (kernel module + userspace) and any LXC
+# that needs only userspace (transcoding, CUDA workloads). Locking both
+# sides to one repo means kernel module and userspace libs cannot drift
+# apart across kernel upgrades.
 
-- name: Install libc6:i386
+- name: Install NVIDIA repo keyring
   ansible.builtin.apt:
-    name: libc6:i386
-    update_cache: "{{ pdkg_config.changed }}"
+    deb: "{{ gpu_drivers_nvidia_repo_base }}/cuda-keyring_1.1-1_all.deb"
+  register: gpu_drivers_keyring
 
-- name: Download NVidia driver
-  ansible.builtin.get_url:
-    url: "{{ nvidia_driver_url }}"
-    dest: /root/NVIDIA-Linux-x86_64.run
-    mode: '0755'
-  register: nvidia_driver_package
+- name: Refresh apt cache after installing NVIDIA keyring
+  ansible.builtin.apt:
+    update_cache: true
+  when: gpu_drivers_keyring.changed
 
-- name: Install NVidia driver
-  ansible.builtin.command: /root/NVIDIA-Linux-x86_64.run -s --no-kernel-module
-  when: nvidia_driver_package is changed
-  register: nvidia_driver
+# The pinning package writes /etc/apt/preferences.d/nvidia-driver-pin
+# pinning all nvidia-related packages to the chosen branch. It must be
+# installed in its own apt transaction *before* cuda-drivers, otherwise
+# apt resolves cuda-drivers to the latest version before the pin file
+# is in place.
+- name: Install driver branch pin
+  ansible.builtin.apt:
+    name: "nvidia-driver-pinning-{{ gpu_drivers_branch }}"
+    state: present
+  when: gpu_drivers_branch | length > 0
 
-- name: Reboot container
-  ansible.builtin.reboot:
-  when: nvidia_driver is changed
+# nouveau and the proprietary driver cannot share a card. Blacklist it
+# wherever the kernel module will be loaded; harmless inside an LXC.
+- name: Blacklist nouveau
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/blacklist-nouveau.conf
+    mode: "0644"
+    content: |
+      blacklist nouveau
+      options nouveau modeset=0
+  when: gpu_drivers_install_kernel_module
+  register: gpu_drivers_nouveau
+
+- name: Rebuild initramfs after blacklisting nouveau
+  ansible.builtin.command: update-initramfs -u
+  when: gpu_drivers_nouveau.changed
+
+# Host: kernel headers for the running kernel AND the default-headers
+# meta-package so DKMS rebuilds the module against (a) the current boot
+# immediately, and (b) every future kernel that proxmox-default-headers
+# tracks. cuda-drivers pulls nvidia-kernel-dkms + the userspace stack.
+- name: Install kernel module + userspace (host)
+  ansible.builtin.apt:
+    name:
+      - proxmox-default-headers
+      - "proxmox-headers-{{ ansible_kernel }}"
+      - cuda-drivers
+    state: present
+  when: gpu_drivers_install_kernel_module
+
+- name: Load nvidia kernel modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - nvidia
+    - nvidia_uvm
+    - nvidia_modeset
+  when: gpu_drivers_install_kernel_module
+
+- name: Enable nvidia-persistenced
+  ansible.builtin.systemd:
+    name: nvidia-persistenced
+    enabled: true
+    state: started
+  when: gpu_drivers_install_kernel_module
+
+# LXC: userspace only. nvidia-driver-cuda pulls libnvidia-encode1,
+# libnvcuvid1, nvidia-smi, and the persistence daemon — everything
+# Jellyfin's NVENC/NVDEC path needs. The kernel module is supplied by
+# the host via the bind-mounted /dev/nvidia* device files declared in
+# the container's pve_extra section.
+- name: Install userspace driver (LXC)
+  ansible.builtin.apt:
+    name: nvidia-driver-cuda
+    state: present
+  when: not gpu_drivers_install_kernel_module

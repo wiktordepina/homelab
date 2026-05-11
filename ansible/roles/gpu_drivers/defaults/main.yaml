@@ -1,0 +1,17 @@
+---
+# Auto-detect: bare metal (PVE host) wants the kernel module, LXC wants
+# only userspace. Override per-call when this needs forcing either way.
+gpu_drivers_install_kernel_module: "{{ ansible_virtualization_type != 'lxc' }}"
+
+# NVIDIA's CUDA apt repo for Debian 13 (trixie). Same source on host and
+# guests so kernel-module and userspace versions stay locked together.
+# The cuda-keyring package itself drops the source list at
+# /etc/apt/sources.list.d/cuda-debian13-x86_64.list; we don't add a
+# duplicate.
+gpu_drivers_nvidia_repo_base: https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64
+
+# Pin the driver to a specific branch via nvidia-driver-pinning-<branch>.
+# Defaults to 590 — the oldest branch currently in NVIDIA's debian13 repo,
+# most likely to retain support for older GPUs (Pascal et al.). Set to
+# empty string to take the latest cuda-drivers metapackage version.
+gpu_drivers_branch: "590"
