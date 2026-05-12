@@ -41,7 +41,6 @@ on:
           - 213 - netalertx
           - 215 - netbox
           - 216 - forge
-          - 217 - hermes
       tf_action:
         type: choice
         required: true

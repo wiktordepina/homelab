@@ -25,6 +25,7 @@ on:
         description: vm id
         options:
           - 214 - vm-01
+          - 217 - hermes
       tf_action:
         type: choice
         required: true

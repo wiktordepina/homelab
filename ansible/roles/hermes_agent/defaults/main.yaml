@@ -1,11 +1,12 @@
 ---
 hermes_user: hermes
 hermes_group: hermes
-hermes_home: /mnt/hermes
+hermes_home: /home/hermes
 
 # Source subnets allowed inbound on any port (RFC1918 ranges visible on the
-# homelab). Outbound is pragmatic: 80/443 anywhere plus named internal
-# services on their API ports.
+# homelab). The agent only sits on 10.20.0.0/16, but cross-VLAN traffic routed
+# in via OPNsense preserves source addresses, so the allowlist covers every
+# subnet apps the agent builds might be reached from.
 hermes_lan_subnets:
   - 10.20.0.0/16
   - 192.168.250.0/16

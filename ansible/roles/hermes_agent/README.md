@@ -1,17 +1,20 @@
 # hermes_agent
 
-Prepares an LXC to host Hermes Agent ([NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)). Scope is **host preparation only** — package dependencies, the `hermes` system user, the bind-mounted `HERMES_HOME`, and the egress/inbound firewall. Hermes itself is installed manually post-deploy via the upstream installer so the codeowner controls the version and installation moment.
+Prepares a VM to host Hermes Agent ([NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)). Scope is **host preparation only** — package dependencies, the `hermes` system user, and the egress/inbound firewall. Hermes itself is installed manually post-deploy via the upstream installer so the codeowner controls the version and installation moment.
 
 ## What this role does
 
 | Layer | Result |
 |------|--------|
 | APT | `git`, `ripgrep`, `ffmpeg`, `nodejs`, `npm`, `python3` (+ `pip`, `venv`), `curl`, `ca-certificates`, `nftables`. These are what the upstream installer expects on the host. |
-| User | System user `hermes` with home set to `/mnt/hermes` (the bind-mounted ZFS dataset). |
-| Filesystem | `/mnt/hermes` owned by `hermes:hermes`. |
+| User | System user `hermes` with home at `/home/hermes`. |
 | Firewall | `/etc/nftables.conf` rendered from the template, service enabled. |
 
 What it deliberately does *not* do: install Hermes, render its `config.yaml`, render `.env`, or install a systemd unit. Those land via the upstream installer (`curl ... | bash`) at install time.
+
+## State persistence
+
+There are **no bind-mounts** on this host. Anything the agent generates that needs to survive a rebuild — skills, memories, configuration — is pushed to dedicated repositories on the homelab Forgejo (`216`) and pulled back when the VM is re-provisioned. The 250 GiB rootfs (on the ZFS zpool) holds the working copies plus docker image layers and build scratch; none of that is treated as durable.
 
 ## Network posture
 
@@ -21,7 +24,7 @@ What it deliberately does *not* do: install Hermes, render its `config.yaml`, re
 
 ## Post-deploy: install Hermes
 
-After `terraform_lxc 217 apply` + `ansible_lxc 217` and `host-key-push 217`:
+After `terraform_vm 217 apply` + `ansible_vm 217` and `host-key-push 217`:
 
 ```bash
 ./run/host-ssh 217 'runuser -u hermes -- bash -lc "

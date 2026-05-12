@@ -32,15 +32,7 @@
     home: "{{ hermes_home }}"
     shell: /bin/bash
     system: true
-    create_home: false
-
-- name: Own the HERMES_HOME bind-mount to the hermes user
-  ansible.builtin.file:
-    path: "{{ hermes_home }}"
-    state: directory
-    owner: "{{ hermes_user }}"
-    group: "{{ hermes_group }}"
-    mode: '0750'
+    create_home: true
 
 - name: Template nftables ruleset
   ansible.builtin.template:
