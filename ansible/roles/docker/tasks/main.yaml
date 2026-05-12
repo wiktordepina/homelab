@@ -3,16 +3,23 @@
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
+    mode: '0755'
 
 - name: Instal gpg
   ansible.builtin.apt:
     name: gpg
     state: present
 
+# Trixie no longer ships `apt-key`, so the legacy `apt_key` module fails
+# with `Failed to find required executable "apt-key"`. The modern path is
+# to drop the key under /etc/apt/keyrings and reference it from the
+# sources line via `signed-by=`. apt accepts the ASCII-armoured form
+# directly, so no `gpg --dearmor` step is needed.
 - name: Docker gpg key
-  ansible.builtin.apt_key:
+  ansible.builtin.get_url:
     url: https://download.docker.com/linux/debian/gpg
-    keyring: /etc/apt/keyrings/docker.gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
 
 - name: Instal apt-transport-https
   ansible.builtin.apt:
@@ -20,13 +27,14 @@
     state: present
 
 - name: Docker repo
-  ansible.builtin.copy:
-    src: docker.list
+  ansible.builtin.template:
+    src: docker.list.j2
     dest: /etc/apt/sources.list.d/docker.list
+    mode: '0644'
 
 - name: Install Docker
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
     name:
       - docker-ce
       - docker-ce-cli
