@@ -6,8 +6,15 @@ resource "proxmox_vm_qemu" "vm" {
   clone      = var.template
   full_clone = true
 
-  agent    = 1
-  memory   = var.memory
+  agent  = 1
+  memory = var.memory
+  # Attach the virtio-balloon device at floor == max. The device never
+  # inflates (no reclamation), but its presence is what lets PVE read guest
+  # memory usage — without it, the `mem` field falls back to the QEMU
+  # process's host-side cgroup RSS, which tracks pages QEMU has touched,
+  # not what the guest is actually using. qemu-guest-agent does not
+  # populate this metric.
+  balloon  = var.memory
   scsihw   = "virtio-scsi-single"
   onboot   = var.start_on_boot
   vm_state = "running"
