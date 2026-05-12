@@ -1,0 +1,50 @@
+---
+- name: Install host packages Hermes' installer expects
+  # Most are pulled in by the upstream curl|bash anyway, but pre-installing
+  # them avoids the installer making network requests for things APT can
+  # serve from cache and keeps the installer fast and idempotent.
+  ansible.builtin.apt:
+    name:
+      - git
+      - ripgrep
+      - ffmpeg
+      - nodejs
+      - npm
+      - python3
+      - python3-pip
+      - python3-venv
+      - curl
+      - ca-certificates
+      - nftables
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create hermes group
+  ansible.builtin.group:
+    name: "{{ hermes_group }}"
+    state: present
+
+- name: Create hermes user
+  ansible.builtin.user:
+    name: "{{ hermes_user }}"
+    group: "{{ hermes_group }}"
+    home: "{{ hermes_home }}"
+    shell: /bin/bash
+    system: true
+    create_home: true
+
+- name: Template nftables ruleset
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload nftables
+
+- name: Enable and start nftables
+  ansible.builtin.systemd_service:
+    name: nftables
+    state: started
+    enabled: true

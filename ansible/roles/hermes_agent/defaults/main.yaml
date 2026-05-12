@@ -1,0 +1,25 @@
+---
+hermes_user: hermes
+hermes_group: hermes
+hermes_home: /home/hermes
+
+# Source subnets allowed inbound on any port (RFC1918 ranges visible on the
+# homelab). The agent only sits on 10.20.0.0/16, but cross-VLAN traffic routed
+# in via OPNsense preserves source addresses, so the allowlist covers every
+# subnet apps the agent builds might be reached from.
+hermes_lan_subnets:
+  - 10.20.0.0/16
+  - 192.168.250.0/16
+  - 10.10.250.0/16
+  - 10.50.250.0/16
+  - 192.168.200.0/24
+
+# Named internal homelab services Hermes is permitted to reach on their API
+# ports. LLM traffic always goes through the LiteLLM endpoint; provider keys
+# live there, not on this host.
+hermes_internal_egress:
+  - { host: 10.20.1.207, port: 4000 }   # litellm
+  - { host: 10.20.1.216, port: 2222 }   # forgejo SSH (git push/pull)
+  - { host: 10.20.1.216, port: 3000 }   # forgejo HTTP API
+  - { host: 10.20.1.210, port: 3000 }   # grafana
+  - { host: 10.20.1.206, port: 8123 }   # homeassistant

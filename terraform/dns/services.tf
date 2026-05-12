@@ -74,3 +74,10 @@ resource "dns_a_record_set" "forge" {
   addresses = ["10.20.1.216"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "hermes" {
+  zone      = "home.matagoth.com."
+  name      = "hermes"
+  addresses = ["10.20.1.217"]
+  ttl       = 500
+}

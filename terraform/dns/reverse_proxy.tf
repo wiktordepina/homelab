@@ -23,6 +23,7 @@ locals {
     "netalertx",
     "netbox",
     "forge",
+    "hermes",
   ]
 }
 

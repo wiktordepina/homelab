@@ -23,3 +23,4 @@ nginx_reverse_proxy_servers:
   netalertx: http://10.20.1.213:20211/
   netbox: http://10.20.1.215:8080/
   forge: http://10.20.1.216:3000/
+  hermes: http://10.20.1.217:9119/

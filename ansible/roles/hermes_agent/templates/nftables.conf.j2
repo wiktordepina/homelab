@@ -1,0 +1,48 @@
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        ct state established,related accept
+        iifname "lo" accept
+        ip protocol icmp accept
+
+        # Trust the LAN: any port from any homelab subnet so apps the agent
+        # builds and binds on custom ports are reachable from the operator's
+        # laptop and other LXCs without per-port firewall edits.
+{% for cidr in hermes_lan_subnets %}
+        ip saddr {{ cidr }} accept
+{% endfor %}
+
+        # Everything else (e.g. the wider internet) is dropped.
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+    }
+
+    chain output {
+        type filter hook output priority filter; policy drop;
+
+        ct state established,related accept
+        oifname "lo" accept
+        ip protocol icmp accept
+
+        # DNS and NTP to the homelab nameserver
+        ip daddr 10.20.0.1 udp dport { 53, 123 } accept
+        ip daddr 10.20.0.1 tcp dport 53 accept
+
+        # Named internal services on their API ports
+{% for svc in hermes_internal_egress %}
+        ip daddr {{ svc.host }} tcp dport {{ svc.port }} accept
+{% endfor %}
+
+        # HTTP/HTTPS to anywhere: lets apt updates work and gives the agent
+        # the open web by default. LLM traffic still goes through the
+        # LiteLLM endpoint above; provider keys live there, not here.
+        tcp dport { 80, 443 } accept
+    }
+}

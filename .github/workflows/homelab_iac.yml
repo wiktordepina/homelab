@@ -66,6 +66,7 @@ jobs:
       matrix:
         vmid:
           - 214   # vm-01 (general-purpose, currently switchbot BLE bridge)
+          - 217   # Hermes Agent
     uses: ./.github/workflows/_vm.yml
     secrets: inherit
     with:
