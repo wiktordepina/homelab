@@ -7,7 +7,7 @@ Prepares a VM to host Hermes Agent ([NousResearch/hermes-agent](https://github.c
 | Layer | Result |
 |------|--------|
 | APT | `git`, `ripgrep`, `ffmpeg`, `nodejs`, `npm`, `python3` (+ `pip`, `venv`), `curl`, `ca-certificates`, `nftables`. These are what the upstream installer expects on the host. |
-| User | System user `hermes` with home at `/home/hermes`. |
+| User | System user `hermes` with home at `/home/hermes`, granted passwordless sudo via `/etc/sudoers.d/hermes-nopasswd`. The VM is the sandbox boundary (nftables egress allowlist, no bind-mounts), so in-guest privilege escalation does not weaken isolation from the rest of the homelab — and the upstream installer relies on `sudo apt-get` working as the run-time user. |
 | Firewall | `/etc/nftables.conf` rendered from the template, service enabled. |
 
 What it deliberately does *not* do: install Hermes, render its `config.yaml`, render `.env`, or install a systemd unit. Those land via the upstream installer (`curl ... | bash`) at install time.
