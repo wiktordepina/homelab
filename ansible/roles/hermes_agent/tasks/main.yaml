@@ -34,6 +34,20 @@
     system: true
     create_home: true
 
+# The upstream Hermes installer (and a handful of its runtime helpers) call
+# `sudo apt-get …` directly. The VM itself is the sandbox boundary — egress
+# is locked down by nftables and no host paths are bind-mounted — so granting
+# the agent passwordless sudo *inside* the guest does not weaken isolation
+# from the rest of the homelab.
+- name: Grant hermes passwordless sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/hermes-nopasswd
+    content: "{{ hermes_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+
 - name: Template nftables ruleset
   ansible.builtin.template:
     src: nftables.conf.j2
