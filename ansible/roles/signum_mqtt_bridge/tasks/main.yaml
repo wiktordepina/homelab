@@ -1,0 +1,109 @@
+---
+- name: Install system packages
+  ansible.builtin.apt:
+    name:
+      - python3-venv
+      # ansible.builtin.pip imports `packaging` on the target to parse
+      # version specifiers; Debian 13's stock python3.13 does not ship it,
+      # so the apt package is required for the pip task below to work.
+      - python3-packaging
+    state: present
+    update_cache: true
+
+- name: System user
+  ansible.builtin.user:
+    name: signum-mqtt-bridge
+    system: true
+    shell: /usr/sbin/nologin
+    home: /var/lib/signum-mqtt-bridge
+    create_home: false
+
+- name: Install directory
+  ansible.builtin.file:
+    path: /opt/signum-mqtt-bridge
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Python venv
+  ansible.builtin.command: python3 -m venv /opt/signum-mqtt-bridge/venv
+  args:
+    creates: /opt/signum-mqtt-bridge/venv/bin/python
+
+- name: Requirements file
+  ansible.builtin.copy:
+    src: requirements.txt
+    dest: /opt/signum-mqtt-bridge/requirements.txt
+    owner: root
+    group: root
+    mode: "0644"
+
+# Always run pip; the module is idempotent so already-installed packages
+# are a no-op. Gating on the requirements file's `changed` state was
+# tempting for speed but produced empty venvs whenever a prior run wrote
+# the file and then failed before pip — the next run saw the file
+# unchanged and skipped pip, leaving the daemon importing missing libs.
+- name: Install Python dependencies
+  ansible.builtin.pip:
+    requirements: /opt/signum-mqtt-bridge/requirements.txt
+    virtualenv: /opt/signum-mqtt-bridge/venv
+  notify:
+    - Restart signum-mqtt-bridge
+
+- name: Daemon script
+  ansible.builtin.copy:
+    src: signum_mqtt_bridge.py
+    dest: /opt/signum-mqtt-bridge/signum_mqtt_bridge.py
+    owner: root
+    group: root
+    mode: "0755"
+  notify:
+    - Restart signum-mqtt-bridge
+
+- name: Config directory
+  ansible.builtin.file:
+    path: /etc/signum-mqtt-bridge
+    state: directory
+    owner: root
+    group: signum-mqtt-bridge
+    mode: "0750"
+
+- name: Config file
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: /etc/signum-mqtt-bridge/config.yml
+    owner: root
+    group: signum-mqtt-bridge
+    mode: "0640"
+  notify:
+    - Restart signum-mqtt-bridge
+
+- name: MQTT password file
+  ansible.builtin.copy:
+    content: "{{ lookup('ansible.builtin.env', signum_mqtt_bridge_mqtt_password_env) }}"
+    dest: /etc/signum-mqtt-bridge/mqtt_password
+    owner: root
+    group: signum-mqtt-bridge
+    mode: "0640"
+  no_log: true
+  notify:
+    - Restart signum-mqtt-bridge
+
+- name: Systemd unit
+  ansible.builtin.template:
+    src: signum-mqtt-bridge.service.j2
+    dest: /etc/systemd/system/signum-mqtt-bridge.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart signum-mqtt-bridge
+
+- name: Enable service
+  ansible.builtin.systemd:
+    name: signum-mqtt-bridge
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -1,0 +1,8 @@
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart signum-mqtt-bridge
+  ansible.builtin.service:
+    name: signum-mqtt-bridge
+    state: restarted

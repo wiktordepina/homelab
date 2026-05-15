@@ -44,3 +44,9 @@ ansible:
             friendly_name: "Kitchen"
           - mac: "F7:98:CE:01:69:74"
             friendly_name: "Spare Bedroom"
+    - role: signum_mqtt_bridge
+      vars:
+        signum_mqtt_bridge_account_id: "3033777005113980426"
+        signum_mqtt_bridge_mqtt_host: mosquitto.home.matagoth.com
+        signum_mqtt_bridge_mqtt_username: signum-bridge
+        signum_mqtt_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_SIGNUM_BRIDGE

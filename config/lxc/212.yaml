@@ -20,3 +20,5 @@ ansible:
             password_hash_env: MOSQUITTO_HASH_HOMEASSISTANT
           - name: switchbot-bridge
             password_hash_env: MOSQUITTO_HASH_SWITCHBOT_BRIDGE
+          - name: signum-bridge
+            password_hash_env: MOSQUITTO_HASH_SIGNUM_BRIDGE
