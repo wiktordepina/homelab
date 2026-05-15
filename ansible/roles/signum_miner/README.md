@@ -22,6 +22,8 @@ This role installs and configures a Signum (formerly Burstcoin) plot miner.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `signum_miner_plot_dirs` | ✅ | - | List of directories containing plot files |
+| `signum_miner_version` | - | `2.0.0` | Upstream release tag to install (without the `v` prefix) |
+| `signum_miner_variant` | - | `avx2` | Binary variant. Options: `avx2`, `avx`, `avx512f`, `sse2`, `aarch64-neon`. Pick the highest SIMD level the host CPU supports |
 
 ## Dependencies
 
@@ -53,3 +55,5 @@ ansible:
 ## Notes
 
 The miner scans pre-generated plot files to participate in Signum's proof-of-capacity mining.
+
+GPU mining was removed upstream in v2.0.0 — only CPU mining is supported. Stay on v1.8.0 if a GPU build is needed.
