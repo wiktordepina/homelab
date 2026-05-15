@@ -1,2 +1,4 @@
 ---
+signum_miner_version: '2.0.0'
+signum_miner_variant: 'avx2'
 signum_miner_plot_dirs: []

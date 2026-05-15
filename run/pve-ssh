@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# SSH into the Proxmox VE host. Bare IP so it keeps working when homelab DNS
+# is down. PVE has no entry under config/lxc/ or config/vm/, so it gets its
+# own helper rather than going through host-ssh.
+#
+# Usage:
+#   pve-ssh [ssh-args | remote-command]
+#
+# Examples:
+#   pve-ssh
+#   pve-ssh lscpu
+#   pve-ssh pct list
+#
+# Environment overrides:
+#   PVE_HOST  PVE address (default: 192.168.200.100)
+#   PVE_USER  user on PVE (default: root)
+
+set -euo pipefail
+
+PVE_HOST="${PVE_HOST:-192.168.200.100}"
+PVE_USER="${PVE_USER:-root}"
+
+exec ssh -o StrictHostKeyChecking=accept-new "${PVE_USER}@${PVE_HOST}" "$@"
