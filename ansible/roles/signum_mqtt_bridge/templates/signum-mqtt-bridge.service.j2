@@ -1,0 +1,29 @@
+[Unit]
+Description=Signum pool + node to MQTT bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=signum-mqtt-bridge
+Group=signum-mqtt-bridge
+ExecStart=/opt/signum-mqtt-bridge/venv/bin/python /opt/signum-mqtt-bridge/signum_mqtt_bridge.py
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target
