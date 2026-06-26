@@ -1,0 +1,20 @@
+---
+glow:
+  url: "{{ glow_mqtt_bridge_api_url | default('https://api.glowmarkt.com/api/v0-1') }}"
+  application_id: "{{ glow_mqtt_bridge_application_id | default('b0f1b774-a586-4f72-9edd-27ead8aa7a8d') }}"
+  username: "{{ glow_mqtt_bridge_username }}"
+  password_file: /etc/glow-mqtt-bridge/glow_password
+
+poll_interval: {{ glow_mqtt_bridge_poll_interval | default(1800) }}
+http_timeout: {{ glow_mqtt_bridge_http_timeout | default(15) }}
+
+mqtt:
+  host: {{ glow_mqtt_bridge_mqtt_host }}
+  port: {{ glow_mqtt_bridge_mqtt_port | default(1883) }}
+  username: {{ glow_mqtt_bridge_mqtt_username }}
+  password_file: /etc/glow-mqtt-bridge/mqtt_password
+  client_id: {{ glow_mqtt_bridge_mqtt_client_id | default(inventory_hostname + '-glow-mqtt-bridge') }}
+
+discovery:
+  prefix: {{ glow_mqtt_bridge_discovery_prefix | default('homeassistant') }}
+  state_topic_prefix: {{ glow_mqtt_bridge_state_topic_prefix | default('glow') }}
