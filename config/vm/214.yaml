@@ -50,3 +50,10 @@ ansible:
         signum_mqtt_bridge_mqtt_host: mosquitto.home.matagoth.com
         signum_mqtt_bridge_mqtt_username: signum-bridge
         signum_mqtt_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_SIGNUM_BRIDGE
+    - role: glow_mqtt_bridge
+      vars:
+        glow_mqtt_bridge_username: wiktordepina@gmail.com
+        glow_mqtt_bridge_password_env: GLOW_BRIDGE_PASSWORD
+        glow_mqtt_bridge_mqtt_host: mosquitto.home.matagoth.com
+        glow_mqtt_bridge_mqtt_username: glow-bridge
+        glow_mqtt_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_GLOW_BRIDGE
