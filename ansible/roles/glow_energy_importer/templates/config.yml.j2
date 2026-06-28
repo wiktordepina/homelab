@@ -1,0 +1,19 @@
+---
+glow:
+  url: "{{ glow_energy_importer_api_url | default('https://api.glowmarkt.com/api/v0-1') }}"
+  application_id: "{{ glow_energy_importer_application_id | default('b0f1b774-a586-4f72-9edd-27ead8aa7a8d') }}"
+  username: "{{ glow_energy_importer_username }}"
+  password_file: /etc/glow-energy-importer/glow_password
+
+ha:
+  url: "{{ glow_energy_importer_ha_url }}"
+  token_file: /etc/glow-energy-importer/ha_token
+
+poll_interval: {{ glow_energy_importer_poll_interval | default(21600) }}
+http_timeout: {{ glow_energy_importer_http_timeout | default(30) }}
+backfill_days: {{ glow_energy_importer_backfill_days | default(90) }}
+timezone: {{ glow_energy_importer_timezone | default('Europe/London') }}
+
+statistics:
+  consumption_id: {{ glow_energy_importer_consumption_id | default('glow:electricity_consumption') }}
+  consumption_name: "{{ glow_energy_importer_consumption_name | default('Electricity consumption') }}"

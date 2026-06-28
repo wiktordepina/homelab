@@ -22,5 +22,3 @@ ansible:
             password_hash_env: MOSQUITTO_HASH_SWITCHBOT_BRIDGE
           - name: signum-bridge
             password_hash_env: MOSQUITTO_HASH_SIGNUM_BRIDGE
-          - name: glow-bridge
-            password_hash_env: MOSQUITTO_HASH_GLOW_BRIDGE
