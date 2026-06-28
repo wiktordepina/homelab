@@ -80,6 +80,44 @@ true latency, not a fault.
 | `glow_energy_importer_timezone` | no | `Europe/London` | Local timezone used to decide day boundaries and settlement. |
 | `glow_energy_importer_consumption_id` | no | `glow:electricity_consumption` | External statistic ID for consumption (must contain a `:`). |
 | `glow_energy_importer_consumption_name` | no | `Electricity consumption` | Display name for the consumption statistic. |
+| `glow_energy_importer_cost_id` | no | `glow:electricity_cost` | External statistic ID for cost (must contain a `:`). |
+| `glow_energy_importer_cost_name` | no | `Electricity cost` | Display name for the cost statistic. |
+| `glow_energy_importer_currency` | no | `GBP` | Currency unit for the cost statistic. |
+| `glow_energy_importer_tariffs` | no | `[]` | Date-effective time-of-use tariff (see below). Empty disables cost import. |
+
+## Tariff
+
+The DCC cost and tariff feeds are empty for this meter, so cost is computed locally
+from `glow_energy_importer_tariffs` — a list of **date-effective versions**. The
+version in force on a given local day is the latest one whose `effective_from` is
+on or before it, so a supplier or rate change is just a new entry with a later
+date, and historical days keep being priced by the tariff that applied then.
+
+Each version has a `standing_charge` (GBP/day) and a list of `unit_rates`
+(GBP/kWh). A rate with neither `from` nor `to` is a flat all-day rate; otherwise
+each window is local clock time and a window whose `from` is later than its `to`
+wraps past midnight (e.g. an overnight off-peak). Each settled hour is priced by
+the window covering it, and the day's standing charge is spread evenly across its
+hours.
+
+```yaml
+glow_energy_importer_tariffs:
+  - effective_from: "2025-01-01"      # flat
+    standing_charge: 0.5395
+    unit_rates:
+      - { rate: 0.2495 }
+  - effective_from: "2026-07-03"      # on/off-peak (EV)
+    standing_charge: 0.5710
+    unit_rates:
+      - { from: "23:00", to: "06:00", rate: 0.0699 }   # off-peak (wraps midnight)
+      - { from: "06:00", to: "23:00", rate: 0.3028 }   # peak
+```
+
+Cost is append-only like consumption: editing a tariff only re-prices hours
+imported *after* the change. To re-price already-imported history (e.g. after
+correcting a rate), delete the cost entry from
+`/var/lib/glow-energy-importer/import_state.json` and restart — the next run
+re-imports the backfill window at the corrected rates.
 
 ## Dependencies
 
@@ -113,9 +151,10 @@ export GLOW_IMPORTER_HA_TOKEN='<ha-long-lived-access-token>'
 
 External statistics appear in **Settings → Devices & services → Statistics**, but
 are not auto-added to the Energy dashboard. Once data has imported, go to
-**Settings → Dashboards → Energy → Electricity grid → Add consumption** and pick
-`glow:electricity_consumption`. This UI step lives outside the repo and is tracked
-as assumed-inputs debt.
+**Settings → Dashboards → Energy → Electricity grid → Add consumption**, pick
+`glow:electricity_consumption`, then under **Use an entity tracking the total
+costs** select `glow:electricity_cost`. This UI step lives outside the repo and is
+tracked as assumed-inputs debt.
 
 ## Verifying the import
 
@@ -124,10 +163,10 @@ as assumed-inputs debt.
 ./run/host-ssh 214 journalctl -u glow-energy-importer -f
 ```
 
-Expect, per run, a single `imported N hour(s) up to <ts> (cumulative … kWh)` line
-when new settled hours exist, or `nothing new settled since last import` /
-`no new settled hours to import` otherwise. The imported daily totals should match
-the Bright app's per-day figures.
+Expect, per run, an `imported N hour(s) into <statistic_id> up to <ts>
+(cumulative …)` line per statistic when new settled hours exist, or
+`nothing new settled since last import` otherwise. The imported daily totals should
+match the Bright app's per-day figures.
 
 ## Notes
 
@@ -136,5 +175,5 @@ the Bright app's per-day figures.
 - The auth token is long-lived (~18 months observed) and persisted to
   `/var/lib/glow-energy-importer/token.json` so restarts do not re-authenticate.
 - Cost is **not** read from the DCC: the DCC cost resource and tariff feed are
-  empty for this meter. A configured, time-of-use tariff computes a parallel cost
-  statistic — see the companion tariff support.
+  empty for this meter. A configured, date-effective time-of-use tariff computes a
+  parallel cost statistic — see [Tariff](#tariff) above.
