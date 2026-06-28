@@ -2,7 +2,7 @@
   ansible.builtin.systemd:
     daemon_reload: true
 
-- name: Restart glow-mqtt-bridge
+- name: Restart glow-energy-importer
   ansible.builtin.service:
-    name: glow-mqtt-bridge
+    name: glow-energy-importer
     state: restarted

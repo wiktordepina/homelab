@@ -12,29 +12,29 @@
 
 - name: System user
   ansible.builtin.user:
-    name: glow-mqtt-bridge
+    name: glow-energy-importer
     system: true
     shell: /usr/sbin/nologin
-    home: /var/lib/glow-mqtt-bridge
+    home: /var/lib/glow-energy-importer
     create_home: false
 
 - name: Install directory
   ansible.builtin.file:
-    path: /opt/glow-mqtt-bridge
+    path: /opt/glow-energy-importer
     state: directory
     owner: root
     group: root
     mode: "0755"
 
 - name: Python venv
-  ansible.builtin.command: python3 -m venv /opt/glow-mqtt-bridge/venv
+  ansible.builtin.command: python3 -m venv /opt/glow-energy-importer/venv
   args:
-    creates: /opt/glow-mqtt-bridge/venv/bin/python
+    creates: /opt/glow-energy-importer/venv/bin/python
 
 - name: Requirements file
   ansible.builtin.copy:
     src: requirements.txt
-    dest: /opt/glow-mqtt-bridge/requirements.txt
+    dest: /opt/glow-energy-importer/requirements.txt
     owner: root
     group: root
     mode: "0644"
@@ -46,75 +46,75 @@
 # unchanged and skipped pip, leaving the daemon importing missing libs.
 - name: Install Python dependencies
   ansible.builtin.pip:
-    requirements: /opt/glow-mqtt-bridge/requirements.txt
-    virtualenv: /opt/glow-mqtt-bridge/venv
+    requirements: /opt/glow-energy-importer/requirements.txt
+    virtualenv: /opt/glow-energy-importer/venv
   notify:
-    - Restart glow-mqtt-bridge
+    - Restart glow-energy-importer
 
 - name: Daemon script
   ansible.builtin.copy:
-    src: glow_mqtt_bridge.py
-    dest: /opt/glow-mqtt-bridge/glow_mqtt_bridge.py
+    src: glow_energy_importer.py
+    dest: /opt/glow-energy-importer/glow_energy_importer.py
     owner: root
     group: root
     mode: "0755"
   notify:
-    - Restart glow-mqtt-bridge
+    - Restart glow-energy-importer
 
 - name: Config directory
   ansible.builtin.file:
-    path: /etc/glow-mqtt-bridge
+    path: /etc/glow-energy-importer
     state: directory
     owner: root
-    group: glow-mqtt-bridge
+    group: glow-energy-importer
     mode: "0750"
 
 - name: Config file
   ansible.builtin.template:
     src: config.yml.j2
-    dest: /etc/glow-mqtt-bridge/config.yml
+    dest: /etc/glow-energy-importer/config.yml
     owner: root
-    group: glow-mqtt-bridge
+    group: glow-energy-importer
     mode: "0640"
   notify:
-    - Restart glow-mqtt-bridge
+    - Restart glow-energy-importer
 
 - name: Glowmarkt account password file
   ansible.builtin.copy:
-    content: "{{ lookup('ansible.builtin.env', glow_mqtt_bridge_password_env) }}"
-    dest: /etc/glow-mqtt-bridge/glow_password
+    content: "{{ lookup('ansible.builtin.env', glow_energy_importer_password_env) }}"
+    dest: /etc/glow-energy-importer/glow_password
     owner: root
-    group: glow-mqtt-bridge
+    group: glow-energy-importer
     mode: "0640"
   no_log: true
   notify:
-    - Restart glow-mqtt-bridge
+    - Restart glow-energy-importer
 
-- name: MQTT password file
+- name: Home Assistant token file
   ansible.builtin.copy:
-    content: "{{ lookup('ansible.builtin.env', glow_mqtt_bridge_mqtt_password_env) }}"
-    dest: /etc/glow-mqtt-bridge/mqtt_password
+    content: "{{ lookup('ansible.builtin.env', glow_energy_importer_ha_token_env) }}"
+    dest: /etc/glow-energy-importer/ha_token
     owner: root
-    group: glow-mqtt-bridge
+    group: glow-energy-importer
     mode: "0640"
   no_log: true
   notify:
-    - Restart glow-mqtt-bridge
+    - Restart glow-energy-importer
 
 - name: Systemd unit
   ansible.builtin.template:
-    src: glow-mqtt-bridge.service.j2
-    dest: /etc/systemd/system/glow-mqtt-bridge.service
+    src: glow-energy-importer.service.j2
+    dest: /etc/systemd/system/glow-energy-importer.service
     owner: root
     group: root
     mode: "0644"
   notify:
     - Reload systemd
-    - Restart glow-mqtt-bridge
+    - Restart glow-energy-importer
 
 - name: Enable service
   ansible.builtin.systemd:
-    name: glow-mqtt-bridge
+    name: glow-energy-importer
     enabled: true
     state: started
     daemon_reload: true

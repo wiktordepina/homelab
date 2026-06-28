@@ -1,0 +1,34 @@
+[Unit]
+Description=Glowmarkt (UK smart meter, DCC) to Home Assistant statistics importer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=glow-energy-importer
+Group=glow-energy-importer
+ExecStart=/opt/glow-energy-importer/venv/bin/python /opt/glow-energy-importer/glow_energy_importer.py
+Restart=on-failure
+RestartSec=5
+
+# systemd creates /var/lib/glow-energy-importer (owned by the service user) and
+# exports STATE_DIRECTORY; the daemon caches its auth token and the per-statistic
+# high-water mark there.
+StateDirectory=glow-energy-importer
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target

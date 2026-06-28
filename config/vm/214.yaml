@@ -50,10 +50,9 @@ ansible:
         signum_mqtt_bridge_mqtt_host: mosquitto.home.matagoth.com
         signum_mqtt_bridge_mqtt_username: signum-bridge
         signum_mqtt_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_SIGNUM_BRIDGE
-    - role: glow_mqtt_bridge
+    - role: glow_energy_importer
       vars:
-        glow_mqtt_bridge_username: wiktordepina@gmail.com
-        glow_mqtt_bridge_password_env: GLOW_BRIDGE_PASSWORD
-        glow_mqtt_bridge_mqtt_host: mosquitto.home.matagoth.com
-        glow_mqtt_bridge_mqtt_username: glow-bridge
-        glow_mqtt_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_GLOW_BRIDGE
+        glow_energy_importer_username: wiktordepina@gmail.com
+        glow_energy_importer_password_env: GLOW_BRIDGE_PASSWORD
+        glow_energy_importer_ha_url: http://homeassistant.home.matagoth.com:8123
+        glow_energy_importer_ha_token_env: GLOW_IMPORTER_HA_TOKEN
