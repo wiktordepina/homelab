@@ -56,3 +56,21 @@ ansible:
         glow_energy_importer_password_env: GLOW_BRIDGE_PASSWORD
         glow_energy_importer_ha_url: http://homeassistant.home.matagoth.com:8123
         glow_energy_importer_ha_token_env: GLOW_IMPORTER_HA_TOKEN
+        # Standing charge in GBP/day, unit rates in GBP/kWh, window times local
+        # (Europe/London). A window-less rate is flat all-day; from > to wraps
+        # midnight. The version in force on a day is the latest effective_from
+        # on or before it.
+        glow_energy_importer_tariffs:
+          - effective_from: "2025-01-01"      # current provider, flat
+            standing_charge: 0.5395
+            unit_rates:
+              - { rate: 0.2495 }
+          - effective_from: "2026-07-01"      # new provider, flat
+            standing_charge: 0.53944
+            unit_rates:
+              - { rate: 0.26381 }
+          - effective_from: "2026-07-03"      # EV tariff, peak/off-peak (date approximate)
+            standing_charge: 0.5710
+            unit_rates:
+              - { from: "23:00", to: "06:00", rate: 0.0699 }   # off-peak
+              - { from: "06:00", to: "23:00", rate: 0.3028 }   # peak

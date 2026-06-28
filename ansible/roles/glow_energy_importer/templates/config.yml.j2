@@ -13,7 +13,13 @@ poll_interval: {{ glow_energy_importer_poll_interval | default(21600) }}
 http_timeout: {{ glow_energy_importer_http_timeout | default(30) }}
 backfill_days: {{ glow_energy_importer_backfill_days | default(90) }}
 timezone: {{ glow_energy_importer_timezone | default('Europe/London') }}
+currency: {{ glow_energy_importer_currency | default('GBP') }}
 
 statistics:
   consumption_id: {{ glow_energy_importer_consumption_id | default('glow:electricity_consumption') }}
   consumption_name: "{{ glow_energy_importer_consumption_name | default('Electricity consumption') }}"
+  cost_id: {{ glow_energy_importer_cost_id | default('glow:electricity_cost') }}
+  cost_name: "{{ glow_energy_importer_cost_name | default('Electricity cost') }}"
+
+# Date-effective time-of-use tariff. Empty disables cost import (consumption only).
+tariffs: {{ glow_energy_importer_tariffs | default([]) | to_json }}

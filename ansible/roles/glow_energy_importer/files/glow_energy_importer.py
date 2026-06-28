@@ -19,9 +19,10 @@ is lost it re-imports the whole backfill window from scratch (recomputing every
 sum from zero), so a wiped StateDirectory self-heals rather than leaving a sum
 discontinuity that the Energy dashboard would render as a spike.
 
-Cost is computed locally from a configured tariff rather than read from the DCC,
-because the DCC cost/tariff feeds are empty for this meter. That lives in the
-companion tariff module; this file owns consumption.
+Cost is computed locally from a configured, date-effective time-of-use tariff
+rather than read from the DCC, because the DCC cost/tariff feeds are empty for this
+meter. When a tariff is configured the importer publishes a parallel cost statistic
+alongside consumption, sharing one fetch but tracking its own high-water mark.
 """
 
 import json
@@ -31,7 +32,7 @@ import signal
 import sys
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -60,6 +61,60 @@ logger = logging.getLogger("glow_energy_importer")
 
 def hour_floor(ts: int) -> int:
     return ts - (ts % HOUR)
+
+
+def _hm(value: str) -> int:
+    """'HH:MM' local clock time -> minutes since local midnight."""
+    hours, minutes = value.split(":")
+    return int(hours) * 60 + int(minutes)
+
+
+class Tariff:
+    """Date-effective, time-of-use electricity tariff.
+
+    A list of versions, each with an `effective_from` date, a `standing_charge`
+    (GBP/day) and a set of `unit_rates` windows (GBP/kWh). The version in force on a
+    given local date is the latest one whose `effective_from` is on or before it.
+    Within that version a half-hour's rate is the window covering its local clock
+    time: a window with neither `from` nor `to` is a flat all-day rate, and a window
+    where `from` > `to` wraps past midnight (e.g. an overnight off-peak 23:00-06:00).
+    A flat tariff is simply a single version with one window-less rate.
+    """
+
+    def __init__(self, versions: list[dict]):
+        if not versions:
+            raise ValueError("tariff has no versions")
+        self.versions = sorted(versions, key=lambda v: v["effective_from"])
+
+    def _version_for(self, local_date: date) -> dict:
+        chosen = None
+        for version in self.versions:
+            if date.fromisoformat(version["effective_from"]) <= local_date:
+                chosen = version
+            else:
+                break
+        if chosen is None:
+            raise ValueError(f"no tariff effective on {local_date}")
+        return chosen
+
+    def rate(self, local_dt: datetime) -> float:
+        """Unit rate (GBP/kWh) in force at a local datetime."""
+        version = self._version_for(local_dt.date())
+        minute = local_dt.hour * 60 + local_dt.minute
+        for window in version["unit_rates"]:
+            if "from" not in window and "to" not in window:
+                return float(window["rate"])
+            start, end = _hm(window["from"]), _hm(window["to"])
+            if start < end:
+                if start <= minute < end:
+                    return float(window["rate"])
+            elif minute >= start or minute < end:  # window wraps past midnight
+                return float(window["rate"])
+        raise ValueError(f"no rate window covers {local_dt:%H:%M} on {local_dt.date()}")
+
+    def standing_charge(self, local_date: date) -> float:
+        """Daily standing charge (GBP/day) in force on a local date."""
+        return float(self._version_for(local_date)["standing_charge"])
 
 
 class GlowmarktClient:
@@ -222,6 +277,11 @@ class Importer:
         stats = config.get("statistics", {})
         self.consumption_id = stats.get("consumption_id", "glow:electricity_consumption")
         self.consumption_name = stats.get("consumption_name", "Electricity consumption")
+        self.cost_id = stats.get("cost_id", "glow:electricity_cost")
+        self.cost_name = stats.get("cost_name", "Electricity cost")
+        self.currency = config.get("currency", "GBP")
+        tariffs = config.get("tariffs") or []
+        self.tariff = Tariff(tariffs) if tariffs else None
 
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "glow-energy-importer/1"})
@@ -257,93 +317,128 @@ class Importer:
 
     # --- the import itself -----------------------------------------------------
 
-    def _import_consumption(self) -> None:
-        state = self._load_state().get(self.consumption_id)
-        cutoff = self._settle_cutoff()
+    def _local(self, ts: int) -> datetime:
+        return datetime.fromtimestamp(ts, timezone.utc).astimezone(self.tz)
 
+    def _series_plan(self, statistic_id: str) -> dict:
+        """Decide the import window and starting cumulative sum for one statistic
+        from its own high-water mark. Kept per-statistic so a newly-added series
+        (e.g. cost) can backfill its full history while consumption only appends."""
+        state = self._load_state().get(statistic_id)
         if state:
             # Append-only: continue the running sum from the last imported hour.
+            # Over-fetch slightly to absorb boundary slack; the hour filter in
+            # `_bucket` discards anything already imported.
             last_hour = int(state["last_hour"])
-            running_sum = float(state["last_sum"])
-            # Over-fetch slightly to absorb any boundary slack; the hour filter
-            # below discards anything already imported.
             frm = datetime.fromtimestamp(last_hour, timezone.utc) - timedelta(hours=2)
-            first_hour_exclusive = last_hour
-        else:
-            # No state (or first run): rebuild the whole window from zero so every
-            # sum is internally consistent and overwrites any stale import.
-            running_sum = 0.0
-            frm = datetime.now(timezone.utc) - timedelta(days=self.backfill_days)
-            frm = frm.replace(minute=0, second=0, microsecond=0)
-            first_hour_exclusive = -1
-            logger.info("no import state; backfilling %s days", self.backfill_days)
+            return {"frm": frm, "first_excl": last_hour, "running": float(state["last_sum"])}
+        # No state: rebuild the whole window from zero so every sum is internally
+        # consistent and overwrites any stale import.
+        frm = (datetime.now(timezone.utc) - timedelta(days=self.backfill_days)).replace(
+            minute=0, second=0, microsecond=0
+        )
+        logger.info("no state for %s; backfilling %s days", statistic_id, self.backfill_days)
+        return {"frm": frm, "first_excl": -1, "running": 0.0}
 
-        if frm >= cutoff:
-            logger.info(
-                "nothing new settled since last import (cutoff=%s)", cutoff.isoformat()
-            )
-            return
-
-        rows = self.glow.half_hourly(self.resource_id, frm, cutoff)
-
-        # Aggregate native half-hours into UTC hour buckets, keeping only settled,
-        # not-yet-imported hours.
-        cutoff_ts = int(cutoff.timestamp())
+    @staticmethod
+    def _bucket(rows, first_excl: int, cutoff_ts: int, value) -> dict[int, float]:
+        """Aggregate native half-hours into UTC hour buckets via `value(ts, kwh)`,
+        keeping only settled, not-yet-imported hours."""
         hourly: dict[int, float] = {}
         for ts, kwh in rows:
             h = hour_floor(ts)
-            if h <= first_hour_exclusive or h >= cutoff_ts:
+            if h <= first_excl or h >= cutoff_ts:
                 continue
-            hourly[h] = hourly.get(h, 0.0) + kwh
+            hourly[h] = hourly.get(h, 0.0) + value(ts, kwh)
+        return hourly
 
+    def _finalise(self, statistic_id, name, unit, hourly, running, places) -> None:
         if not hourly:
-            logger.info("no new settled hours to import")
+            logger.info("no new settled hours for %s", statistic_id)
             return
-
         stats = []
+        cumulative = running
         for h in sorted(hourly):
-            running_sum += hourly[h]
+            cumulative += hourly[h]
+            value = round(cumulative, places)
             start = datetime.fromtimestamp(h, timezone.utc).isoformat()
-            stats.append(
-                {"start": start, "state": round(running_sum, 3), "sum": round(running_sum, 3)}
-            )
+            stats.append({"start": start, "state": value, "sum": value})
 
         metadata = {
             "has_mean": False,
             "has_sum": True,
-            "source": self.consumption_id.split(":", 1)[0],
-            "statistic_id": self.consumption_id,
-            "name": self.consumption_name,
-            "unit_of_measurement": "kWh",
+            "source": statistic_id.split(":", 1)[0],
+            "statistic_id": statistic_id,
+            "name": name,
+            "unit_of_measurement": unit,
         }
         self.ha.import_statistics(metadata, stats)
 
         new_last_hour = max(hourly)
         full_state = self._load_state()
-        full_state[self.consumption_id] = {
-            "last_hour": new_last_hour,
-            "last_sum": round(running_sum, 3),
-        }
+        full_state[statistic_id] = {"last_hour": new_last_hour, "last_sum": round(cumulative, places)}
         self._save_state(full_state)
         logger.info(
-            "imported %d hour(s) up to %s (cumulative %.3f kWh)",
+            "imported %d hour(s) into %s up to %s (cumulative %.4g %s)",
             len(stats),
+            statistic_id,
             datetime.fromtimestamp(new_last_hour, timezone.utc).isoformat(),
-            running_sum,
+            cumulative,
+            unit,
         )
+
+    def _run_import(self) -> None:
+        cutoff = self._settle_cutoff()
+        cutoff_ts = int(cutoff.timestamp())
+
+        plans = {self.consumption_id: self._series_plan(self.consumption_id)}
+        if self.tariff:
+            plans[self.cost_id] = self._series_plan(self.cost_id)
+
+        # One fetch covers both series; each filters to its own window in `_bucket`.
+        union_frm = min(p["frm"] for p in plans.values())
+        if union_frm >= cutoff:
+            logger.info("nothing new settled since last import (cutoff=%s)", cutoff.isoformat())
+            return
+        rows = self.glow.half_hourly(self.resource_id, union_frm, cutoff)
+
+        cons = plans[self.consumption_id]
+        self._finalise(
+            self.consumption_id,
+            self.consumption_name,
+            "kWh",
+            self._bucket(rows, cons["first_excl"], cutoff_ts, lambda ts, kwh: kwh),
+            cons["running"],
+            3,
+        )
+
+        if self.tariff:
+            cp = plans[self.cost_id]
+            cost_hourly = self._bucket(
+                rows,
+                cp["first_excl"],
+                cutoff_ts,
+                lambda ts, kwh: kwh * self.tariff.rate(self._local(ts)),
+            )
+            # The standing charge accrues per day regardless of use; spread it
+            # evenly across each settled day's 24 hours.
+            for h in cost_hourly:
+                cost_hourly[h] += self.tariff.standing_charge(self._local(h).date()) / 24.0
+            self._finalise(self.cost_id, self.cost_name, self.currency, cost_hourly, cp["running"], 4)
 
     def _poll(self) -> None:
         try:
-            self._import_consumption()
+            self._run_import()
         except (requests.RequestException, ValueError, RuntimeError) as exc:
             logger.warning("import failed: %s", exc)
 
     def run(self) -> None:
         self.resource_id = self.glow.consumption_resource()
+        targets = [self.consumption_id] + ([self.cost_id] if self.tariff else [])
         logger.info(
-            "importing consumption resource=%s into %s every %ss",
+            "importing resource=%s into %s every %ss",
             self.resource_id,
-            self.consumption_id,
+            ", ".join(targets),
             self.poll_interval,
         )
         while not self._stop.is_set():
