@@ -8,9 +8,10 @@ is delayed: a day's half-hourly readings only settle around 01:30 the following
 morning. A live `total_increasing` sensor timestamps every reading at the moment
 HA receives it, so delayed data lands on the wrong hour and "today" is forever
 near-empty. Home Assistant's statistics layer, by contrast, accepts external
-statistics at an explicit historical timestamp (`recorder.import_statistics`),
-which is the only mechanism that places each reading on the half-hour it actually
-happened. The Energy dashboard reads those statistics directly.
+statistics at an explicit historical timestamp (the WebSocket
+`recorder/import_statistics` command), which is the only mechanism that places each
+reading on the half-hour it actually happened. The Energy dashboard reads those
+statistics directly.
 
 The importer is append-only and idempotent. It tracks a high-water mark per
 statistic in the systemd StateDirectory; each run fetches the hours that have
@@ -37,6 +38,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
+import websocket
 import yaml
 
 CONFIG_PATH = Path(
@@ -230,22 +232,24 @@ class GlowmarktClient:
 
 
 class HomeAssistantClient:
-    """Imports external statistics via HA's `recorder.import_statistics` service
-    over the REST API. The service upserts by (statistic_id, start), so
-    re-importing an hour overwrites it rather than duplicating."""
+    """Imports external statistics via HA's WebSocket `recorder/import_statistics`
+    command. There is no REST equivalent — `import_statistics` is not a registered
+    service (only `purge`, `get_statistics`, etc. are), so it must go over the
+    WebSocket API. The command upserts by (statistic_id, start), so re-importing an
+    hour overwrites it rather than duplicating."""
 
-    # Keep request bodies bounded on large backfills.
+    # Keep messages bounded on large backfills.
     BATCH = 1000
 
     def __init__(self, config: dict):
         ha = config["ha"]
-        self.url = ha["url"].rstrip("/")
+        url = ha["url"].rstrip("/")
+        self.ws_url = (
+            url.replace("https://", "wss://", 1).replace("http://", "ws://", 1)
+            + "/api/websocket"
+        )
         self.token = self._read_token(ha)
         self.http_timeout = float(config.get("http_timeout", 30))
-        self.session = requests.Session()
-        self.session.headers.update(
-            {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
-        )
 
     @staticmethod
     def _read_token(ha_cfg: dict) -> str:
@@ -256,16 +260,42 @@ class HomeAssistantClient:
             return Path(path).read_text().strip()
         raise SystemExit("config.ha: either token or token_file is required")
 
+    def _connect(self):
+        """Open an authenticated WebSocket. HA greets with auth_required, expects an
+        auth message, then replies auth_ok before accepting commands."""
+        ws = websocket.create_connection(self.ws_url, timeout=self.http_timeout)
+        greeting = json.loads(ws.recv())
+        if greeting.get("type") != "auth_required":
+            ws.close()
+            raise RuntimeError(f"unexpected HA greeting: {greeting.get('type')}")
+        ws.send(json.dumps({"type": "auth", "access_token": self.token}))
+        ack = json.loads(ws.recv())
+        if ack.get("type") != "auth_ok":
+            ws.close()
+            raise RuntimeError(f"HA auth failed: {ack.get('type')}")
+        return ws
+
     def import_statistics(self, metadata: dict, stats: list[dict]) -> None:
-        for i in range(0, len(stats), self.BATCH):
-            body = dict(metadata)
-            body["stats"] = stats[i : i + self.BATCH]
-            resp = self.session.post(
-                f"{self.url}/api/services/recorder/import_statistics",
-                data=json.dumps(body),
-                timeout=self.http_timeout,
-            )
-            resp.raise_for_status()
+        ws = self._connect()
+        try:
+            msg_id = 0
+            for i in range(0, len(stats), self.BATCH):
+                msg_id += 1
+                ws.send(
+                    json.dumps(
+                        {
+                            "id": msg_id,
+                            "type": "recorder/import_statistics",
+                            "metadata": metadata,
+                            "stats": stats[i : i + self.BATCH],
+                        }
+                    )
+                )
+                reply = json.loads(ws.recv())
+                if not reply.get("success"):
+                    raise RuntimeError(f"import_statistics failed: {reply.get('error')}")
+        finally:
+            ws.close()
 
 
 class Importer:
@@ -429,7 +459,13 @@ class Importer:
     def _poll(self) -> None:
         try:
             self._run_import()
-        except (requests.RequestException, ValueError, RuntimeError) as exc:
+        except (
+            requests.RequestException,
+            websocket.WebSocketException,
+            OSError,
+            ValueError,
+            RuntimeError,
+        ) as exc:
             logger.warning("import failed: %s", exc)
 
     def run(self) -> None:

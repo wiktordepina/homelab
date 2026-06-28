@@ -9,7 +9,7 @@ dashboard.
 Installs a small Python daemon that authenticates against the Glowmarkt API (the
 same backend the free Bright app uses), reads *settled* half-hourly consumption,
 aggregates it to hourly buckets, and imports those into Home Assistant's recorder
-via the `recorder.import_statistics` service — each reading placed at the
+via the WebSocket `recorder/import_statistics` command — each reading placed at the
 half-hour it actually occurred.
 
 ### Why statistics, not a live sensor
@@ -35,7 +35,7 @@ true latency, not a fault.
   from zero**, recomputing every `sum` consistently. A wiped `StateDirectory`
   therefore self-heals rather than leaving a `sum` discontinuity that the Energy
   dashboard would render as a spike.
-- The `recorder.import_statistics` service upserts by `(statistic_id, start)`, so
+- The `recorder/import_statistics` command upserts by `(statistic_id, start)`, so
   re-importing an hour overwrites it rather than duplicating.
 
 ## Tasks
@@ -43,7 +43,7 @@ true latency, not a fault.
 - Installs `python3-venv` and `python3-packaging`.
 - Creates a system user `glow-energy-importer`.
 - Builds a Python virtual environment under `/opt/glow-energy-importer/venv`.
-- Installs `requests` and `PyYAML` from the pinned `requirements.txt`.
+- Installs `requests`, `PyYAML` and `websocket-client` from the pinned `requirements.txt`.
 - Drops the daemon at `/opt/glow-energy-importer/glow_energy_importer.py`.
 - Templates `/etc/glow-energy-importer/config.yml` with the API endpoint, Bright
   username, HA URL, poll interval, backfill window and statistic IDs.
@@ -61,8 +61,8 @@ true latency, not a fault.
   is a manual, human-gated step that can take a couple of days to validate; it is
   tracked as assumed-inputs debt outside this repo.
 - A **Home Assistant long-lived access token** for an admin user (Profile →
-  Security → Long-lived access tokens). The `recorder.import_statistics` service
-  requires admin.
+  Security → Long-lived access tokens). The `recorder/import_statistics` WebSocket
+  command requires admin.
 
 ## Variables
 
