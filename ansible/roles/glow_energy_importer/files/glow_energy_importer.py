@@ -86,8 +86,18 @@ def hour_floor(ts: int) -> int:
     return ts - (ts % HOUR)
 
 
-def _hm(value: str) -> int:
-    """'HH:MM' local clock time -> minutes since local midnight."""
+def _hm(value) -> int:
+    """A clock time as minutes since local midnight.
+
+    Accepts either 'HH:MM' or an int already in minutes. The int form is not a
+    convenience: a bare 'HH:MM' whose hour has no leading zero (e.g. 23:00) looks
+    like a YAML 1.1 sexagesimal literal and is silently coerced to an integer
+    (23*60 = 1380) as the tariff passes through the playbook renderer into the
+    config. Accepting that int here keeps the importer correct however the time
+    survived YAML round-tripping; '06:00' stays a string only because the leading
+    zero disqualifies it from sexagesimal."""
+    if isinstance(value, int):
+        return value
     hours, minutes = value.split(":")
     return int(hours) * 60 + int(minutes)
 

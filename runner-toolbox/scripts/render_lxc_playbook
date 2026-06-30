@@ -29,9 +29,18 @@ import ruamel.yaml as yaml
 
 vmid = sys.argv[1]
 
+# preserve_quotes keeps a source scalar's quoting through the round-trip. Without
+# it ruamel emits under YAML 1.2 rules, dropping quotes it deems unnecessary —
+# but ansible-playbook then re-reads under YAML 1.1, where an unquoted value like
+# "23:00" is a sexagesimal number (23*60 = 1380). Holding the quotes keeps such
+# strings (tariff window times, etc.) intact end to end. One instance must do both
+# load and dump for the quote style to carry across.
+yml = yaml.YAML()
+yml.preserve_quotes = True
+
 lcx_conf_path = f'./config/lxc/{vmid}.yaml'
 with open(lcx_conf_path) as conf_file:
-  lxc_conf = yaml.YAML().load(conf_file)
+  lxc_conf = yml.load(conf_file)
 
 lxc_ip = lxc_conf['terraform']['ip_address'].split('/')[0]
 pve_extra = lxc_conf.get('pve_extra', None)
@@ -85,4 +94,4 @@ if ansible_tasks:
 
 full_playbook = [pve_options_playbook, playbook] if pve_extra else [playbook]
 
-yaml.YAML().dump(full_playbook, sys.stdout)
+yml.dump(full_playbook, sys.stdout)

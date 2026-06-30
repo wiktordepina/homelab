@@ -29,9 +29,18 @@ import ruamel.yaml as yaml
 
 hostname = sys.argv[1]
 
+# preserve_quotes keeps a source scalar's quoting through the round-trip. Without
+# it ruamel emits under YAML 1.2 rules, dropping quotes it deems unnecessary —
+# but ansible-playbook then re-reads under YAML 1.1, where an unquoted value like
+# "23:00" is a sexagesimal number (23*60 = 1380). Holding the quotes keeps such
+# strings (tariff window times, etc.) intact end to end. One instance must do both
+# load and dump for the quote style to carry across.
+yml = yaml.YAML()
+yml.preserve_quotes = True
+
 conf_path = f'./config/external-hosts/{hostname}.yml'
 with open(conf_path) as conf_file:
-  conf = yaml.YAML().load(conf_file)
+  conf = yml.load(conf_file)
 
 host_ip = conf['identity']['ip']
 ansible_roles = conf['ansible'].get('roles')
@@ -48,4 +57,4 @@ if ansible_roles:
 if ansible_tasks:
   playbook.update({'tasks': ansible_tasks})
 
-yaml.YAML().dump([playbook], sys.stdout)
+yml.dump([playbook], sys.stdout)
