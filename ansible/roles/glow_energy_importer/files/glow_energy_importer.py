@@ -13,17 +13,23 @@ statistics at an explicit historical timestamp (the WebSocket
 reading on the half-hour it actually happened. The Energy dashboard reads those
 statistics directly.
 
-The importer is append-only and idempotent. It tracks a high-water mark per
-statistic in the systemd StateDirectory; each run fetches the hours that have
-settled since, accumulates a monotonic `sum`, and imports them. If the state file
-is lost it re-imports the whole backfill window from scratch (recomputing every
-sum from zero), so a wiped StateDirectory self-heals rather than leaving a sum
+The importer is idempotent (HA upserts statistics by (statistic_id, start), so a
+re-imported hour overwrites rather than duplicates). The DCC feed settles lazily —
+a day's half-hours can take well over a day to all arrive — so importing on a fixed
+time lag captured mostly-empty days and froze those gaps in. Instead, a day is
+imported only once every one of its half-hours is present (or it has aged out), and
+each run re-fetches and overwrites a trailing window of recently-imported days so
+late or revised readings heal themselves. State is therefore a *checkpoint* per
+statistic — the last hour old enough to stop re-verifying, plus its cumulative
+`sum` — deliberately lagging the tail by that window. If the state file is lost the
+importer re-imports the whole backfill window from scratch (recomputing every sum
+from zero), so a wiped StateDirectory self-heals rather than leaving a sum
 discontinuity that the Energy dashboard would render as a spike.
 
 Cost is computed locally from a configured, date-effective time-of-use tariff
 rather than read from the DCC, because the DCC cost/tariff feeds are empty for this
 meter. When a tariff is configured the importer publishes a parallel cost statistic
-alongside consumption, sharing one fetch but tracking its own high-water mark.
+alongside consumption, sharing one fetch but tracking its own checkpoint.
 """
 
 import json
@@ -54,9 +60,24 @@ HOUR = 3600
 # stay comfortably under it when backfilling.
 FETCH_CHUNK = timedelta(days=7)
 
-# A local day D is "settled" once we are this far past the midnight that ends it.
-# DCC data for D firms up by ~01:30 the next morning; 2h is a safe margin.
-SETTLE_LAG = timedelta(hours=2)
+# A local day is imported only once every one of its half-hours has arrived from
+# the DCC (the completeness gate in `_day_importable`). The old approach — assume
+# the feed firms up by ~01:30 and import on a fixed lag — was wrong: in practice a
+# day's half-hours can take well over a day to fully settle, so the fixed-lag
+# import captured mostly-empty days and, being append-only, froze those gaps into
+# the Energy dashboard forever.
+#
+# REVERIFY_DAYS is how many already-imported days at the tail are re-fetched and
+# overwritten on every run, so a day that was only partially present when first
+# imported (or that the DCC later revises) heals itself instead of staying wrong.
+REVERIFY_DAYS = 3
+
+# A day older than this is imported even if still incomplete: past this point the
+# missing half-hours are almost certainly a genuine meter/comms gap that will
+# never arrive, and waiting forever would stall every later day behind it.
+MAX_SETTLE_DAYS = 5
+
+HALF_HOUR = 1800
 
 logger = logging.getLogger("glow_energy_importer")
 
@@ -65,8 +86,18 @@ def hour_floor(ts: int) -> int:
     return ts - (ts % HOUR)
 
 
-def _hm(value: str) -> int:
-    """'HH:MM' local clock time -> minutes since local midnight."""
+def _hm(value) -> int:
+    """A clock time as minutes since local midnight.
+
+    Accepts either 'HH:MM' or an int already in minutes. The int form is not a
+    convenience: a bare 'HH:MM' whose hour has no leading zero (e.g. 23:00) looks
+    like a YAML 1.1 sexagesimal literal and is silently coerced to an integer
+    (23*60 = 1380) as the tariff passes through the playbook renderer into the
+    config. Accepting that int here keeps the importer correct however the time
+    survived YAML round-tripping; '06:00' stays a string only because the leading
+    zero disqualifies it from sexagesimal."""
+    if isinstance(value, int):
+        return value
     hours, minutes = value.split(":")
     return int(hours) * 60 + int(minutes)
 
@@ -302,6 +333,8 @@ class Importer:
     def __init__(self, config: dict):
         self.poll_interval = int(config.get("poll_interval", 21600))
         self.backfill_days = int(config.get("backfill_days", 90))
+        self.reverify_days = int(config.get("reverify_days", REVERIFY_DAYS))
+        self.max_settle_days = int(config.get("max_settle_days", MAX_SETTLE_DAYS))
         self.tz = ZoneInfo(config.get("timezone", "Europe/London"))
 
         stats = config.get("statistics", {})
@@ -332,18 +365,48 @@ class Importer:
     def _save_state(self, state: dict) -> None:
         IMPORT_STATE.write_text(json.dumps(state))
 
-    def _settle_cutoff(self) -> datetime:
-        """First instant that is *not* yet importable: the local midnight ending
-        the most recent fully-settled day. Half-hours at or after this are
-        skipped."""
-        now_local = datetime.now(self.tz)
-        latest_settled_day = (now_local - SETTLE_LAG).date() - timedelta(days=1)
-        end_of_day_local = datetime.combine(
-            latest_settled_day + timedelta(days=1),
-            datetime.min.time(),
-            tzinfo=self.tz,
+    def _local_midnight_ts(self, local_day: date) -> int:
+        """Epoch of local midnight that starts `local_day`."""
+        midnight = datetime.combine(local_day, datetime.min.time(), tzinfo=self.tz)
+        return int(midnight.astimezone(timezone.utc).timestamp())
+
+    def _slots_in_day(self, local_day: date) -> int:
+        """Half-hour slots a local day should contain. Normally 48; a DST spring
+        forward gives 46 and an autumn fall-back 50, so derive it from the actual
+        UTC span of the local day rather than assuming 48."""
+        span = self._local_midnight_ts(local_day + timedelta(days=1)) - self._local_midnight_ts(
+            local_day
         )
-        return end_of_day_local.astimezone(timezone.utc)
+        return span // HALF_HOUR
+
+    def _day_importable(self, local_day: date, slots: set, now: datetime) -> bool:
+        """A day is importable once every half-hour has arrived, or once it is old
+        enough that the missing ones are a genuine gap we should stop waiting on.
+        Today (and the future) is never importable: it is still in progress."""
+        age = (now.astimezone(self.tz).date() - local_day).days
+        if age <= 0:
+            return False
+        if len(slots) >= self._slots_in_day(local_day):
+            return True
+        return age > self.max_settle_days
+
+    def _settle_cutoff_ts(self, rows, now: datetime) -> int:
+        """Exclusive epoch upper bound on importable hours: local midnight starting
+        the earliest day that is not yet importable. Scanning oldest-first and
+        stopping at the first non-importable day keeps the imported span contiguous
+        (so the cumulative sum has no holes) — a later complete day sitting behind
+        an incomplete one waits until the gap ahead of it resolves or ages out."""
+        present: dict[date, set] = {}
+        for ts, _ in rows:
+            present.setdefault(self._local(ts).date(), set()).add(ts - ts % HALF_HOUR)
+
+        today = now.astimezone(self.tz).date()
+        day = min(present) if present else today
+        while day <= today:
+            if not self._day_importable(day, present.get(day, set()), now):
+                break
+            day += timedelta(days=1)
+        return self._local_midnight_ts(day)
 
     # --- the import itself -----------------------------------------------------
 
@@ -352,15 +415,18 @@ class Importer:
 
     def _series_plan(self, statistic_id: str) -> dict:
         """Decide the import window and starting cumulative sum for one statistic
-        from its own high-water mark. Kept per-statistic so a newly-added series
-        (e.g. cost) can backfill its full history while consumption only appends."""
+        from its own checkpoint. Kept per-statistic so a newly-added series (e.g.
+        cost) can backfill its full history while consumption continues from its
+        own checkpoint.
+
+        The checkpoint is not the last hour imported: it deliberately lags the tail
+        by REVERIFY_DAYS so every run re-fetches and overwrites that trailing
+        window (see `_finalise`). Starting the running sum from the checkpoint lets
+        those days be recomputed cleanly when late or revised readings arrive."""
         state = self._load_state().get(statistic_id)
         if state:
-            # Append-only: continue the running sum from the last imported hour.
-            # Over-fetch slightly to absorb boundary slack; the hour filter in
-            # `_bucket` discards anything already imported.
             last_hour = int(state["last_hour"])
-            frm = datetime.fromtimestamp(last_hour, timezone.utc) - timedelta(hours=2)
+            frm = datetime.fromtimestamp(last_hour, timezone.utc)
             return {"frm": frm, "first_excl": last_hour, "running": float(state["last_sum"])}
         # No state: rebuild the whole window from zero so every sum is internally
         # consistent and overwrites any stale import.
@@ -382,17 +448,24 @@ class Importer:
             hourly[h] = hourly.get(h, 0.0) + value(ts, kwh)
         return hourly
 
-    def _finalise(self, statistic_id, name, unit, hourly, running, places) -> None:
+    def _finalise(self, statistic_id, name, unit, hourly, running, places, frozen_before) -> None:
         if not hourly:
             logger.info("no new settled hours for %s", statistic_id)
             return
         stats = []
         cumulative = running
+        cp_hour = None
+        cp_sum = running
         for h in sorted(hourly):
             cumulative += hourly[h]
             value = round(cumulative, places)
             start = datetime.fromtimestamp(h, timezone.utc).isoformat()
             stats.append({"start": start, "state": value, "sum": value})
+            # The checkpoint trails the tail by REVERIFY_DAYS: it is the last hour
+            # old enough that we stop re-importing it. Capture its cumulative sum so
+            # the next run continues from a frozen, internally-consistent baseline.
+            if h < frozen_before:
+                cp_hour, cp_sum = h, value
 
         metadata = {
             "has_mean": False,
@@ -404,33 +477,54 @@ class Importer:
         }
         self.ha.import_statistics(metadata, stats)
 
-        new_last_hour = max(hourly)
+        last_hour = max(hourly)
+        if cp_hour is None:
+            # Everything imported is still inside the re-verify window — there is
+            # nothing new to freeze, so hold the existing checkpoint and let the
+            # whole window be re-fetched again next run.
+            logger.info(
+                "imported %d hour(s) into %s up to %s (all within re-verify window; "
+                "checkpoint held)",
+                len(stats),
+                statistic_id,
+                datetime.fromtimestamp(last_hour, timezone.utc).isoformat(),
+            )
+            return
+
         full_state = self._load_state()
-        full_state[statistic_id] = {"last_hour": new_last_hour, "last_sum": round(cumulative, places)}
+        full_state[statistic_id] = {"last_hour": cp_hour, "last_sum": cp_sum}
         self._save_state(full_state)
         logger.info(
-            "imported %d hour(s) into %s up to %s (cumulative %.4g %s)",
+            "imported %d hour(s) into %s up to %s; checkpoint at %s (cumulative %.4g %s)",
             len(stats),
             statistic_id,
-            datetime.fromtimestamp(new_last_hour, timezone.utc).isoformat(),
+            datetime.fromtimestamp(last_hour, timezone.utc).isoformat(),
+            datetime.fromtimestamp(cp_hour, timezone.utc).isoformat(),
             cumulative,
             unit,
         )
 
     def _run_import(self) -> None:
-        cutoff = self._settle_cutoff()
-        cutoff_ts = int(cutoff.timestamp())
+        now = datetime.now(timezone.utc)
 
         plans = {self.consumption_id: self._series_plan(self.consumption_id)}
         if self.tariff:
             plans[self.cost_id] = self._series_plan(self.cost_id)
 
         # One fetch covers both series; each filters to its own window in `_bucket`.
+        # Fetch right up to now (not to a guessed cutoff) so completeness can be
+        # judged from the readings actually present.
         union_frm = min(p["frm"] for p in plans.values())
-        if union_frm >= cutoff:
-            logger.info("nothing new settled since last import (cutoff=%s)", cutoff.isoformat())
+        if union_frm >= now:
+            logger.info("nothing to fetch (frm=%s >= now)", union_frm.isoformat())
             return
-        rows = self.glow.half_hourly(self.resource_id, union_frm, cutoff)
+        rows = self.glow.half_hourly(self.resource_id, union_frm, now)
+
+        cutoff_ts = self._settle_cutoff_ts(rows, now)
+        # The newest day we stop re-verifying: REVERIFY_DAYS of complete days at the
+        # tail stay rewritable; everything before them freezes into the checkpoint.
+        cutoff_day = self._local(cutoff_ts).date()
+        frozen_before = self._local_midnight_ts(cutoff_day - timedelta(days=self.reverify_days))
 
         cons = plans[self.consumption_id]
         self._finalise(
@@ -440,6 +534,7 @@ class Importer:
             self._bucket(rows, cons["first_excl"], cutoff_ts, lambda ts, kwh: kwh),
             cons["running"],
             3,
+            frozen_before,
         )
 
         if self.tariff:
@@ -454,7 +549,9 @@ class Importer:
             # evenly across each settled day's 24 hours.
             for h in cost_hourly:
                 cost_hourly[h] += self.tariff.standing_charge(self._local(h).date()) / 24.0
-            self._finalise(self.cost_id, self.cost_name, self.currency, cost_hourly, cp["running"], 4)
+            self._finalise(
+                self.cost_id, self.cost_name, self.currency, cost_hourly, cp["running"], 4, frozen_before
+            )
 
     def _poll(self) -> None:
         try:
