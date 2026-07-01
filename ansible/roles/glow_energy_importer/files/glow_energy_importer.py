@@ -370,6 +370,12 @@ class Importer:
         midnight = datetime.combine(local_day, datetime.min.time(), tzinfo=self.tz)
         return int(midnight.astimezone(timezone.utc).timestamp())
 
+    def _floor_to_local_day(self, dt: datetime) -> datetime:
+        """Round a datetime down to the start of its local day (as UTC)."""
+        return datetime.fromtimestamp(
+            self._local_midnight_ts(dt.astimezone(self.tz).date()), timezone.utc
+        )
+
     def _slots_in_day(self, local_day: date) -> int:
         """Half-hour slots a local day should contain. Normally 48; a DST spring
         forward gives 46 and an autumn fall-back 50, so derive it from the actual
@@ -515,6 +521,16 @@ class Importer:
         # Fetch right up to now (not to a guessed cutoff) so completeness can be
         # judged from the readings actually present.
         union_frm = min(p["frm"] for p in plans.values())
+        # Re-fetch from the start of the checkpoint's local day, not the checkpoint
+        # hour itself. The checkpoint trails the tail by REVERIFY_DAYS and rarely
+        # lands on a local-midnight boundary (BST offsets it to 23:00 local), so
+        # fetching from it leaves the leading day only partially present. The
+        # oldest-first walk in `_settle_cutoff_ts` would read that partial day as an
+        # unsettled gap and stall on it, importing nothing past the checkpoint until
+        # it ages out — a chronic multi-day lag that lurches forward only every few
+        # days. Flooring to local midnight makes the leading day whole; `first_excl`
+        # still stops `_bucket` re-importing already-frozen hours.
+        union_frm = self._floor_to_local_day(union_frm)
         if union_frm >= now:
             logger.info("nothing to fetch (frm=%s >= now)", union_frm.isoformat())
             return
