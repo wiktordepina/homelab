@@ -69,7 +69,7 @@ ansible:
             standing_charge: 0.53944
             unit_rates:
               - { rate: 0.26381 }
-          - effective_from: "2026-07-03"      # EV tariff, peak/off-peak (date approximate)
+          - effective_from: "2026-07-08"      # EV tariff, peak/off-peak
             standing_charge: 0.5710
             unit_rates:
               - { from: "23:00", to: "06:00", rate: 0.0699 }   # off-peak

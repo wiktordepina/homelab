@@ -27,9 +27,12 @@ from zero), so a wiped StateDirectory self-heals rather than leaving a sum
 discontinuity that the Energy dashboard would render as a spike.
 
 Cost is computed locally from a configured, date-effective time-of-use tariff
-rather than read from the DCC, because the DCC cost/tariff feeds are empty for this
-meter. When a tariff is configured the importer publishes a parallel cost statistic
-alongside consumption, sharing one fetch but tracking its own checkpoint.
+rather than read from the DCC. The DCC does expose a cost/tariff feed for this
+meter, but it advertises only the supplier's flat import rate — not a time-of-use
+(e.g. EV peak/off-peak) split — and its cost figure omits the standing charge, so it
+cannot price a time-of-use tariff correctly. When a tariff is configured the importer
+publishes a parallel cost statistic alongside consumption, sharing one fetch but
+tracking its own checkpoint.
 """
 
 import json

@@ -87,8 +87,9 @@ true latency, not a fault.
 
 ## Tariff
 
-The DCC cost and tariff feeds are empty for this meter, so cost is computed locally
-from `glow_energy_importer_tariffs` — a list of **date-effective versions**. The
+The DCC cost and tariff feeds advertise only the supplier's flat import rate (not a
+time-of-use split) and omit the standing charge, so cost is computed locally from
+`glow_energy_importer_tariffs` — a list of **date-effective versions**. The
 version in force on a given local day is the latest one whose `effective_from` is
 on or before it, so a supplier or rate change is just a new entry with a later
 date, and historical days keep being priced by the tariff that applied then.
@@ -174,6 +175,7 @@ match the Bright app's per-day figures.
   up to a day behind. This is expected, not a fault.
 - The auth token is long-lived (~18 months observed) and persisted to
   `/var/lib/glow-energy-importer/token.json` so restarts do not re-authenticate.
-- Cost is **not** read from the DCC: the DCC cost resource and tariff feed are
-  empty for this meter. A configured, date-effective time-of-use tariff computes a
-  parallel cost statistic — see [Tariff](#tariff) above.
+- Cost is **not** read from the DCC: the DCC cost resource and tariff feed advertise
+  only the supplier's flat import rate (no time-of-use split) and omit the standing
+  charge, so they cannot price a time-of-use tariff. A configured, date-effective
+  time-of-use tariff computes a parallel cost statistic — see [Tariff](#tariff) above.
