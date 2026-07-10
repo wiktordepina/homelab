@@ -9,20 +9,31 @@
     name: gpg
     state: present
 
-- name: Ntfy.sh gpg key
-  ansible.builtin.apt_key:
-    url: https://archive.heckel.io/apt/pubkey.txt
-    keyring: /etc/apt/keyrings/archive.heckel.io.gpg
+# The heckel.io apt repo was retired in 2025 and its Release file 404s, which
+# breaks `apt update`. Remove the stale source + keyring before touching apt.
+- name: Remove retired heckel.io apt repo
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/archive.heckel.io.list
+    - /etc/apt/keyrings/archive.heckel.io.gpg
+
+- name: Ntfy apt signing key
+  ansible.builtin.get_url:
+    url: https://archive.ntfy.sh/apt/keyring.gpg
+    dest: /etc/apt/keyrings/ntfy.gpg
+    mode: "0644"
 
 - name: Instal apt-transport-https
   ansible.builtin.apt:
     name: apt-transport-https
     state: present
 
-- name: Heckel repo
+- name: Ntfy apt repo
   ansible.builtin.copy:
-    src: archive.heckel.io.list
-    dest: /etc/apt/sources.list.d/archive.heckel.io.list
+    src: archive.ntfy.sh.list
+    dest: /etc/apt/sources.list.d/archive.ntfy.sh.list
 
 - name: Install Ntfy.sh
   ansible.builtin.apt:
