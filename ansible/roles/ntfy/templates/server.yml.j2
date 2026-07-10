@@ -9,5 +9,20 @@ cache-duration: "12h"
 auth-file: "/var/lib/ntfy/user.db"
 auth-users:
   - "matagoth:{{ lookup('ansible.builtin.env', 'NTFY_PASSWORD_HASH') }}:admin"
+{% if lookup('ansible.builtin.env', 'NTFY_BRIDGE_PASSWORD_HASH') %}
+  - "bridge:{{ lookup('ansible.builtin.env', 'NTFY_BRIDGE_PASSWORD_HASH') }}:user"
+{% endif %}
+
+{% if lookup('ansible.builtin.env', 'NTFY_BRIDGE_PASSWORD_HASH') %}
+# mait-code Bridge: a scoped non-admin user confined to its two topics, so the
+# token that rides along in outbound reminder actions can never reach gh-worker.
+auth-access:
+  - "bridge:mc-capture:rw"
+  - "bridge:mc-notify:rw"
+{% if lookup('ansible.builtin.env', 'NTFY_BRIDGE_TOKEN') %}
+auth-tokens:
+  - "bridge:{{ lookup('ansible.builtin.env', 'NTFY_BRIDGE_TOKEN') }}:mait-code-bridge"
+{% endif %}
+{% endif %}
 
 auth-default-access: "deny-all"
