@@ -33,6 +33,14 @@ meter, but it advertises only the supplier's flat import rate — not a time-of-
 cannot price a time-of-use tariff correctly. When a tariff is configured the importer
 publishes a parallel cost statistic alongside consumption, sharing one fetch but
 tracking its own checkpoint.
+
+With a tariff the importer additionally publishes split series for a bespoke energy
+dashboard: consumption partitioned into peak/off-peak by tariff band, and cost
+partitioned into standing charge plus peak/off-peak running charge. Each split is the
+same fetched half-hours run through a different per-half-hour value function, so the
+partitions reconcile exactly against the two base totals (which are unchanged, so the
+native HA Energy dashboard keeps working). Off-peak is any window a tariff version
+labels `band: offpeak`; everything else, including a flat tariff, is peak.
 """
 
 import json
@@ -82,6 +90,14 @@ MAX_SETTLE_DAYS = 5
 
 HALF_HOUR = 1800
 
+# A tariff window with no explicit `band` counts as peak, so a flat tariff is
+# entirely peak and off-peak is only ever a window labelled as such. The
+# consumption/cost peak/off-peak split is therefore a clean binary partition
+# (peak + off-peak == total) whatever bands a tariff version happens to declare:
+# off-peak is the windows labelled `offpeak`, peak is everything else.
+BAND_OFFPEAK = "offpeak"
+BAND_DEFAULT = "peak"
+
 logger = logging.getLogger("glow_energy_importer")
 
 
@@ -115,6 +131,11 @@ class Tariff:
     time: a window with neither `from` nor `to` is a flat all-day rate, and a window
     where `from` > `to` wraps past midnight (e.g. an overnight off-peak 23:00-06:00).
     A flat tariff is simply a single version with one window-less rate.
+
+    A window may also carry a `band` label (`peak`/`offpeak`); it does not affect
+    pricing but lets the importer split consumption and cost into peak/off-peak
+    series. An unlabelled window is `peak` by default, so a flat tariff is entirely
+    peak (see `band`).
     """
 
     def __init__(self, versions: list[dict]):
@@ -133,20 +154,30 @@ class Tariff:
             raise ValueError(f"no tariff effective on {local_date}")
         return chosen
 
-    def rate(self, local_dt: datetime) -> float:
-        """Unit rate (GBP/kWh) in force at a local datetime."""
+    def _window_for(self, local_dt: datetime) -> dict:
+        """The `unit_rates` window covering a local datetime."""
         version = self._version_for(local_dt.date())
         minute = local_dt.hour * 60 + local_dt.minute
         for window in version["unit_rates"]:
             if "from" not in window and "to" not in window:
-                return float(window["rate"])
+                return window
             start, end = _hm(window["from"]), _hm(window["to"])
             if start < end:
                 if start <= minute < end:
-                    return float(window["rate"])
+                    return window
             elif minute >= start or minute < end:  # window wraps past midnight
-                return float(window["rate"])
+                return window
         raise ValueError(f"no rate window covers {local_dt:%H:%M} on {local_dt.date()}")
+
+    def rate(self, local_dt: datetime) -> float:
+        """Unit rate (GBP/kWh) in force at a local datetime."""
+        return float(self._window_for(local_dt)["rate"])
+
+    def band(self, local_dt: datetime) -> str:
+        """Band label (`peak`/`offpeak`) in force at a local datetime. A window
+        with no `band` is `peak`, so a flat tariff is all-peak and off-peak is only
+        ever the windows explicitly labelled as such."""
+        return self._window_for(local_dt).get("band", BAND_DEFAULT)
 
     def standing_charge(self, local_date: date) -> float:
         """Daily standing charge (GBP/day) in force on a local date."""
@@ -346,6 +377,18 @@ class Importer:
         self.cost_id = stats.get("cost_id", "glow:electricity_cost")
         self.cost_name = stats.get("cost_name", "Electricity cost")
         self.currency = config.get("currency", "GBP")
+
+        # Peak/off-peak and standing/running split series are derived from the base
+        # IDs and names rather than separately configured — they are the same two
+        # feeds partitioned by tariff band, so a single knob keeps them consistent.
+        # These are emitted only alongside a tariff (band and standing charge both
+        # come from it); the two base totals above are unchanged so the native HA
+        # Energy dashboard keeps working.
+        self.consumption_peak_id = f"{self.consumption_id}_peak"
+        self.consumption_offpeak_id = f"{self.consumption_id}_offpeak"
+        self.cost_standing_id = f"{self.cost_id}_standing"
+        self.cost_peak_id = f"{self.cost_id}_peak"
+        self.cost_offpeak_id = f"{self.cost_id}_offpeak"
         tariffs = config.get("tariffs") or []
         self.tariff = Tariff(tariffs) if tariffs else None
 
@@ -445,6 +488,11 @@ class Importer:
         logger.info("no state for %s; backfilling %s days", statistic_id, self.backfill_days)
         return {"frm": frm, "first_excl": -1, "running": 0.0}
 
+    def _is_offpeak(self, ts: int) -> bool:
+        """Whether a half-hour falls in an off-peak tariff band. Everything not
+        explicitly off-peak is peak, so peak and off-peak partition the total."""
+        return self.tariff.band(self._local(ts)) == BAND_OFFPEAK
+
     @staticmethod
     def _bucket(rows, first_excl: int, cutoff_ts: int, value) -> dict[int, float]:
         """Aggregate native half-hours into UTC hour buckets via `value(ts, kwh)`,
@@ -455,6 +503,19 @@ class Importer:
             if h <= first_excl or h >= cutoff_ts:
                 continue
             hourly[h] = hourly.get(h, 0.0) + value(ts, kwh)
+        return hourly
+
+    def _standing_bucket(self, rows, first_excl: int, cutoff_ts: int) -> dict[int, float]:
+        """Standing charge as its own hourly series: the daily charge spread evenly
+        across the day's 24 hours, assigned to each settled hour that has any reading
+        (assignment, not summation, so a partial hour still carries exactly one
+        hour's share — matching the standing component folded into the total cost)."""
+        hourly: dict[int, float] = {}
+        for ts, _ in rows:
+            h = hour_floor(ts)
+            if h <= first_excl or h >= cutoff_ts:
+                continue
+            hourly[h] = self.tariff.standing_charge(self._local(h).date()) / 24.0
         return hourly
 
     def _finalise(self, statistic_id, name, unit, hourly, running, places, frozen_before) -> None:
@@ -513,14 +574,28 @@ class Importer:
             unit,
         )
 
+    # The tariff-gated split series, emitted alongside the two base totals. Peak
+    # and off-peak consumption partition the total consumption; standing, peak and
+    # off-peak cost partition the total cost. Each is the same fetched data run
+    # through a different per-half-hour value function, so the partitions reconcile
+    # exactly against the totals hour by hour.
+
     def _run_import(self) -> None:
         now = datetime.now(timezone.utc)
 
         plans = {self.consumption_id: self._series_plan(self.consumption_id)}
         if self.tariff:
-            plans[self.cost_id] = self._series_plan(self.cost_id)
+            for sid in (
+                self.consumption_peak_id,
+                self.consumption_offpeak_id,
+                self.cost_id,
+                self.cost_standing_id,
+                self.cost_peak_id,
+                self.cost_offpeak_id,
+            ):
+                plans[sid] = self._series_plan(sid)
 
-        # One fetch covers both series; each filters to its own window in `_bucket`.
+        # One fetch covers every series; each filters to its own window in `_bucket`.
         # Fetch right up to now (not to a guessed cutoff) so completeness can be
         # judged from the readings actually present.
         union_frm = min(p["frm"] for p in plans.values())
@@ -545,32 +620,42 @@ class Importer:
         cutoff_day = self._local(cutoff_ts).date()
         frozen_before = self._local_midnight_ts(cutoff_day - timedelta(days=self.reverify_days))
 
-        cons = plans[self.consumption_id]
-        self._finalise(
-            self.consumption_id,
-            self.consumption_name,
-            "kWh",
-            self._bucket(rows, cons["first_excl"], cutoff_ts, lambda ts, kwh: kwh),
-            cons["running"],
-            3,
-            frozen_before,
-        )
+        def emit(sid, name, unit, hourly, places):
+            self._finalise(sid, name, unit, hourly, plans[sid]["running"], places, frozen_before)
 
-        if self.tariff:
-            cp = plans[self.cost_id]
-            cost_hourly = self._bucket(
-                rows,
-                cp["first_excl"],
-                cutoff_ts,
-                lambda ts, kwh: kwh * self.tariff.rate(self._local(ts)),
-            )
-            # The standing charge accrues per day regardless of use; spread it
-            # evenly across each settled day's 24 hours.
-            for h in cost_hourly:
-                cost_hourly[h] += self.tariff.standing_charge(self._local(h).date()) / 24.0
-            self._finalise(
-                self.cost_id, self.cost_name, self.currency, cost_hourly, cp["running"], 4, frozen_before
-            )
+        def bucket(sid, value):
+            return self._bucket(rows, plans[sid]["first_excl"], cutoff_ts, value)
+
+        emit(self.consumption_id, self.consumption_name, "kWh",
+             bucket(self.consumption_id, lambda ts, kwh: kwh), 3)
+
+        if not self.tariff:
+            return
+
+        # Consumption split by band (peak + off-peak == total consumption). A
+        # half-hour contributes its kWh to exactly one band and 0 to the other.
+        emit(self.consumption_peak_id, f"{self.consumption_name} (peak)", "kWh",
+             bucket(self.consumption_peak_id, lambda ts, kwh: 0.0 if self._is_offpeak(ts) else kwh), 3)
+        emit(self.consumption_offpeak_id, f"{self.consumption_name} (off-peak)", "kWh",
+             bucket(self.consumption_offpeak_id, lambda ts, kwh: kwh if self._is_offpeak(ts) else 0.0), 3)
+
+        # Total cost: running (kWh x rate) plus the standing charge spread evenly
+        # across each settled day's 24 hours. Unchanged from before.
+        cost_hourly = bucket(self.cost_id, lambda ts, kwh: kwh * self.tariff.rate(self._local(ts)))
+        for h in cost_hourly:
+            cost_hourly[h] += self.tariff.standing_charge(self._local(h).date()) / 24.0
+        emit(self.cost_id, self.cost_name, self.currency, cost_hourly, 4)
+
+        # Cost split into standing + running, running further split by band
+        # (standing + peak + off-peak == total cost).
+        emit(self.cost_standing_id, "Electricity standing charge", self.currency,
+             self._standing_bucket(rows, plans[self.cost_standing_id]["first_excl"], cutoff_ts), 4)
+        emit(self.cost_peak_id, f"{self.cost_name} (peak)", self.currency,
+             bucket(self.cost_peak_id,
+                    lambda ts, kwh: 0.0 if self._is_offpeak(ts) else kwh * self.tariff.rate(self._local(ts))), 4)
+        emit(self.cost_offpeak_id, f"{self.cost_name} (off-peak)", self.currency,
+             bucket(self.cost_offpeak_id,
+                    lambda ts, kwh: kwh * self.tariff.rate(self._local(ts)) if self._is_offpeak(ts) else 0.0), 4)
 
     def _poll(self) -> None:
         try:
@@ -586,7 +671,16 @@ class Importer:
 
     def run(self) -> None:
         self.resource_id = self.glow.consumption_resource()
-        targets = [self.consumption_id] + ([self.cost_id] if self.tariff else [])
+        targets = [self.consumption_id]
+        if self.tariff:
+            targets += [
+                self.consumption_peak_id,
+                self.consumption_offpeak_id,
+                self.cost_id,
+                self.cost_standing_id,
+                self.cost_peak_id,
+                self.cost_offpeak_id,
+            ]
         logger.info(
             "importing resource=%s into %s every %ss",
             self.resource_id,

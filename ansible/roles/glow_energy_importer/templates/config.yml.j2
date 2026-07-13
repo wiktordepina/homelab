@@ -22,4 +22,7 @@ statistics:
   cost_name: "{{ glow_energy_importer_cost_name | default('Electricity cost') }}"
 
 # Date-effective time-of-use tariff. Empty disables cost import (consumption only).
+# A unit_rates window may carry `band: offpeak` to mark it off-peak; unlabelled
+# windows are peak. Bands drive the peak/off-peak consumption and cost split series
+# and do not affect pricing.
 tariffs: {{ glow_energy_importer_tariffs | default([]) | to_json }}
