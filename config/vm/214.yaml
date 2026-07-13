@@ -59,7 +59,8 @@ ansible:
         # Standing charge in GBP/day, unit rates in GBP/kWh, window times local
         # (Europe/London). A window-less rate is flat all-day; from > to wraps
         # midnight. The version in force on a day is the latest effective_from
-        # on or before it.
+        # on or before it. `band: offpeak` marks a window off-peak for the
+        # peak/off-peak split series (unlabelled windows are peak).
         glow_energy_importer_tariffs:
           - effective_from: "2025-01-01"      # current provider, flat
             standing_charge: 0.5395
@@ -72,5 +73,5 @@ ansible:
           - effective_from: "2026-07-08"      # EV tariff, peak/off-peak
             standing_charge: 0.5710
             unit_rates:
-              - { from: "23:00", to: "06:00", rate: 0.0699 }   # off-peak
-              - { from: "06:00", to: "23:00", rate: 0.3028 }   # peak
+              - { from: "23:00", to: "06:00", rate: 0.0699, band: offpeak }
+              - { from: "06:00", to: "23:00", rate: 0.3028, band: peak }

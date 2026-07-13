@@ -2,6 +2,9 @@
 .idea
 .venv
 
+__pycache__/
+*.pyc
+
 AGENTS.md
 CLAUDE.md
 

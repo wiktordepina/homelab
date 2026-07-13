@@ -38,6 +38,36 @@ true latency, not a fault.
 - The `recorder/import_statistics` command upserts by `(statistic_id, start)`, so
   re-importing an hour overwrites it rather than duplicating.
 
+## Statistics
+
+Consumption is always imported. When a tariff is configured, cost and a set of
+peak/off-peak and standing/running **split** series are imported too, to feed a
+bespoke energy dashboard (multi-perspective hourly charts, week/month-to-date split
+cards). The splits are the same fetched half-hours run through different
+per-half-hour value functions, so they reconcile exactly against the two base
+totals — which are left unchanged so the native HA Energy dashboard keeps working.
+
+| Statistic ID | Unit | When | Meaning |
+|---|---|---|---|
+| `glow:electricity_consumption` | kWh | always | Total consumption. |
+| `glow:electricity_cost` | GBP | tariff | Total cost (running + standing). |
+| `glow:electricity_consumption_peak` | kWh | tariff | Consumption in peak-band half-hours. |
+| `glow:electricity_consumption_offpeak` | kWh | tariff | Consumption in off-peak half-hours. |
+| `glow:electricity_cost_standing` | GBP | tariff | Standing charge only. |
+| `glow:electricity_cost_peak` | GBP | tariff | Running charge in peak half-hours. |
+| `glow:electricity_cost_offpeak` | GBP | tariff | Running charge in off-peak half-hours. |
+
+The split IDs and display names are derived from the base
+`glow_energy_importer_consumption_id` / `_cost_id` (and their `_name`s), so they
+stay consistent with a single knob. Invariants, hour by hour:
+
+- `consumption_peak + consumption_offpeak == consumption`
+- `cost_standing + cost_peak + cost_offpeak == cost`
+
+Off-peak is any half-hour whose tariff window is labelled `band: offpeak`; peak is
+everything else (including a flat tariff), so the two bands always partition the
+total. Before any TOU version takes effect the off-peak series is flat at zero.
+
 ## Tasks
 
 - Installs `python3-venv` and `python3-packaging`.
@@ -101,17 +131,22 @@ wraps past midnight (e.g. an overnight off-peak). Each settled hour is priced by
 the window covering it, and the day's standing charge is spread evenly across its
 hours.
 
+A window may also carry a `band` label — `peak` or `offpeak`. It does not affect
+pricing; it drives the peak/off-peak split statistics (see [Statistics](#statistics)).
+An unlabelled window is `peak`, so a flat tariff is entirely peak and off-peak is
+only ever a window explicitly labelled `band: offpeak`.
+
 ```yaml
 glow_energy_importer_tariffs:
   - effective_from: "2025-01-01"      # flat
     standing_charge: 0.5395
     unit_rates:
       - { rate: 0.2495 }
-  - effective_from: "2026-07-03"      # on/off-peak (EV)
+  - effective_from: "2026-07-08"      # on/off-peak (EV)
     standing_charge: 0.5710
     unit_rates:
-      - { from: "23:00", to: "06:00", rate: 0.0699 }   # off-peak (wraps midnight)
-      - { from: "06:00", to: "23:00", rate: 0.3028 }   # peak
+      - { from: "23:00", to: "06:00", rate: 0.0699, band: offpeak }  # wraps midnight
+      - { from: "06:00", to: "23:00", rate: 0.3028, band: peak }
 ```
 
 Cost is append-only like consumption: editing a tariff only re-prices hours
@@ -168,6 +203,16 @@ Expect, per run, an `imported N hour(s) into <statistic_id> up to <ts>
 (cumulative …)` line per statistic when new settled hours exist, or
 `nothing new settled since last import` otherwise. The imported daily totals should
 match the Bright app's per-day figures.
+
+## Tests
+
+Pure-logic unit tests (tariff rate/band resolution, date-effective versioning, and
+the peak/off-peak & standing/running split invariants) live under `tests/` and need
+no dependencies — the network deps are stubbed:
+
+```bash
+cd ansible/roles/glow_energy_importer && python3 -m unittest discover -s tests
+```
 
 ## Notes
 
