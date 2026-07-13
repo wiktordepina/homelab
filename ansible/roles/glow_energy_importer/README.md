@@ -56,6 +56,7 @@ totals — which are left unchanged so the native HA Energy dashboard keeps work
 | `glow:electricity_cost_standing` | GBP | tariff | Standing charge only. |
 | `glow:electricity_cost_peak` | GBP | tariff | Running charge in peak half-hours. |
 | `glow:electricity_cost_offpeak` | GBP | tariff | Running charge in off-peak half-hours. |
+| `glow:electricity_cost_dcc` | GBP | `dcc_cost` | DCC-reported cost (dual-source comparison). |
 
 The split IDs and display names are derived from the base
 `glow_energy_importer_consumption_id` / `_cost_id` (and their `_name`s), so they
@@ -67,6 +68,18 @@ stay consistent with a single knob. Invariants, hour by hour:
 Off-peak is any half-hour whose tariff window is labelled `band: offpeak`; peak is
 everything else (including a flat tariff), so the two bands always partition the
 total. Before any TOU version takes effect the off-peak series is flat at zero.
+
+### DCC cost (dual-source comparison)
+
+When `dcc_cost` is enabled (default) and the meter exposes a DCC cost resource, the
+supplier's own cost figure is imported as `glow:electricity_cost_dcc` for a
+side-by-side comparison against the locally-priced cost. The DCC feed is **unit cost
+only** — it excludes the standing charge and carries no time-of-use split — so it
+lines up against the local **running** charge (`cost_peak + cost_offpeak`), not the
+total. It is read from its own resource on its own settle schedule (an independent
+fetch and checkpoint) and converted from pence to GBP. If the meter has no cost
+resource the series is silently skipped. The comparison exists to judge, from real
+data, whether DCC cost can eventually replace the local tariff calculation.
 
 ## Tasks
 
@@ -113,6 +126,7 @@ total. Before any TOU version takes effect the off-peak series is flat at zero.
 | `glow_energy_importer_cost_id` | no | `glow:electricity_cost` | External statistic ID for cost (must contain a `:`). |
 | `glow_energy_importer_cost_name` | no | `Electricity cost` | Display name for the cost statistic. |
 | `glow_energy_importer_currency` | no | `GBP` | Currency unit for the cost statistic. |
+| `glow_energy_importer_dcc_cost` | no | `true` | Import the DCC's own cost figure as `glow:electricity_cost_dcc` for comparison. Auto-disabled if the meter has no cost resource. |
 | `glow_energy_importer_tariffs` | no | `[]` | Date-effective time-of-use tariff (see below). Empty disables cost import. |
 
 ## Tariff
@@ -220,7 +234,9 @@ cd ansible/roles/glow_energy_importer && python3 -m unittest discover -s tests
   up to a day behind. This is expected, not a fault.
 - The auth token is long-lived (~18 months observed) and persisted to
   `/var/lib/glow-energy-importer/token.json` so restarts do not re-authenticate.
-- Cost is **not** read from the DCC: the DCC cost resource and tariff feed advertise
-  only the supplier's flat import rate (no time-of-use split) and omit the standing
-  charge, so they cannot price a time-of-use tariff. A configured, date-effective
-  time-of-use tariff computes a parallel cost statistic — see [Tariff](#tariff) above.
+- The **authoritative** cost is priced locally, not read from the DCC: the DCC cost
+  and tariff feeds advertise only the supplier's flat import rate (no time-of-use
+  split) and omit the standing charge, so they cannot price a time-of-use tariff. A
+  configured, date-effective tariff computes the cost statistics — see
+  [Tariff](#tariff) above. The DCC's own cost figure is imported *alongside* it,
+  purely for comparison — see [DCC cost](#dcc-cost-dual-source-comparison).

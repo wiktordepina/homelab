@@ -41,6 +41,12 @@ same fetched half-hours run through a different per-half-hour value function, so
 partitions reconcile exactly against the two base totals (which are unchanged, so the
 native HA Energy dashboard keeps working). Off-peak is any window a tariff version
 labels `band: offpeak`; everything else, including a flat tariff, is peak.
+
+The DCC's own cost figure (from its cost resource, when the meter exposes one) is
+imported as a further parallel statistic for a dual-source comparison: it is unit
+cost only — no standing charge and no time-of-use split — so it lines up against the
+local running charge, not the total. The dashboard shows the two side by side so the
+DCC feed's trustworthiness can be judged from real data rather than assumed.
 """
 
 import json
@@ -97,6 +103,9 @@ HALF_HOUR = 1800
 # off-peak is the windows labelled `offpeak`, peak is everything else.
 BAND_OFFPEAK = "offpeak"
 BAND_DEFAULT = "peak"
+
+# The DCC electricity cost resource reports each half-hour's cost in pence.
+PENCE_TO_GBP = 0.01
 
 logger = logging.getLogger("glow_energy_importer")
 
@@ -261,14 +270,26 @@ class GlowmarktClient:
         resp.raise_for_status()
         return resp.json()
 
-    def consumption_resource(self) -> str:
-        """Resource ID of the electricity consumption resource."""
+    def _resource_by_classifier(self, classifier: str) -> str | None:
         for ve in self._get("virtualentity"):
             detail = self._get(f"virtualentity/{ve['veId']}/resources")
             for res in detail.get("resources", []):
-                if res.get("classifier") == "electricity.consumption":
+                if res.get("classifier") == classifier:
                     return res["resourceId"]
-        raise SystemExit("no electricity.consumption resource found on account")
+        return None
+
+    def consumption_resource(self) -> str:
+        """Resource ID of the electricity consumption resource."""
+        rid = self._resource_by_classifier("electricity.consumption")
+        if rid is None:
+            raise SystemExit("no electricity.consumption resource found on account")
+        return rid
+
+    def cost_resource(self) -> str | None:
+        """Resource ID of the DCC electricity cost resource, or None if the meter
+        exposes no cost resource. Unlike consumption this is optional: not every
+        meter/supplier populates it, and the importer prices cost locally anyway."""
+        return self._resource_by_classifier("electricity.consumption.cost")
 
     def half_hourly(
         self, resource_id: str, frm: datetime, to: datetime
@@ -389,6 +410,16 @@ class Importer:
         self.cost_standing_id = f"{self.cost_id}_standing"
         self.cost_peak_id = f"{self.cost_id}_peak"
         self.cost_offpeak_id = f"{self.cost_id}_offpeak"
+
+        # DCC-reported cost, imported alongside the locally-priced cost for a
+        # dual-source comparison. The DCC feed is unit cost only (no standing
+        # charge) and does not carry a time-of-use split, so it compares against
+        # the local running charge (cost_peak + cost_offpeak). Independent of the
+        # tariff; disabled automatically if the meter exposes no cost resource.
+        self.dcc_cost = bool(config.get("dcc_cost", True))
+        self.cost_dcc_id = f"{self.cost_id}_dcc"
+        self.cost_dcc_name = f"{self.cost_name} (DCC)"
+        self.cost_resource_id: str | None = None
         tariffs = config.get("tariffs") or []
         self.tariff = Tariff(tariffs) if tariffs else None
 
@@ -574,6 +605,28 @@ class Importer:
             unit,
         )
 
+    def _import_dcc_cost(self, now: datetime) -> None:
+        """Import DCC-reported cost as its own statistic, read straight from the
+        DCC cost resource. This is the supplier's own cost figure — unit cost only,
+        no standing charge — imported for a dual-source comparison against the
+        locally-priced running charge. It settles on its own schedule, so it gets
+        an independent fetch window and settle cutoff rather than reusing the
+        consumption ones."""
+        plan = self._series_plan(self.cost_dcc_id)
+        frm = self._floor_to_local_day(plan["frm"])
+        if frm >= now:
+            return
+        rows = self.glow.half_hourly(self.cost_resource_id, frm, now)
+        cutoff_ts = self._settle_cutoff_ts(rows, now)
+        cutoff_day = self._local(cutoff_ts).date()
+        frozen_before = self._local_midnight_ts(cutoff_day - timedelta(days=self.reverify_days))
+        hourly = self._bucket(
+            rows, plan["first_excl"], cutoff_ts, lambda ts, pence: pence * PENCE_TO_GBP
+        )
+        self._finalise(
+            self.cost_dcc_id, self.cost_dcc_name, self.currency, hourly, plan["running"], 4, frozen_before
+        )
+
     # The tariff-gated split series, emitted alongside the two base totals. Peak
     # and off-peak consumption partition the total consumption; standing, peak and
     # off-peak cost partition the total cost. Each is the same fetched data run
@@ -629,8 +682,24 @@ class Importer:
         emit(self.consumption_id, self.consumption_name, "kWh",
              bucket(self.consumption_id, lambda ts, kwh: kwh), 3)
 
-        if not self.tariff:
-            return
+        if self.tariff:
+            self._import_local_cost_and_splits(rows, cutoff_ts, frozen_before, plans)
+
+        # DCC-reported cost is a secondary comparison feed with its own resource,
+        # settle schedule and fetch. Import it last and isolate its failures so a
+        # flaky DCC cost endpoint can never block the authoritative series above.
+        if self.dcc_cost and self.cost_resource_id:
+            try:
+                self._import_dcc_cost(now)
+            except (requests.RequestException, ValueError, RuntimeError) as exc:
+                logger.warning("DCC cost import failed (other series unaffected): %s", exc)
+
+    def _import_local_cost_and_splits(self, rows, cutoff_ts, frozen_before, plans) -> None:
+        def emit(sid, name, unit, hourly, places):
+            self._finalise(sid, name, unit, hourly, plans[sid]["running"], places, frozen_before)
+
+        def bucket(sid, value):
+            return self._bucket(rows, plans[sid]["first_excl"], cutoff_ts, value)
 
         # Consumption split by band (peak + off-peak == total consumption). A
         # half-hour contributes its kWh to exactly one band and 0 to the other.
@@ -671,6 +740,11 @@ class Importer:
 
     def run(self) -> None:
         self.resource_id = self.glow.consumption_resource()
+        if self.dcc_cost:
+            self.cost_resource_id = self.glow.cost_resource()
+            if self.cost_resource_id is None:
+                logger.info("no DCC electricity cost resource on account; DCC cost series disabled")
+                self.dcc_cost = False
         targets = [self.consumption_id]
         if self.tariff:
             targets += [
@@ -681,6 +755,8 @@ class Importer:
                 self.cost_peak_id,
                 self.cost_offpeak_id,
             ]
+        if self.dcc_cost:
+            targets.append(self.cost_dcc_id)
         logger.info(
             "importing resource=%s into %s every %ss",
             self.resource_id,

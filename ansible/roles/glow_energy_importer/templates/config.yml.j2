@@ -14,6 +14,9 @@ http_timeout: {{ glow_energy_importer_http_timeout | default(30) }}
 backfill_days: {{ glow_energy_importer_backfill_days | default(90) }}
 timezone: {{ glow_energy_importer_timezone | default('Europe/London') }}
 currency: {{ glow_energy_importer_currency | default('GBP') }}
+# Import the DCC's own cost figure as a parallel statistic for a dual-source
+# comparison. Auto-disabled if the meter exposes no cost resource.
+dcc_cost: {{ glow_energy_importer_dcc_cost | default(true) | to_json }}
 
 statistics:
   consumption_id: {{ glow_energy_importer_consumption_id | default('glow:electricity_consumption') }}
