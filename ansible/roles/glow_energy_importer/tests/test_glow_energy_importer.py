@@ -124,6 +124,11 @@ class SplitStatisticsInvariantTest(unittest.TestCase):
     """Drive a full import with synthetic readings and a network-free Importer, then
     assert the split series reconcile against the two base totals."""
 
+    def setUp(self):
+        # The import checkpoint is a shared module-level file; a stale checkpoint
+        # from another test would make this run import nothing.
+        gei.IMPORT_STATE.unlink(missing_ok=True)
+
     def _importer(self):
         config = {
             "glow": {
@@ -194,6 +199,75 @@ class SplitStatisticsInvariantTest(unittest.TestCase):
             final(cost),
             places=3,
         )
+
+
+class DccCostTest(unittest.TestCase):
+    """The DCC-sourced cost series reads its own resource (pence) and converts to
+    GBP, independent of the local tariff pricing."""
+
+    def setUp(self):
+        gei.IMPORT_STATE.unlink(missing_ok=True)
+
+    def _one_full_day(self):
+        day = (datetime.now(LONDON) - timedelta(days=10)).date()
+        midnight = datetime.combine(day, datetime.min.time(), tzinfo=LONDON)
+        return int(midnight.astimezone(timezone.utc).timestamp())
+
+    def _importer(self, dcc_cost=True):
+        config = {
+            "glow": {"url": "http://x", "application_id": "x", "username": "u", "password": "p"},
+            "ha": {"url": "http://x", "token": "t"},
+            "backfill_days": 30,
+            "dcc_cost": dcc_cost,
+            "tariffs": [
+                {
+                    "effective_from": "2000-01-01",
+                    "standing_charge": 0.60,
+                    "unit_rates": [{"rate": 0.30, "band": "peak"}],
+                }
+            ],
+        }
+        imp = gei.Importer(config)
+        imp.resource_id = "cons"
+        return imp
+
+    def test_dcc_cost_converts_pence_to_gbp(self):
+        imp = self._importer(dcc_cost=True)
+        imp.cost_resource_id = "cost"
+        start = self._one_full_day()
+        cons_rows = [(start + i * gei.HALF_HOUR, 0.5) for i in range(48)]
+        # 10 pence per half-hour x 48 = 480 pence = GBP 4.80.
+        cost_rows = [(start + i * gei.HALF_HOUR, 10.0) for i in range(48)]
+        imp.glow.half_hourly = lambda resource, frm, to: (
+            cost_rows if resource == "cost" else cons_rows
+        )
+        captured = {}
+        imp.ha.import_statistics = lambda metadata, stats: captured.__setitem__(
+            metadata["statistic_id"], stats
+        )
+
+        imp._run_import()
+
+        self.assertIn(imp.cost_dcc_id, captured)
+        self.assertAlmostEqual(captured[imp.cost_dcc_id][-1]["sum"], 4.80, places=3)
+        # DCC cost is unit-only: it must not carry the standing charge that the
+        # local total cost does.
+        self.assertLess(captured[imp.cost_dcc_id][-1]["sum"], captured[imp.cost_id][-1]["sum"])
+
+    def test_dcc_cost_disabled_emits_no_series(self):
+        imp = self._importer(dcc_cost=False)
+        imp.cost_resource_id = "cost"  # present, but the toggle is off
+        start = self._one_full_day()
+        cons_rows = [(start + i * gei.HALF_HOUR, 0.5) for i in range(48)]
+        imp.glow.half_hourly = lambda resource, frm, to: cons_rows
+        captured = {}
+        imp.ha.import_statistics = lambda metadata, stats: captured.__setitem__(
+            metadata["statistic_id"], stats
+        )
+
+        imp._run_import()
+
+        self.assertNotIn(imp.cost_dcc_id, captured)
 
 
 if __name__ == "__main__":
