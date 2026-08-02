@@ -45,10 +45,17 @@
   notify:
     - Restart bind9
 
+# The zone templates carry only the SOA and the `ns` glue record. Every other
+# name in these zones arrives later as a TSIG dynamic update, and bind9 keeps
+# those records in the zone file it rewrites itself. Templating unconditionally
+# would therefore discard the entire live zone on any re-run of this role, so
+# these two tasks bootstrap an absent zone and then leave it alone.
 - name: home.matagoth.com zone
   ansible.builtin.template:
     src: home-matagoth-com.zone.j2
     dest: /etc/bind/home-matagoth-com.zone
+    force: false
+  register: dns_home_zone
   notify:
     - Restart bind9
 
@@ -56,11 +63,26 @@
   ansible.builtin.template:
     src: homelab-matagoth-com.zone.j2
     dest: /etc/bind/homelab-matagoth-com.zone
+    force: false
+  register: dns_homelab_zone
   notify:
     - Restart bind9
 
-- name: Delete stale journals
-  ansible.builtin.command:
-    cmd: rm -f /etc/bind/*.jnl
+# A journal belonging to a zone we did not just create holds dynamic updates
+# bind9 has not yet flushed; removing it loses them. Only clear the journal of
+# a zone that was genuinely bootstrapped this run, where it would be stale.
+- name: Delete stale home.matagoth.com journal
+  ansible.builtin.file:
+    path: /etc/bind/home-matagoth-com.zone.jnl
+    state: absent
+  when: dns_home_zone.changed
+  notify:
+    - Restart bind9
+
+- name: Delete stale homelab.matagoth.com journal
+  ansible.builtin.file:
+    path: /etc/bind/homelab-matagoth-com.zone.jnl
+    state: absent
+  when: dns_homelab_zone.changed
   notify:
     - Restart bind9
