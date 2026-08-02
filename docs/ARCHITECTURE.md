@@ -96,5 +96,6 @@ Procedures. Read these to perform a specific operation.
 - [Create a GitHub Actions runner](runbooks/create-runner.md) — provisioning an additional self-hosted runner.
 - [Rotate the wildcard SSL certificate](runbooks/rotate-wildcard-cert.md) — renewal of the LAN-side wildcard cert.
 - [Replace a disk in the ZFS pool](runbooks/replace-zfs-disk.md) — physical disk replacement and resilver.
+- [Out-of-band access to the Proxmox host](runbooks/ipmi-out-of-band-access.md) — reaching the host over IPMI when it is unreachable or powered off.
 - [Post-deploy service setup](runbooks/post-deploy-setup.md) — manual steps that cannot be expressed in IaC.
 - [Troubleshooting](runbooks/troubleshooting.md) — common failure modes and where to look first.
