@@ -232,6 +232,62 @@ check_workflow_dropdown() {
   fi
 }
 
+# ─── service catalogue ──────────────────────────────────────────
+# The catalogue feeds DNS, the reverse proxy and the index dashboard. A bad
+# category reference or a duplicate name surfaces in those consumers as a
+# silently missing record rather than as an error, so it is caught here.
+section 'service catalogue'
+if python3 - <<'PY'
+import sys
+import yaml
+
+with open('config/services.yaml') as handle:
+    catalogue = yaml.safe_load(handle)
+
+errors = []
+required = ('name', 'category', 'subcategory', 'upstream', 'description', 'icon')
+
+groupings = set()
+for category in catalogue.get('categories', []):
+    for subcategory in category.get('subcategories', []):
+        groupings.add((category['name'], subcategory['name']))
+
+seen = set()
+for service in catalogue.get('services', []):
+    name = service.get('name', '<unnamed>')
+
+    missing = [field for field in required if not service.get(field)]
+    if missing:
+        errors.append(f"{name}: missing required field(s): {', '.join(missing)}")
+
+    if name in seen:
+        errors.append(f'{name}: duplicate service name')
+    seen.add(name)
+
+    grouping = (service.get('category'), service.get('subcategory'))
+    if grouping not in groupings:
+        errors.append(
+            f'{name}: references undeclared grouping '
+            f'{grouping[0]}/{grouping[1]}'
+        )
+
+    upstream = service.get('upstream', '')
+    if upstream and not upstream.startswith(('http://', 'https://')):
+        errors.append(f'{name}: upstream must carry a scheme')
+
+for error in errors:
+    print(f'  {error}')
+
+print(f'{len(catalogue.get("services", []))} services, '
+      f'{len(groupings)} groupings, {len(errors)} problem(s)')
+sys.exit(1 if errors else 0)
+PY
+then
+  ok 'service catalogue'
+else
+  fail 'service catalogue'
+fi
+
 section 'workflow dropdown sync (lxc)'
 check_workflow_dropdown lxc 'config/lxc/*.yaml' '.github/workflows/_lxc.yml'
 

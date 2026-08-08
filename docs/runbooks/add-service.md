@@ -21,7 +21,7 @@ A new LXC service touches the following layers. All of them belong in one commit
 1. **Container declaration.** Add `config/lxc/<vmid>.yaml`, declaring the provisioning fields under `terraform:` and the Ansible roles under `ansible:` that should configure the container. The schema is in [reference/lxc-schema](../reference/lxc-schema.md).
 2. **Configuration role, if needed.** If no existing role fits, add one under `ansible/roles/<name>/`, following the standard role layout (`tasks/`, `handlers/`, `vars/`, `defaults/`, `templates/`, `files/`, `README.md`). Most services do not need a new role; they reuse `base`, the container runtime (`docker`), and a service-specific or generic role.
 3. **Internal DNS record.** Add an `A` record under `terraform/dns/services.tf` mapping `<hostname>.home.matagoth.com` to `10.20.1.<vmid>`. Without this, no other container can resolve the service by name.
-4. **Reverse proxy entry**, if the service has a browser UI. Two coordinated edits are needed: an entry in the `nginx_reverse_proxy` role's variables that maps the service's friendly name to its backend address, and a record under `terraform/dns/reverse_proxy.tf` that points `<hostname>.homelab.matagoth.com` at the proxy. See [concepts/reverse-proxy](../concepts/reverse-proxy.md) for what the proxy expects of a backend and which classes of service have known footguns.
+4. **Service catalogue entry**, if the service has a browser UI. Add one entry to `config/services.yaml`. That single entry produces the public zone record, the proxy server block, and the tile on the index dashboard — there is no second or third place to edit. The schema is in [reference/service-catalogue](../reference/service-catalogue.md); see [concepts/reverse-proxy](../concepts/reverse-proxy.md) for what the proxy expects of a backend and which classes of service have known footguns.
 5. **Monitoring scrape**, if the service exposes metrics. Add a scrape entry under the `prometheus` role pointing the metrics collector at the service's address.
 6. **CI matrix and dispatch dropdown.** Add the new VMID to the deploy workflow's matrix in `.github/workflows/homelab_iac.yml` so routine applies include it, and add an `<vmid> - <hostname>` entry to the `workflow_dispatch.vmid.options` list in `.github/workflows/_lxc.yml` (or `_vm.yml` for a VM) so manual dispatch picks the right host without a lookup. Lint enforces 1:1 between the YAML files and the dropdown — drift fails CI.
 7. **Secrets**, if the service needs them. Add the credentials to `/pve/secrets/` on the host in the same shell-script form as the others, and reference them from the role's variables (via `lookup('ansible.builtin.env', '<NAME>')`) or from a templated environment value in the relevant compose file.
@@ -34,7 +34,7 @@ A VM service touches the same layers as an LXC, with two structural differences:
 
 1. **VM declaration.** Add `config/vm/<vmid>.yaml`. Schema and field reference: [reference/vm-schema](../reference/vm-schema.md). USB pass-through, when needed, is declared as a list under `usb_passthrough:` — no host-side cgroup or bind-mount setup required.
 2. **Configuration role, if needed.** Roles target the VM over SSH on the same `10.20.1.<vmid>` address as for LXCs; an Ansible role written for an LXC works inside a VM unchanged unless it relies on LXC-specific kernel behaviour.
-3. **Internal DNS, reverse proxy, monitoring scrape, secrets.** Identical to the LXC procedure; the kind of guest is invisible to these layers.
+3. **Internal DNS, service catalogue, monitoring scrape, secrets.** Identical to the LXC procedure; the kind of guest is invisible to these layers.
 4. **CI matrix and dispatch dropdown.** Add the VMID under the `DeployVMs` job in `.github/workflows/homelab_iac.yml` (separate matrix from `DeployLXCs`), and add an `<vmid> - <hostname>` entry to `workflow_dispatch.vmid.options` in `.github/workflows/_vm.yml`. Lint enforces 1:1 between the per-VMID YAML files and the dropdown.
 5. **Cloud-init template.** A VM clones from the default Debian template at VMID 9000. If it does not yet exist, build it once via [build-vm-template](build-vm-template.md) — this is a one-off bootstrap, not part of every-service procedure.
 
@@ -166,9 +166,23 @@ resource "dns_a_record_set" "myservice" {
 }
 ```
 
-### 4. Reverse proxy entry
+### 4. Service catalogue entry
 
-In `terraform/dns/reverse_proxy.tf`, point the LAN-side proxy zone hostname at the proxy's address. The corresponding upstream entry goes into the `nginx_reverse_proxy` role's variables (under `ansible/roles/nginx_reverse_proxy/`), naming the friendly host and its `10.20.1.212:8080` backend.
+In `config/services.yaml`, append to the `services:` list:
+
+```yaml
+  - name: myservice
+    title: My Service
+    category: automation
+    subcategory: workflows
+    upstream: http://10.20.1.212:8080/
+    description: What this service is for
+    icon: myservice
+```
+
+`name` is the identity: it becomes `myservice.homelab.matagoth.com` in the public zone, the `server_name` of the proxy block, and the link target on the dashboard. Only `upstream` needs the address and port; nothing else in the repository repeats them.
+
+The `category` and `subcategory` must already be declared in the `categories:` block at the top of the same file. Add them there first if the service does not fit an existing grouping — `lint` rejects an entry that points at a grouping that does not exist.
 
 ### 5. Apply
 
@@ -178,6 +192,7 @@ In `terraform/dns/reverse_proxy.tf`, point the LAN-side proxy zone hostname at t
 ./run/execute_runner ansible_lxc 212
 ./run/execute_runner terraform_dns apply
 ./run/execute_runner ansible_lxc 110   # reverse proxy reload
+./run/execute_runner ansible_lxc 205   # index dashboard rebuild
 ```
 
 ### 6. Verify
@@ -188,6 +203,9 @@ dig @10.20.1.201 myservice.home.matagoth.com
 
 # Reachable through the proxy with a valid certificate
 curl -I https://myservice.homelab.matagoth.com
+
+# Listed on the index dashboard
+curl -s https://www.homelab.matagoth.com | grep -o 'myservice.homelab.matagoth.com'
 ```
 
 ## Worked example: a stack on a shared host
@@ -221,7 +239,7 @@ ansible:
 ./run/execute_runner ansible_lxc 205
 ```
 
-If the stack publishes a UI, also add internal DNS, the reverse-proxy entry, and re-run `ansible_lxc 110`. The host's own address is the backend, on whatever port the stack publishes.
+If the stack publishes a UI, also add internal DNS and a `config/services.yaml` entry, then re-run `ansible_lxc 110` for the proxy and `ansible_lxc 205` for the dashboard. The host's own address is the `upstream`, on whatever port the stack publishes.
 
 ## Verifying the service is done
 

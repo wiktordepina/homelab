@@ -40,4 +40,6 @@ The proxy does not authenticate users; backends authenticate their own users. Th
 
 ## Adding a backend
 
-Adding a new backend to the proxy is part of the service-lifecycle checklist; see [service-lifecycle](service-lifecycle.md) and the [add-service runbook](../runbooks/add-service.md). It involves two coordinated edits: the proxy configuration learns about the new backend, and the LAN-side proxy DNS zone gains a record pointing the friendly name at the proxy. Either edit alone produces a non-working state.
+Adding a new backend to the proxy is part of the service-lifecycle checklist; see [service-lifecycle](service-lifecycle.md) and the [add-service runbook](../runbooks/add-service.md).
+
+The proxy does not hold its own list of backends. It reads the shared service catalogue, as do the LAN-side proxy DNS zone and the index dashboard, so that a service is declared once and the three layers cannot disagree about it. Previously each layer was edited separately and any one of them being forgotten produced a service that half-worked — resolving but not proxying, or reachable but absent from the index. See [reference/service-catalogue](../reference/service-catalogue.md).

@@ -38,6 +38,8 @@ Docker compose files under `config/docker/` support templating for environment v
 
 The contract is: every templated value resolves at apply time. A missing environment variable produces an empty value, which usually breaks the stack at runtime in ways that look like service bugs. The troubleshooting runbook lists this as an early hypothesis.
 
+Templating is not limited to the compose file, nor to environment values. Every file in a stack directory is rendered as a template on its way to the host, so a stack's own configuration files can be generated from repository data rather than committed as fixed content — this is how the index dashboard builds its tiles from the service catalogue. A supporting file whose template directives are structural, rather than a value inside an otherwise well-formed document, carries a `.j2` suffix so that the repository's linters do not try to parse it as the format it will eventually become; the suffix is stripped when the file is written to the host.
+
 ## Adding a stack
 
 Adding a stack involves two coordinated changes. Either change alone leaves the stack in a non-functional state.

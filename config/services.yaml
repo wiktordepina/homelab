@@ -1,0 +1,267 @@
+---
+# The homelab service catalogue: one entry per name published under
+# homelab.matagoth.com. Three consumers derive from this file — the DNS A
+# records (terraform/dns), the reverse-proxy server blocks (the
+# nginx_reverse_proxy role) and the index dashboard (the homepage stack) — so a
+# service is added here once rather than in each of them separately.
+#
+# See docs/reference/service-catalogue.md for the schema.
+
+categories:
+  - name: infrastructure
+    title: Infrastructure
+    description: The hypervisor, the network fabric, and the tooling that records both
+    subcategories:
+      - name: platform
+        title: Platform
+      - name: network
+        title: Network
+      - name: management
+        title: Management
+
+  - name: observability
+    title: Observability
+    description: What the homelab is doing, and how it says so
+    subcategories:
+      - name: metrics
+        title: Metrics
+      - name: notifications
+        title: Notifications
+
+  - name: media
+    title: Media
+    description: The library and the machinery that fills it
+    subcategories:
+      - name: library
+        title: Library
+      - name: acquisition
+        title: Acquisition
+      - name: downloads
+        title: Downloads
+
+  - name: automation
+    title: Automation
+    description: Home automation and workflow orchestration
+    subcategories:
+      - name: home
+        title: Home
+      - name: workflows
+        title: Workflows
+
+  - name: ai
+    title: AI
+    description: Model inference and the agents built on top of it
+    subcategories:
+      - name: inference
+        title: Inference
+      - name: agents
+        title: Agents
+
+services:
+  # --- infrastructure ---------------------------------------------------
+  - name: www
+    title: Homepage
+    category: infrastructure
+    subcategory: management
+    upstream: http://10.20.1.205:3000/
+    description: This dashboard
+    icon: mdi-home
+    # The index does not list itself.
+    listed: false
+
+  - name: proxmox
+    title: Proxmox VE
+    category: infrastructure
+    subcategory: platform
+    upstream: https://192.168.200.100:8006/
+    description: Hypervisor, container and VM management
+    icon: proxmox
+
+  - name: fileserver
+    title: Cockpit
+    category: infrastructure
+    subcategory: platform
+    upstream: https://10.20.1.203:9090/
+    description: File server host administration
+    icon: cockpit
+
+  - name: opnsense
+    title: OPNsense
+    category: infrastructure
+    subcategory: network
+    upstream: https://192.168.200.1/
+    description: Router, firewall and VLAN termination
+    icon: opnsense
+
+  - name: switch
+    title: Switch
+    category: infrastructure
+    subcategory: network
+    upstream: http://192.168.200.50/
+    description: TP-Link TL-SG2008P managed switch
+    icon: tp-link
+
+  - name: pihole
+    title: Pi-hole
+    category: infrastructure
+    subcategory: network
+    upstream: https://10.20.1.1/
+    description: DNS filtering and query logs
+    icon: pi-hole
+
+  - name: netalertx
+    title: NetAlertX
+    category: infrastructure
+    subcategory: network
+    upstream: http://10.20.1.213:20211/
+    description: Presence scanning and new-device alerts
+    icon: netalertx
+
+  - name: netbox
+    title: NetBox
+    category: infrastructure
+    subcategory: management
+    upstream: http://10.20.1.215:8080/
+    description: Address and infrastructure records
+    icon: netbox
+
+  - name: forge
+    title: Forgejo
+    category: infrastructure
+    subcategory: management
+    upstream: http://10.20.1.216:3000/
+    description: Git hosting and CI
+    icon: forgejo
+
+  # --- observability ----------------------------------------------------
+  - name: prometheus
+    title: Prometheus
+    category: observability
+    subcategory: metrics
+    upstream: http://10.20.1.210:9090/
+    description: Metrics collection and alert rules
+    icon: prometheus
+
+  - name: grafana
+    title: Grafana
+    category: observability
+    subcategory: metrics
+    upstream: http://10.20.1.210:3000/
+    description: Dashboards over Prometheus
+    icon: grafana
+
+  - name: ntfy
+    title: ntfy
+    category: observability
+    subcategory: notifications
+    upstream: http://10.20.1.202/
+    description: Push notifications for hosts and workflows
+    icon: ntfy
+
+  # --- media ------------------------------------------------------------
+  - name: jellyfin
+    title: Jellyfin
+    category: media
+    subcategory: library
+    upstream: http://10.20.1.204:8096/
+    description: Film and television playback
+    icon: jellyfin
+
+  - name: prowlarr
+    title: Prowlarr
+    category: media
+    subcategory: acquisition
+    upstream: http://10.20.1.205:9696/
+    description: Indexer management for the *arr stack
+    icon: prowlarr
+
+  - name: sonarr
+    title: Sonarr
+    category: media
+    subcategory: acquisition
+    upstream: http://10.20.1.205:8989/
+    description: Television series tracking
+    icon: sonarr
+
+  - name: radarr
+    title: Radarr
+    category: media
+    subcategory: acquisition
+    upstream: http://10.20.1.205:7878/
+    description: Film tracking
+    icon: radarr
+
+  - name: sabnzbd
+    title: SABnzbd
+    category: media
+    subcategory: downloads
+    upstream: http://10.20.1.205:8080/
+    description: Usenet downloader
+    icon: sabnzbd
+
+  - name: qbittorrent
+    title: qBittorrent
+    category: media
+    subcategory: downloads
+    upstream: http://10.20.1.205:8888/
+    description: BitTorrent client behind the VPN tunnel
+    icon: qbittorrent
+
+  # --- automation -------------------------------------------------------
+  - name: homeassistant
+    title: Home Assistant
+    category: automation
+    subcategory: home
+    upstream: http://10.20.1.206:8123/
+    description: Home automation, energy and sensors
+    icon: home-assistant
+
+  - name: n8n
+    title: n8n
+    category: automation
+    subcategory: workflows
+    upstream: http://10.20.1.211:5678/
+    description: Workflow automation and integrations
+    icon: n8n
+
+  # --- ai ---------------------------------------------------------------
+  - name: localai
+    title: Open WebUI
+    category: ai
+    subcategory: inference
+    upstream: http://10.20.1.207/
+    description: Chat interface over local and hosted models
+    icon: open-webui
+
+  - name: litellm
+    title: LiteLLM
+    category: ai
+    subcategory: inference
+    upstream: http://10.20.1.207:4000/
+    description: Unified proxy across model providers
+    # The upstream icon set ships this slug misspelled; "litellm" does not resolve.
+    icon: litlellm
+
+  - name: hermes
+    title: Hermes
+    category: ai
+    subcategory: agents
+    upstream: http://10.20.1.217:9119/
+    description: Sandboxed coding agent
+    icon: mdi-robot
+
+  - name: hermes-workflows
+    title: Hermes Workflows
+    category: ai
+    subcategory: agents
+    upstream: http://10.20.1.217:3000/
+    description: Workflow interface for the Hermes agent
+    icon: mdi-sitemap
+
+  - name: mait
+    title: mait Gateway
+    category: ai
+    subcategory: agents
+    upstream: http://10.20.30.40:8080/
+    description: Legacy agent gateway, superseded by Hermes
+    icon: mdi-robot-outline

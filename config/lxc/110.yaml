@@ -13,5 +13,6 @@ terraform:
 ansible:
   roles:
     - base
+    - service_catalogue
     - nginx_reverse_proxy
     - certbot

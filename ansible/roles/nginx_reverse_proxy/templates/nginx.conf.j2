@@ -17,18 +17,18 @@ http {
         return 301 https://$host$request_uri;
     }
 
-    {% for server_name_prefix, proxy_url in nginx_reverse_proxy_servers.items() -%}
+    {% for service in catalogue.services if service.proxy | default(true) -%}
     server {
         listen  443 ssl;
         listen  [::]:443    ssl;
-        server_name {{server_name_prefix}}.homelab.matagoth.com;
+        server_name {{service.name}}.homelab.matagoth.com;
 
         ssl_certificate /etc/letsencrypt/live/matagoth.com/fullchain.pem;
         ssl_certificate_key /etc/letsencrypt/live/matagoth.com/privkey.pem;
         ssl_protocols TLSv1.1   TLSv1.2   TLSv1.3;
 
         location / {
-            proxy_pass  {{proxy_url}};
+            proxy_pass  {{service.upstream}};
 
             proxy_ssl_verify off;
             proxy_http_version 1.1;

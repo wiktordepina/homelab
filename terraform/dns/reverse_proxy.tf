@@ -1,30 +1,11 @@
 locals {
+  # The service catalogue is shared with Ansible, which renders the matching
+  # nginx server blocks from the same entries. See config/services.yaml.
+  service_catalogue = yamldecode(file("${path.module}/../../config/services.yaml"))
+
   reverse_proxy_servers = [
-    "www",
-    "proxmox",
-    "prometheus",
-    "grafana",
-    "opnsense",
-    "switch",
-    "pihole",
-    "prowlarr",
-    "jellyfin",
-    "qbittorrent",
-    "sabnzbd",
-    "fileserver",
-    "localai",
-    "sonarr",
-    "radarr",
-    "ntfy",
-    "n8n",
-    "litellm",
-    "mait",
-    "homeassistant",
-    "netalertx",
-    "netbox",
-    "forge",
-    "hermes",
-    "hermes-workflows",
+    for service in local.service_catalogue.services :
+    service.name if try(service.proxy, true)
   ]
 }
 

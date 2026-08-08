@@ -1,0 +1,9 @@
+---
+# include_vars publishes at play scope rather than role scope, so every role
+# listed after this one can read `catalogue` without loading the file again.
+# The path is playbook-relative because the rendered playbook is written to the
+# repository root, which is the runner's working directory.
+- name: Load the service catalogue
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/config/services.yaml"
+    name: catalogue
