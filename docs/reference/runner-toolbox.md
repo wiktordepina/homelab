@@ -26,6 +26,8 @@ The repository's working tree is also mounted in at `/build`, since wrapper scri
 
 If any of these mounts is missing or empty, operations fail in characteristic ways: missing secrets produce authentication errors, missing state files cause Terraform to plan as if everything were new, missing SSH keys cause Ansible to be unable to connect.
 
+A secret file that is *present* but unreadable fails the same way as one that is absent, and this is easier to cause than it looks. The runner is an unprivileged container, so every file on the secrets mount appears inside it as owned by `nobody:nogroup` regardless of who owns it on the host — the world-read bit is the only thing that makes any of them readable. A secret written `0600` on the host, which is the instinctive mode for a secret, is silently invisible to the runner. Match the mode of the files already there.
+
 ## How to invoke it
 
 `./run/execute_runner` is the documented entry point. It takes the name of a control-plane operation (one of the wrapper scripts under `runner-toolbox/scripts/`) and any arguments the operation needs, sets up the mounts and environment, and runs the toolbox image. Do not invoke `docker` directly; `./run/execute_runner` is the API.
