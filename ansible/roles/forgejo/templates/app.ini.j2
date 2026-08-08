@@ -54,6 +54,10 @@ MODE = console
 LEVEL = info
 ROOT_PATH = {{ forgejo_log_dir }}
 
+[actions]
+ENABLED = {{ forgejo_actions_enabled | string | lower }}
+DEFAULT_ACTIONS_URL = {{ forgejo_actions_default_url }}
+
 [metrics]
 ENABLED = true
 

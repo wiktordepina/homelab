@@ -27,7 +27,9 @@ The VMID space is partitioned by purpose, not by allocation. The ranges are conv
 
 - **`100–199`** is reserved for **infrastructure** containers — services that other services depend on, such as DNS and the reverse proxy.
 - **`200–499`** is reserved for **applications** — the services that exist for their own sake.
-- **`500–599`** is reserved for **runners** — self-hosted GitHub Actions executors.
+- **`500–599`** is reserved for **runners** — the executors that drive continuous integration and the applies themselves.
+
+Runners are the one range whose addresses cannot follow the mapping above, because a VMID over 255 does not fit in an octet. They occupy a subnet of their own, indexed by position within the range rather than by the whole VMID. The address is still derivable from the number; the arithmetic is just different, and [reference/lxc-schema](../reference/lxc-schema.md) records it.
 
 Allocating a VMID is a small act of design: pick a free number in the appropriate range and that number becomes the service's identity for as long as the service exists.
 

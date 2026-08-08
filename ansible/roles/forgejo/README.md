@@ -41,6 +41,14 @@ su - git -c '/usr/local/bin/forgejo admin user create \
 
 The random passwords are printed to stdout once — capture them. The admin user goes through the web UI from `https://forge.homelab.matagoth.com` to create the three initial state repos (`hermes-skills`, `hermes-memory`, `hermes-config`) under `agent-bot`'s ownership, and to upload the Hermes LXC's SSH public key as a deploy key on each.
 
+## Actions
+
+Actions is enabled through `app.ini`, and `forgejo_actions_default_url` sets where a workflow's `uses:` resolves when it carries no absolute URL. Forgejo does not run jobs itself — that is the [forgejo_runner](../forgejo_runner/README.md) role on `501`.
+
+This role also *registers* that runner, using the shared secret exported as `FORGEJO_RUNNER_SECRET` from `/pve/secrets/forgejo.sh`. Registration is done offline (`forgejo-cli actions register`) rather than through the web UI, because the runner's credentials are templated onto the runner host by its role and a hand-registered pair would be overwritten on the next converge. The command is idempotent — Forgejo derives the runner's UUID from the secret's first 16 bytes, so re-asserting with an unchanged secret is a no-op.
+
+Omitting `FORGEJO_RUNNER_SECRET` skips registration entirely, which is the right behaviour for a Forgejo that has no runner.
+
 ## Upgrading
 
 Bump `forgejo_version` in `defaults/main.yaml`. The role downloads the new binary in-place; the handler restarts the service. Forgejo's schema migrations run automatically on start. Check the upstream release notes for breaking changes before bumping across major versions.

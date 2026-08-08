@@ -94,7 +94,7 @@ Procedures. Read these to perform a specific operation.
 - [Add a service](runbooks/add-service.md) — the lockstep walkthrough.
 - [Add an external host](runbooks/add-external-host.md) — the lockstep walkthrough for a bare-metal host outside the Proxmox host.
 - [Build the default VM template](runbooks/build-vm-template.md) — one-time PVE-host procedure to create the cloud-init template VMs clone from.
-- [Create a GitHub Actions runner](runbooks/create-runner.md) — provisioning an additional self-hosted runner.
+- [Create a runner](runbooks/create-runner.md) — provisioning an apply runner or a Forgejo Actions CI runner, and why the two are not the same machine.
 - [Rotate the wildcard SSL certificate](runbooks/rotate-wildcard-cert.md) — renewal of the LAN-side wildcard cert.
 - [Replace a disk in the ZFS pool](runbooks/replace-zfs-disk.md) — physical disk replacement and resilver.
 - [Post-deploy service setup](runbooks/post-deploy-setup.md) — manual steps that cannot be expressed in IaC.

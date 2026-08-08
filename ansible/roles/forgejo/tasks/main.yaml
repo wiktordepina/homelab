@@ -94,3 +94,40 @@
     name: forgejo
     state: started
     enabled: true
+
+- name: Actions runner registration
+  when: forgejo_runner_secret | length > 0
+  block:
+    # Passed as a file rather than as --secret so the shared secret never
+    # appears in the process table on this host.
+    - name: Install the Actions runner secret
+      ansible.builtin.copy:
+        content: "{{ forgejo_runner_secret | trim }}"
+        dest: "{{ forgejo_config_dir }}/runner-secret"
+        owner: "{{ forgejo_user }}"
+        group: "{{ forgejo_group }}"
+        mode: '0600'
+      no_log: true
+
+    # Offline registration rather than a one-time token pasted into the UI:
+    # the runner's credentials are templated onto the runner host by the
+    # forgejo_runner role, so anything registered by hand would be overwritten
+    # by its next converge. Re-running with an unchanged secret re-asserts the
+    # same runner and yields the same UUID, which Forgejo derives from the
+    # secret's first 16 bytes.
+    #
+    # --keep-labels is not optional: without it the command resets the stored
+    # labels to a single empty string. The runner declares its own labels.
+    - name: Register the Actions runner
+      ansible.builtin.command:
+        cmd: >-
+          {{ forgejo_binary }}
+          --config {{ forgejo_config_dir }}/app.ini
+          forgejo-cli actions register
+          --name {{ forgejo_runner_name }}
+          --secret-file {{ forgejo_config_dir }}/runner-secret
+          --keep-labels
+        chdir: "{{ forgejo_data_dir }}"
+      become: true
+      become_user: "{{ forgejo_user }}"
+      changed_when: false

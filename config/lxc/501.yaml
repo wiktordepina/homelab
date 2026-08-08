@@ -1,0 +1,17 @@
+---
+terraform:
+  vmid: 501
+  hostname: forge-runner
+  ip_address: 10.20.5.2/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 4
+  memory: 4096
+  swap: 1024
+  start_on_boot: true
+  rootfs_size: 40G
+
+ansible:
+  roles:
+    - base
+    - docker
+    - forgejo_runner

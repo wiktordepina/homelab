@@ -18,3 +18,10 @@ forgejo_domain: forge.home.matagoth.com
 forgejo_root_url: https://forge.homelab.matagoth.com/
 
 forgejo_disable_registration: true
+
+forgejo_actions_enabled: true
+# Where a workflow's `uses:` resolves when it carries no absolute URL.
+forgejo_actions_default_url: https://data.forgejo.org
+
+forgejo_runner_name: homelab-ci
+forgejo_runner_secret: "{{ lookup('ansible.builtin.env', 'FORGEJO_RUNNER_SECRET') }}"
