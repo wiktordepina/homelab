@@ -66,6 +66,8 @@ A small inline-tasks form exists for one-off configuration that does not justify
 
 The VMID space is partitioned by purpose: `100–199` for infrastructure containers, `200–499` for applications, `500–599` for runners. The ranges are conventions, not enforced limits, and exist so that anyone looking at a number can immediately tell what kind of container it is. See [concepts/networking](../concepts/networking.md) for the addressing model that the VMID feeds into.
 
+Containers below `500` take the address `10.20.1.<vmid>`. Runners cannot, because their VMIDs do not fit in an octet; they take `10.20.5.<vmid - 499>`, so `500` is `10.20.5.1` and `501` is `10.20.5.2`. Set `ip_address` accordingly — nothing derives it for you.
+
 ## What the schema does not describe
 
 The schema describes a container at rest: what it is, what shape it has, what configuration it should converge to. It does not describe operational state (whether the container is currently running), runtime metrics, or the relationship between containers. Cross-cutting concerns — DNS records, reverse-proxy entries, monitoring scrape targets — live in their own files and are linked to a container only through the VMID-as-identity convention.

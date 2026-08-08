@@ -51,6 +51,7 @@ jobs:
           - 213   # NetAlertX
           - 215   # NetBox
           - 216   # Forgejo
+          - 501   # Forgejo Actions runner
     uses: ./.github/workflows/_lxc.yml
     secrets: inherit
     with:

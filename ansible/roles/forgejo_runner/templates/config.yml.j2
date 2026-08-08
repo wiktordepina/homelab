@@ -1,0 +1,32 @@
+log:
+  level: {{ forgejo_runner_log_level }}
+  job_level: {{ forgejo_runner_job_log_level }}
+
+runner:
+  file: {{ forgejo_runner_home }}/.runner
+  capacity: {{ forgejo_runner_capacity }}
+  timeout: {{ forgejo_runner_job_timeout }}
+  labels:
+{% for label in forgejo_runner_labels %}
+    - {{ label }}
+{% endfor %}
+
+cache:
+  enabled: true
+  dir: {{ forgejo_runner_home }}/.cache/actcache
+
+container:
+  network: ""
+  privileged: false
+  # Empty means a job cannot bind-mount anything from this host into its
+  # container, and "-" means it is handed no Docker socket. Both are the
+  # difference between a test runner and a machine a workflow can escape from.
+  valid_volumes: []
+  docker_host: "-"
+
+server:
+  connections:
+    {{ forgejo_runner_connection_name }}:
+      url: {{ forgejo_runner_instance_url }}
+      uuid: {{ forgejo_runner_uuid }}
+      token: {{ forgejo_runner_token }}

@@ -1,0 +1,87 @@
+---
+# An empty credential templates a config the daemon accepts but that Forgejo
+# rejects on every poll, which surfaces as an idle-looking runner that never
+# appears online. Fail here instead.
+- name: Require the runner credentials
+  ansible.builtin.assert:
+    that:
+      - forgejo_runner_uuid | length > 0
+      - forgejo_runner_token | length == 40
+    fail_msg: >-
+      FORGEJO_RUNNER_UUID and FORGEJO_RUNNER_SECRET must be exported from
+      /pve/secrets/forgejo.sh on the apply runner. See the forgejo_runner
+      role README for how they are minted.
+    quiet: true
+
+- name: Install forgejo-runner host dependencies
+  # The runner clones the workflow repository and any `uses:` action itself,
+  # before it creates the job container.
+  ansible.builtin.apt:
+    name:
+      - git
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create forgejo-runner group
+  ansible.builtin.group:
+    name: "{{ forgejo_runner_group }}"
+    state: present
+
+- name: Create forgejo-runner user
+  # In the docker group because the daemon drives the local Docker socket to
+  # create one container per job.
+  ansible.builtin.user:
+    name: "{{ forgejo_runner_user }}"
+    group: "{{ forgejo_runner_group }}"
+    groups:
+      - docker
+    append: true
+    home: "{{ forgejo_runner_home }}"
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: true
+
+- name: Create forgejo-runner config directory
+  ansible.builtin.file:
+    path: "{{ forgejo_runner_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ forgejo_runner_group }}"
+    mode: '0750'
+
+- name: Download forgejo-runner binary
+  ansible.builtin.get_url:
+    url: >-
+      https://code.forgejo.org/forgejo/runner/releases/download/v{{ forgejo_runner_version }}/forgejo-runner-{{ forgejo_runner_version }}-linux-amd64
+    dest: "{{ forgejo_runner_binary }}"
+    owner: root
+    group: root
+    mode: '0755'
+  notify: Restart forgejo-runner service
+
+- name: Template forgejo-runner config
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ forgejo_runner_config_dir }}/config.yml"
+    owner: root
+    group: "{{ forgejo_runner_group }}"
+    mode: '0640'
+  no_log: true
+  notify: Restart forgejo-runner service
+
+- name: Install forgejo-runner systemd unit
+  ansible.builtin.copy:
+    src: forgejo-runner.service
+    dest: /etc/systemd/system/forgejo-runner.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart forgejo-runner service
+
+- name: Enable and start forgejo-runner
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: forgejo-runner
+    state: started
+    enabled: true

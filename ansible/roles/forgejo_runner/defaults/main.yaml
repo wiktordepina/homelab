@@ -1,0 +1,31 @@
+---
+forgejo_runner_version: "13.0.0"
+
+forgejo_runner_user: runner
+forgejo_runner_group: runner
+forgejo_runner_home: /var/lib/forgejo-runner
+forgejo_runner_config_dir: /etc/forgejo-runner
+forgejo_runner_binary: /usr/local/bin/forgejo-runner
+
+# Registering against ROOT_URL rather than the container address: Forgejo
+# embeds ROOT_URL in the callbacks it hands back to a job, so a runner that
+# reached the instance by a different name would be told to report to an
+# address the job containers cannot resolve.
+forgejo_runner_instance_url: https://forge.homelab.matagoth.com/
+forgejo_runner_connection_name: homelab
+
+forgejo_runner_uuid: "{{ lookup('ansible.builtin.env', 'FORGEJO_RUNNER_UUID') }}"
+forgejo_runner_token: "{{ lookup('ansible.builtin.env', 'FORGEJO_RUNNER_SECRET') }}"
+
+forgejo_runner_capacity: 2
+forgejo_runner_job_timeout: 1h
+forgejo_runner_log_level: info
+forgejo_runner_job_log_level: info
+
+# `<label>:docker://<image>` — a job's `runs-on` picks the label, and the
+# image is what the job runs in. Node is what most actions are written in,
+# actions/checkout among them, so an image without it fails before the first
+# step of the workflow proper.
+forgejo_runner_labels:
+  - docker:docker://docker.io/library/node:22-bookworm
+  - ubuntu-latest:docker://docker.io/library/node:22-bookworm
