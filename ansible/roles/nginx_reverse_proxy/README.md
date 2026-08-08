@@ -16,14 +16,16 @@ This role installs and configures Nginx as a reverse proxy for internal services
 
 - Debian-based OS
 - SSL certificates (typically managed by `certbot` role)
+- The `catalogue` variable, published by the `service_catalogue` role
 
 ## Variables
 
-Refer to `vars/main.yaml` for configuration options.
+This role declares no variables of its own. It reads `catalogue.services`, taking each entry's `name` as the hostname prefix and `upstream` as the proxy target, and skipping any entry marked `proxy: false`. See [`docs/reference/service-catalogue.md`](../../../docs/reference/service-catalogue.md).
 
 ## Dependencies
 
 - `base`
+- `service_catalogue`, which must be listed before this role
 
 ## Example Usage
 
@@ -31,6 +33,7 @@ Refer to `vars/main.yaml` for configuration options.
 ansible:
   roles:
     - base
+    - service_catalogue
     - nginx_reverse_proxy
     - certbot
 ```

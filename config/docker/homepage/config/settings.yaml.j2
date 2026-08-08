@@ -1,0 +1,38 @@
+---
+# Generated from config/services.yaml by the containers role. Do not edit on
+# the host: the next Ansible run overwrites it.
+title: homelab
+headerStyle: boxed
+theme: dark
+color: slate
+disableCollapse: false
+statusStyle: dot
+layout:
+{%- for category in catalogue.categories %}
+{%- set groups = [] %}
+{%- for subcategory in category.subcategories %}
+{%- set entries = [] %}
+{%- for service in catalogue.services %}
+{%- if service.category == category.name
+       and service.subcategory == subcategory.name
+       and service.listed | default(true) %}
+{%- set _ = entries.append(service) %}
+{%- endif %}
+{%- endfor %}
+{%- if entries %}
+{%- set _ = groups.append({'title': subcategory.title, 'count': entries | length}) %}
+{%- endif %}
+{%- endfor %}
+{%- if groups %}
+  {{ category.title }}:
+    style: row
+    columns: 4
+{%- for group in groups %}
+    {{ group.title }}:
+      style: row
+{#-   Narrow rows for small groups, so a lone service does not stretch across
+      the full width of its column. #}
+      columns: {{ [group.count, 4] | min }}
+{%- endfor %}
+{%- endif %}
+{%- endfor %}

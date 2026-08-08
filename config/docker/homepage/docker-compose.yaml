@@ -1,0 +1,14 @@
+---
+services:
+  homepage:
+    container_name: homepage
+    image: ghcr.io/gethomepage/homepage:latest
+    restart: unless-stopped
+    volumes:
+      - ./config:/app/config
+    environment:
+      # Homepage rejects requests whose Host header it does not recognise, so
+      # the proxied name has to be declared even though nginx terminates TLS.
+      - HOMEPAGE_ALLOWED_HOSTS=www.homelab.matagoth.com
+    ports:
+      - '3000:3000'

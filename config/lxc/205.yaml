@@ -19,6 +19,7 @@ ansible:
   roles:
     - base
     - docker
+    - service_catalogue
     - role: containers
       vars:
         containers:
@@ -27,6 +28,8 @@ ansible:
           - name: uptime-kuma
             state: down
           - name: homarr
+            state: down
+          - name: homepage
             state: up
           - name: arrs
             state: up

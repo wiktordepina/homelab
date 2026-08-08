@@ -1,0 +1,5 @@
+---
+# Homepage writes a default bookmarks file if none is present, which would then
+# sit unmanaged on the host. An explicit empty list keeps the directory fully
+# described by this repository.
+[]

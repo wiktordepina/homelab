@@ -13,10 +13,14 @@
   with_community.general.filetree: "../../../config/docker/{{ container.name }}/"
   when: item.state == "directory" and container.state == "up"
 
+# Every file in a stack directory is rendered as a template, so a `.j2` suffix
+# is not what makes templating happen — it exists for files whose Jinja is not
+# also valid YAML, which yamllint would otherwise reject. The suffix is stripped
+# on the way out so the stack sees the filename it expects.
 - name: "Render templates for {{ container.name }}"
   ansible.builtin.template:
     src: "{{ item.src }}"
-    dest: "/containers/{{ container.name }}/{{ item.path }}"
+    dest: "/containers/{{ container.name }}/{{ item.path | regex_replace('\\.j2$', '') }}"
     mode: "{{ item.mode }}"
   with_community.general.filetree: "../../../config/docker/{{ container.name }}/"
   when: item.state == "file" and container.state == "up"
