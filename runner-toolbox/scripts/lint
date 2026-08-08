@@ -288,6 +288,97 @@ else
   fail 'service catalogue'
 fi
 
+# ─── docker stack templates ─────────────────────────────────────
+# Stack config files ending in .j2 are rendered by the containers role, which
+# means Ansible's Jinja settings apply and not Jinja's own defaults — most
+# significantly trim_blocks, which eats the newline after every block tag. A
+# template that renders correctly under plain Jinja can therefore collapse into
+# invalid YAML on the host, where it surfaces as the service failing to start
+# rather than as a template error. Rendering through the real template module
+# is the only check that cannot drift from what the role actually does.
+section 'docker stack templates'
+stack_templates=$(find config/docker -name '*.j2' | sort)
+if [ -z "${stack_templates}" ]; then
+  ok 'docker stack templates (none present)'
+else
+  render_dir=$(mktemp -d)
+  cat > "${render_dir}/render.yaml" <<'YAML'
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    # Paths are absolute because the playbook lives in a temporary directory,
+    # which is what relative paths would otherwise resolve against.
+    - name: Load the service catalogue
+      ansible.builtin.include_vars:
+        file: '{{ repo_root }}/config/services.yaml'
+        name: catalogue
+
+    # Single-quoted YAML throughout: double quotes would consume the regex
+    # backslash and the newline escape before Jinja ever sees them.
+    - name: Render every stack template
+      ansible.builtin.template:
+        src: '{{ repo_root }}/{{ item }}'
+        dest: '{{ render_dir }}/{{ item | replace("/", "_") | regex_replace("\.j2$", "") }}'
+      loop: '{{ stack_templates }}'
+YAML
+
+  # The template list goes in as a JSON file rather than as `-e key=value`,
+  # which cannot carry a multi-line value and silently keeps only the first
+  # entry.
+  printf '%s' "${stack_templates}" | python3 -c '
+import json, sys
+paths = [line for line in sys.stdin.read().splitlines() if line]
+print(json.dumps({"stack_templates": paths}))
+' > "${render_dir}/vars.json"
+
+  if ansible-playbook -i localhost, "${render_dir}/render.yaml" \
+      -e "repo_root=$(pwd)" \
+      -e "render_dir=${render_dir}" \
+      -e "@${render_dir}/vars.json" \
+      > "${render_dir}/render.log" 2>&1 \
+    && python3 - "${render_dir}" "$(printf '%s' "${stack_templates}" | grep -c .)" <<'PY'
+import glob
+import os
+import sys
+
+import yaml
+
+render_dir = sys.argv[1]
+expected = int(sys.argv[2])
+failures = []
+rendered = sorted(glob.glob(os.path.join(render_dir, '*.yaml')))
+rendered = [path for path in rendered if os.path.basename(path) != 'render.yaml']
+
+if len(rendered) != expected:
+    failures.append(
+        f'expected {expected} rendered template(s), found {len(rendered)} — '
+        'the template list did not reach Ansible intact'
+    )
+
+for path in rendered:
+    with open(path) as handle:
+        try:
+            yaml.safe_load(handle)
+        except yaml.YAMLError as error:
+            detail = str(error).splitlines()[0]
+            failures.append(f'{os.path.basename(path)}: {detail}')
+
+for failure in failures:
+    print(f'  {failure}')
+
+print(f'{len(rendered)} stack template(s) rendered, {len(failures)} invalid')
+sys.exit(1 if failures else 0)
+PY
+  then
+    ok 'docker stack templates'
+  else
+    cat "${render_dir}/render.log" 2>/dev/null | tail -20
+    fail 'docker stack templates'
+  fi
+  rm -rf "${render_dir}"
+fi
+
 section 'workflow dropdown sync (lxc)'
 check_workflow_dropdown lxc 'config/lxc/*.yaml' '.github/workflows/_lxc.yml'
 
