@@ -24,3 +24,7 @@
   ansible.builtin.command: "docker compose -f /containers/{{ item.name }}/docker-compose.yaml up -d --remove-orphans"
   when: item.state == "up"
   loop: "{{ containers }}"
+
+- name: Restart containers whose configuration changed
+  ansible.builtin.command: "docker compose -f /containers/{{ item }}/docker-compose.yaml restart"
+  loop: "{{ containers_needing_restart | default([]) }}"

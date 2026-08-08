@@ -24,3 +24,17 @@
     mode: "{{ item.mode }}"
   with_community.general.filetree: "../../../config/docker/{{ container.name }}/"
   when: item.state == "file" and container.state == "up"
+  register: container_templates
+
+# `docker compose up -d` only recreates a container when the compose file
+# changes, so a stack whose configuration lives in bind-mounted files keeps
+# serving whatever it read at startup — the config on disk is current and the
+# running container is not. Collect the stacks that need a restart; main.yaml
+# performs it after the images and containers have settled.
+- name: "Note that {{ container.name }} needs restarting"
+  ansible.builtin.set_fact:
+    containers_needing_restart: >-
+      {{ (containers_needing_restart | default([])) + [container.name] }}
+  when:
+    - container.state == "up"
+    - container_templates is changed
