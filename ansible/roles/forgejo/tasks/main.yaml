@@ -98,6 +98,14 @@
 - name: Actions runner registration
   when: forgejo_runner_secret | length > 0
   block:
+    # Handlers normally flush at the end of the play, so a failure anywhere
+    # below would leave app.ini rewritten but the service never restarted —
+    # and a Forgejo running against stale config rejects its own internal API
+    # calls, which takes git push over SSH down with it. Restart first, so
+    # nothing after this point can strand the service in that state.
+    - name: Restart forgejo before registering
+      ansible.builtin.meta: flush_handlers
+
     # Passed as a file rather than as --secret so the shared secret never
     # appears in the process table on this host.
     - name: Install the Actions runner secret
