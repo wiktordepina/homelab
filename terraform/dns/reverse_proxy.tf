@@ -24,6 +24,7 @@ locals {
     "netbox",
     "forge",
     "hermes",
+    "hermes-workflows",
   ]
 }
 
