@@ -1,0 +1,12 @@
+---
+# BMC LAN channel. 1 on the H11SSL-C; other boards sometimes use 8.
+ipmi_lan_channel: 1
+
+# The BMC holds its own network configuration in baseboard firmware, entirely
+# independent of the host OS. Static rather than DHCP on purpose: out-of-band
+# access has to work precisely when the things that hand out leases are
+# themselves the problem.
+ipmi_lan_ipsrc: static
+ipmi_lan_address: 192.168.200.101
+ipmi_lan_netmask: 255.255.0.0
+ipmi_lan_gateway: 192.168.200.1

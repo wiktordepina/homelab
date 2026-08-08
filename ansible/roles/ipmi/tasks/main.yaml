@@ -1,0 +1,46 @@
+---
+- name: Install ipmitool
+  ansible.builtin.apt:
+    name: ipmitool
+    state: present
+
+# Every task below talks to the BMC over the local KCS interface rather than the
+# network, so this role can set the BMC's own address without needing to reach
+# it first, and can never lock itself out by getting that address wrong.
+- name: Read current BMC LAN configuration
+  ansible.builtin.command:
+    cmd: ipmitool lan print {{ ipmi_lan_channel }}
+  register: ipmi_lan_current
+  changed_when: false
+
+- name: Parse current BMC LAN configuration
+  ansible.builtin.set_fact:
+    ipmi_lan_have:
+      ipsrc: "{{ ipmi_lan_current.stdout | regex_search('IP Address Source[ \t]*:[ \t]*(.+)', '\\1') | first | default('') | trim | lower }}"
+      address: "{{ ipmi_lan_current.stdout | regex_search('IP Address[ \t]*:[ \t]*(\\S+)', '\\1') | first | default('') }}"
+      netmask: "{{ ipmi_lan_current.stdout | regex_search('Subnet Mask[ \t]*:[ \t]*(\\S+)', '\\1') | first | default('') }}"
+      gateway: "{{ ipmi_lan_current.stdout | regex_search('Default Gateway IP[ \t]*:[ \t]*(\\S+)', '\\1') | first | default('') }}"
+
+- name: Set BMC address source
+  ansible.builtin.command:
+    cmd: ipmitool lan set {{ ipmi_lan_channel }} ipsrc {{ ipmi_lan_ipsrc }}
+  when: ipmi_lan_ipsrc not in ipmi_lan_have.ipsrc
+  changed_when: true
+
+- name: Set BMC IP address
+  ansible.builtin.command:
+    cmd: ipmitool lan set {{ ipmi_lan_channel }} ipaddr {{ ipmi_lan_address }}
+  when: ipmi_lan_have.address != ipmi_lan_address
+  changed_when: true
+
+- name: Set BMC subnet mask
+  ansible.builtin.command:
+    cmd: ipmitool lan set {{ ipmi_lan_channel }} netmask {{ ipmi_lan_netmask }}
+  when: ipmi_lan_have.netmask != ipmi_lan_netmask
+  changed_when: true
+
+- name: Set BMC default gateway
+  ansible.builtin.command:
+    cmd: ipmitool lan set {{ ipmi_lan_channel }} defgw ipaddr {{ ipmi_lan_gateway }}
+  when: ipmi_lan_have.gateway != ipmi_lan_gateway
+  changed_when: true
