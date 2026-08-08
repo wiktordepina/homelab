@@ -128,6 +128,10 @@
           --secret-file {{ forgejo_config_dir }}/runner-secret
           --keep-labels
         chdir: "{{ forgejo_data_dir }}"
+      # su rather than the default sudo: nothing in the fleet installs sudo,
+      # and the command has to run as the user that owns the SQLite database
+      # so it does not leave root-owned journal files the server cannot write.
       become: true
+      become_method: ansible.builtin.su
       become_user: "{{ forgejo_user }}"
       changed_when: false
