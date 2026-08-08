@@ -204,9 +204,12 @@ dig @10.20.1.201 myservice.home.matagoth.com
 # Reachable through the proxy with a valid certificate
 curl -I https://myservice.homelab.matagoth.com
 
-# Listed on the index dashboard
-curl -s https://www.homelab.matagoth.com | grep -o 'myservice.homelab.matagoth.com'
+# Listed on the index dashboard. The page itself is rendered in the browser, so
+# its HTML contains no service names — ask the dashboard's API instead.
+curl -sk https://www.homelab.matagoth.com/api/services | grep -o 'myservice.homelab.matagoth.com'
 ```
+
+The API answers only for the proxied hostname, not for the docker host's address and port: the dashboard validates the `Host` header against the name it is configured to serve. A request by IP returns `Host validation failed` even while the same request through the proxy succeeds.
 
 ## Worked example: a stack on a shared host
 

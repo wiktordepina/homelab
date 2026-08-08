@@ -12,6 +12,11 @@ This role manages Docker Compose stacks from the `config/docker/` directory. It 
 - Manages container state (up, down, destroyed)
 - Prunes unused Docker images
 - Updates container images
+- Restarts a stack whose configuration files changed
+
+Every file in a stack's directory is rendered as a template on the way to the host, so a stack's own configuration can be generated rather than committed as fixed content. A file whose Jinja is structural, rather than a value inside an otherwise well-formed document, carries a `.j2` suffix that is stripped on render; this keeps the repository's linters from parsing it as the format it will eventually become.
+
+Because `docker compose up -d` only recreates a container when the compose file itself changes, a stack whose configuration changed but whose compose file did not would otherwise keep serving what it read at startup. The role tracks which stacks had files change and restarts those, so the running container and the config on disk cannot disagree.
 
 ## Requirements
 
