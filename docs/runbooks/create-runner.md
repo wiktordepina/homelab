@@ -65,8 +65,10 @@ cat >> /zpool/secrets/forgejo.sh <<'EOF'
 export FORGEJO_RUNNER_SECRET='<secret>'
 export FORGEJO_RUNNER_UUID='<uuid>'
 EOF
-chmod 0600 /zpool/secrets/forgejo.sh
+chmod 0644 /zpool/secrets/forgejo.sh
 ```
+
+`0644` is deliberate and every other file in that directory carries it. The runner is an unprivileged container, so these files appear inside it as `nobody:nogroup` whatever they are on the host; the world-read bit is the only thing that lets the runner read them. Written `0600`, the file is silently invisible and the apply fails as though the secret were never set.
 
 Both are read at apply time: the `forgejo` role uses the secret to re-assert the registration on `216`, and the `forgejo_runner` role templates both into the runner's configuration on `501`. If either is missing, the `forgejo_runner` role fails on its first task rather than producing a runner that starts cleanly and never comes online.
 
