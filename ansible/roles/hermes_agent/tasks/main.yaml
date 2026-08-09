@@ -146,6 +146,45 @@
   changed_when: "'CHANGED' in hermes_config_set.stdout"
   notify: Restart hermes-gateway
 
+# Enforced on every converge, unlike the user context below. A Hermes update
+# rewrites SOUL.md with whatever upstream currently ships — observed on
+# 2026-08-09, when a gateway restart replaced the file — so a customised soul
+# only stays customised if something puts it back.
+- name: Write the agent's soul document
+  ansible.builtin.copy:
+    content: "{{ hermes_soul | b64decode }}"
+    dest: "{{ hermes_data_dir }}/SOUL.md"
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_group }}"
+    mode: '0600'
+  when: hermes_soul | length > 0
+  notify: Restart hermes-gateway
+
+- name: Ensure the memories directory exists
+  # A fresh install has no memories/ until the agent first writes one, so the
+  # seed below would fail on a rebuilt host without this.
+  ansible.builtin.file:
+    path: "{{ hermes_data_dir }}/memories"
+    state: directory
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_group }}"
+    mode: '0700'
+  when: hermes_user_context | length > 0
+
+# Seeded, never enforced. `memories/` is the agent's own working directory: it
+# writes here as it learns, so a converge that overwrote USER.md would silently
+# discard everything Hermes had picked up since the host was built. force:false
+# makes this a first-boot seed for a rebuilt VM and a no-op thereafter.
+- name: Seed the operator's user-context memory
+  ansible.builtin.copy:
+    content: "{{ hermes_user_context | b64decode }}"
+    dest: "{{ hermes_data_dir }}/memories/USER.md"
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_group }}"
+    mode: '0600'
+    force: false
+  when: hermes_user_context | length > 0
+
 - name: Configure dashboard basic auth
   ansible.builtin.shell:
     cmd: |

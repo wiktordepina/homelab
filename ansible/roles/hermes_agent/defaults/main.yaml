@@ -104,6 +104,16 @@ hermes_env:
   MOA_TOOLS_DEBUG: "false"
   IMAGE_TOOLS_DEBUG: "false"
 
+# Agent identity, base64-encoded in /pve/secrets/hermes.sh so the markdown
+# survives a shell-sourced file — and so it stays out of this repository.
+# Neither document is a credential, but both are personal, and the role's own
+# README is a public artefact where a user-context file would not belong.
+#
+# Both default to empty, which disables the corresponding task rather than
+# writing an empty file over something that matters.
+hermes_soul: "{{ lookup('ansible.builtin.env', 'HERMES_SOUL_B64') }}"
+hermes_user_context: "{{ lookup('ansible.builtin.env', 'HERMES_USER_CONTEXT_B64') }}"
+
 # The dashboard refuses a non-loopback bind unless an auth provider is
 # registered — upstream removed the unauthenticated public-bind escape hatch in
 # June 2026, and `--insecure` is now a no-op. Supplying a bcrypt hash keeps the

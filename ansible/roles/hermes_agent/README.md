@@ -53,11 +53,36 @@ export HERMES_TELEGRAM_HOME_CHANNEL=…
 export HERMES_HASS_TOKEN=…              # Home Assistant long-lived token
 export HERMES_DASHBOARD_USER=…          # optional, see below
 export HERMES_DASHBOARD_PASSWORD_HASH=… # optional, see below
+export HERMES_SOUL_B64=…                # optional, see Identity
+export HERMES_USER_CONTEXT_B64=…        # optional, see Identity
 ```
 
 An unset variable templates as empty, which disables that integration rather than failing the converge — a host without a Discord token simply comes up without Discord.
 
 `HERMES_API_SERVER_KEY` is the one that matters most. It is the bearer token on the OpenAI-compatible endpoint, and that endpoint dispatches agent turns that run as `hermes` — who has passwordless sudo. Anything holding this key has root on the VM.
+
+## Identity
+
+Two documents shape who the agent is. Both are carried base64-encoded in `/pve/secrets/hermes.sh` rather than in this repository — neither is a credential, but both are personal, and a user-context file has no business in a public role directory. Base64 also spares the shell a multi-line markdown value.
+
+| File | Variable | Behaviour |
+|------|----------|-----------|
+| `~/.hermes/SOUL.md` | `HERMES_SOUL_B64` | Enforced on every converge |
+| `~/.hermes/memories/USER.md` | `HERMES_USER_CONTEXT_B64` | Seeded once, never overwritten |
+
+The two are treated differently on purpose.
+
+**`SOUL.md` is enforced** because upstream owns the file and rewrites it. A gateway restart on 2026-08-09 replaced it with the current stock default. If the soul is customised, only something re-asserting it keeps it that way. Leave the variable empty and the role does not touch the file at all, which is the right default while the deployed copy is byte-identical to upstream's.
+
+**`USER.md` is only seeded.** It lives under `memories/`, which is the agent's own working directory — Hermes writes there as it learns. A converge that re-templated the file would silently discard everything picked up since the host was built. `force: false` makes it a first-boot seed for a rebuilt VM and a no-op on every run after.
+
+To capture the current state of either document back into the secrets file:
+
+```sh
+./run/host-ssh 217 "base64 -w0 /home/hermes/.hermes/memories/USER.md"
+```
+
+Neither variable being set is fine — the agent then comes up with upstream's default soul and no seeded user context, and builds its own memory from scratch.
 
 ## Network posture
 
