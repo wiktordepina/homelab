@@ -1,8 +1,24 @@
 ---
+# `clean` empties /var/cache/apt/archives *before* the download rather than
+# after, and that ordering is the point: the upgrade gets maximum headroom at
+# the one moment it needs it. VM 214 filled its 3.8G root disk mid-upgrade
+# against a 968M cache accumulated over many runs, leaving a kernel unable to
+# build its initramfs and a broken dpkg state. At rest the cache now holds one
+# upgrade's worth rather than every upgrade ever.
 - name: Update OS Packages
   ansible.builtin.apt:
     update_cache: true
     upgrade: "yes"
+    clean: true
+
+# Superseded kernels are auto-installed dependencies of linux-image-amd64, so
+# autoremove is what drops them. apt 3.0 protects the booted kernel and the one
+# before it, so this bounds a VM to two rather than the seven that filled 214.
+# LXCs have no kernels of their own but still accumulate ordinary orphans.
+- name: Remove superseded packages
+  ansible.builtin.apt:
+    autoremove: true
+    purge: true
 
 # Block of KVM-guest-only setup. Each task gates on virtualization type so
 # LXCs and bare-metal hosts are unaffected.
