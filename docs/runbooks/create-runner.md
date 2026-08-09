@@ -134,6 +134,21 @@ The runners appear under **Site Administration → Actions → Runners** at `htt
 
 Check the **count and the UUIDs**, not just that the new one is green. A runner registered with a secret that another runner already uses does not show up as an error — it shows up as one fewer row than expected, because Forgejo has been told about the same runner twice. Two rows with two distinct UUIDs is the thing being confirmed.
 
+The admin list is the quick look, but it does not show UUIDs, so the registrations themselves are read from Forgejo's database. `216` has no `sqlite3` binary and should not grow one for this; its Python does the job, opened read-only so a mistyped query cannot touch a live instance:
+
+```bash
+./run/host-ssh 216 'python3 -c "
+import sqlite3
+c = sqlite3.connect(\"file:/mnt/forgejo/data/forgejo.db?mode=ro\", uri=True)
+for r in c.execute(\"select id, uuid, name, owner_id, repo_id, agent_labels from action_runner order by id\"):
+    print(r)
+"'
+# (1, '63323135-...', 'forge-runner-501', 0, 0, '["docker","ubuntu-latest"]')
+# (2, '37656137-...', 'forge-runner-502', 0, 0, '["docker","ubuntu-latest"]')
+```
+
+One row per runner, each UUID different, and `owner_id`/`repo_id` both `0` — that pair being zero is what makes a runner instance-level rather than scoped to one repository or organisation.
+
 If a runner does not appear, its own daemon log says why:
 
 ```bash
@@ -177,7 +192,26 @@ Stop the daemon on one runner, leave it stopped, and dispatch a workflow that no
 ./run/host-ssh 501 'systemctl stop forgejo-runner'
 ```
 
-The stopped runner goes **Offline** in the admin list and the job runs on the other one. If it queues instead of starting, the surviving runner does not declare the label the workflow asks for. Start it again afterwards:
+The stopped runner goes **Offline** in the admin list and the job runs on the other one. If it queues instead of starting, the surviving runner does not declare the label the workflow asks for.
+
+Which runner actually took each job is not on the job record — it is on the task the job was dispatched to, so confirming it takes a join. `status = 1` is success and `6` is running; the enum is not the one the web UI's wording suggests, so read the number rather than guessing:
+
+```bash
+./run/host-ssh 216 'python3 -c "
+import sqlite3
+c = sqlite3.connect(\"file:/mnt/forgejo/data/forgejo.db?mode=ro\", uri=True)
+run = c.execute(\"select id from action_run where repo_id=<repo-id> order by id desc limit 1\").fetchone()[0]
+for row in c.execute(\"\"\"select j.name, j.status, j.runs_on, r.name
+                        from action_run_job j
+                        left join action_task t on t.id = j.task_id
+                        left join action_runner r on r.id = t.runner_id
+                        where j.run_id = ? order by j.id\"\"\", (run,)):
+    print(row)
+"'
+# ('ruff', 1, '["docker"]', 'forge-runner-502')
+```
+
+Every job showing the surviving runner's name is the proof; a green run on its own is not, since nothing in the result says where it ran. Start the stopped runner again afterwards:
 
 ```bash
 ./run/host-ssh 501 'systemctl start forgejo-runner'
