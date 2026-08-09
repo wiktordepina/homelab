@@ -66,7 +66,7 @@ A small inline-tasks form exists for one-off configuration that does not justify
 
 The VMID space is partitioned by purpose: `100–199` for infrastructure containers, `200–499` for applications, `500–599` for runners. The ranges are conventions, not enforced limits, and exist so that anyone looking at a number can immediately tell what kind of container it is. See [concepts/networking](../concepts/networking.md) for the addressing model that the VMID feeds into.
 
-Containers below `500` take the address `10.20.1.<vmid>`. Runners cannot, because their VMIDs do not fit in an octet; they take `10.20.5.<vmid - 499>`, so `500` is `10.20.5.1` and `501` is `10.20.5.2`. Set `ip_address` accordingly — nothing derives it for you.
+Containers below `500` take the address `10.20.1.<vmid>`. Runners cannot, because their VMIDs do not fit in an octet; they take `10.20.5.<vmid - 499>`, so `500` is `10.20.5.1`, `501` is `10.20.5.2` and `502` is `10.20.5.3`. Set `ip_address` accordingly — nothing derives it for you.
 
 ## What the schema does not describe
 

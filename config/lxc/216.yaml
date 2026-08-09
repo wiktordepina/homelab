@@ -26,4 +26,10 @@ pve_extra:
 ansible:
   roles:
     - base
-    - forgejo
+    - role: forgejo
+      vars:
+        forgejo_runners:
+          - name: forge-runner-501
+            secret_env: FORGEJO_RUNNER_501_SECRET
+          - name: forge-runner-502
+            secret_env: FORGEJO_RUNNER_502_SECRET

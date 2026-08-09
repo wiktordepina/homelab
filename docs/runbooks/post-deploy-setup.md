@@ -98,7 +98,7 @@ Public access to `homeassistant.matagoth.com` is currently set up manually in th
 
 ### What the service is
 
-Forgejo runs as a native binary in LXC 216 at `10.20.1.216`, configured by the `forgejo` Ansible role, and hosts the git repositories that are not on GitHub. Forgejo Actions runs their CI on the runner in 501 — see [create-runner](create-runner.md) for that pairing, which is a separate procedure.
+Forgejo runs as a native binary in LXC 216 at `10.20.1.216`, configured by the `forgejo` Ansible role, and hosts the git repositories that are not on GitHub. Forgejo Actions runs their CI on the runners in 501 and 502 — see [create-runner](create-runner.md) for that pairing, which is a separate procedure.
 
 ### 1. The organisation and the `ci` team
 
@@ -257,7 +257,7 @@ A 2xx and a pull request authored by `forge-ci` is the whole proof. Forgejo expo
 
 ### On the blast radius
 
-The runner in 501 is instance-level and shared by every repository on the forge, and jobs get no Docker socket and no bind mounts, so this token is only as isolated as that machine. The codeowner accepts that: the forge is LAN-only and every repository on it is theirs, so the blast radius is their own repositories and reaching it already requires commit access to one of them.
+The runners in 501 and 502 are instance-level and shared by every repository on the forge, and jobs get no Docker socket and no bind mounts, so this token is only as isolated as those machines. The codeowner accepts that: the forge is LAN-only and every repository on it is theirs, so the blast radius is their own repositories and reaching it already requires commit access to one of them.
 
 LAN-only is not the whole of the answer, though, because the risk that survives it is egress rather than ingress. The runner has outbound internet and workflows pull third-party actions from the Forgejo mirror; a compromised mirrored action in any repository's workflow could read this secret and send it out. That is the path to watch.
 

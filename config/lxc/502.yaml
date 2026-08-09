@@ -1,8 +1,8 @@
 ---
 terraform:
-  vmid: 501
-  hostname: forge-runner
-  ip_address: 10.20.5.2/16
+  vmid: 502
+  hostname: forge-runner-2
+  ip_address: 10.20.5.3/16
   nameserver: 10.20.0.1
   cpu_core_count: 4
   memory: 4096
@@ -16,5 +16,5 @@ ansible:
     - docker
     - role: forgejo_runner
       vars:
-        forgejo_runner_uuid_env: FORGEJO_RUNNER_501_UUID
-        forgejo_runner_secret_env: FORGEJO_RUNNER_501_SECRET
+        forgejo_runner_uuid_env: FORGEJO_RUNNER_502_UUID
+        forgejo_runner_secret_env: FORGEJO_RUNNER_502_SECRET

@@ -14,13 +14,22 @@ forgejo_runner_binary: /usr/local/bin/forgejo-runner
 forgejo_runner_instance_url: https://forge.homelab.matagoth.com/
 forgejo_runner_connection_name: homelab
 
-forgejo_runner_uuid: "{{ lookup('ansible.builtin.env', 'FORGEJO_RUNNER_UUID') }}"
-forgejo_runner_token: "{{ lookup('ansible.builtin.env', 'FORGEJO_RUNNER_SECRET') }}"
+# Which pair of variables in /pve/secrets/forgejo.sh holds *this* runner's
+# credentials. Named by the container's own YAML rather than fixed here,
+# because every runner needs its own pair: Forgejo derives a runner's UUID
+# from the first 16 bytes of its secret, so two runners sharing a secret are
+# not two runners — they are one runner registered twice, and the second
+# container silently takes the first one's place.
+forgejo_runner_uuid_env: ""
+forgejo_runner_secret_env: ""
+
+forgejo_runner_uuid: "{{ lookup('ansible.builtin.env', forgejo_runner_uuid_env) }}"
+forgejo_runner_token: "{{ lookup('ansible.builtin.env', forgejo_runner_secret_env) }}"
 
 # One concurrent job per core. The work is dominated by downloading toolchains
 # rather than by burning CPU, so oversubscribing further would still go wider —
-# but a job that does compile has a whole core, and 501 is the only runner on
-# the instance, so leaving headroom is worth more than the last of the fan-out.
+# but a job that does compile has a whole core, so leaving headroom is worth
+# more than the last of the fan-out.
 forgejo_runner_capacity: 4
 forgejo_runner_job_timeout: 1h
 forgejo_runner_log_level: info
