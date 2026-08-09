@@ -117,11 +117,20 @@ Two details in the dashboard unit are load-bearing:
 - `--skip-build`. Without it the dashboard runs `npm ci` and rebuilds the web UI on every start. Under `Restart=always`, any startup failure becomes a loop that burns a core and 1 GiB of RSS per attempt. The web UI is already built by the installer and rebuilt by `hermes update`.
 - The bind address. Upstream removed the unauthenticated public-bind escape hatch in June 2026; `--insecure` is now a documented no-op, and a non-loopback bind **refuses to start** unless an auth provider is registered. Set `HERMES_DASHBOARD_USER` and `HERMES_DASHBOARD_PASSWORD_HASH` to keep it on the LAN; leave them unset and the role binds `127.0.0.1`, which needs an SSH tunnel to reach.
 
-Generate the password hash on the host, from the install directory:
+Generate the password hash on the host, from the install directory. It must be run as `hermes` — the import pulls in plugin machinery that reads `~/.hermes`:
 
 ```sh
-venv/bin/python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('…'))"
+./run/host-ssh 217 'cd /home/hermes/.hermes/hermes-agent && runuser -u hermes -- \
+  ./venv/bin/python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password(\"…\"))"'
 ```
+
+The result is upstream's own `scrypt$<n>$<r>$<p>$<salt>$<key>` format — not a modular crypt string, so it does not begin with `$`. It contains `$` throughout, so it must be **single-quoted** in `/pve/secrets/hermes.sh` or the shell will eat most of it:
+
+```sh
+export HERMES_DASHBOARD_PASSWORD_HASH='scrypt$16384$…'
+```
+
+Setting the pair and re-converging is enough to move the dashboard from loopback to the LAN; the unit's bind address follows the hash's presence.
 
 ## State persistence — there is none
 
