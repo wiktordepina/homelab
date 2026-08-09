@@ -49,21 +49,31 @@
     mode: '0755'
   notify: Restart forgejo service
 
-- name: Generate the secret key (one-time)
-  # SECRET_KEY is the one secret Forgejo will not generate for itself: absent, it falls
-  # back to a well-known upstream default, and it is what encrypts 2FA secrets and
-  # stored credentials. Any string will do, so openssl is enough.
+- name: Generate the instance secrets (one-time)
+  # A *_URI pointing at a file that does not exist is fatal — Forgejo reads the file,
+  # it does not create one — so all four have to be in place before the service starts.
   #
-  # The other three are deliberately not generated here. INTERNAL_TOKEN is a signed JWT
-  # rather than a random string, and a plausible-looking wrong value would break the
-  # internal API — which takes git push over SSH down with it. Forgejo writes all three
-  # into the files the *_URI settings point at, the first time it starts without them.
+  # The values come from Forgejo's own generator rather than from openssl because the
+  # formats are not interchangeable: INTERNAL_TOKEN is a signed JWT and the two JWT
+  # secrets are base64 of 32 raw bytes. `generate secret` does not load app.ini, so
+  # this still runs on a host whose config already points at the missing files.
   ansible.builtin.shell:
     cmd: |
       umask 077
-      openssl rand -hex 32 > {{ forgejo_config_dir }}/secret_key
-      chown {{ forgejo_user }}:{{ forgejo_group }} {{ forgejo_config_dir }}/secret_key
-    creates: "{{ forgejo_config_dir }}/secret_key"
+      {{ forgejo_binary }} generate secret {{ item.secret }} > {{ forgejo_config_dir }}/{{ item.file }}
+      chown {{ forgejo_user }}:{{ forgejo_group }} {{ forgejo_config_dir }}/{{ item.file }}
+    creates: "{{ forgejo_config_dir }}/{{ item.file }}"
+  loop:
+    - secret: SECRET_KEY
+      file: secret_key
+    - secret: INTERNAL_TOKEN
+      file: internal_token
+    - secret: JWT_SECRET
+      file: jwt_secret
+    - secret: LFS_JWT_SECRET
+      file: lfs_jwt_secret
+  loop_control:
+    label: "{{ item.file }}"
   notify: Restart forgejo service
 
 - name: Remove the environment file that never configured anything
