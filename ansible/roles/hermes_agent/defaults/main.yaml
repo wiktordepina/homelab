@@ -116,11 +116,13 @@ hermes_user_context: "{{ lookup('ansible.builtin.env', 'HERMES_USER_CONTEXT_B64'
 
 # The dashboard refuses a non-loopback bind unless an auth provider is
 # registered — upstream removed the unauthenticated public-bind escape hatch in
-# June 2026, and `--insecure` is now a no-op. Supplying a bcrypt hash keeps the
+# June 2026, and `--insecure` is now a no-op. Supplying a scrypt hash keeps the
 # dashboard reachable across the LAN as before; leaving it empty forces the
 # loopback bind below, which needs an SSH tunnel to reach.
 #
-# Generate the hash on the host, from the install directory, with:
-#   venv/bin/python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('…'))"
+# Generate the hash on the host as the hermes user, from the install directory:
+#   ./venv/bin/python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('…'))"
+# The value is scrypt$<n>$<r>$<p>$<salt>$<key> and is full of '$', so it must be
+# single-quoted in /pve/secrets/hermes.sh. See the README.
 hermes_dashboard_basic_auth_user: "{{ lookup('ansible.builtin.env', 'HERMES_DASHBOARD_USER') }}"
 hermes_dashboard_basic_auth_hash: "{{ lookup('ansible.builtin.env', 'HERMES_DASHBOARD_PASSWORD_HASH') }}"
