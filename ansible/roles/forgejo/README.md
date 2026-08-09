@@ -66,7 +66,7 @@ Two things the role does on *every* converge rather than only at creation:
 - It clears the must-change-password flag. `admin user change-password` re-arms that flag as a side effect, and an account carrying it answers `403` to every API call with a message about changing the password — which reads like a token-scope problem and is not one.
 - It asserts the account is not an admin, and fails the converge if it is. Branch protection exempts admins unless a rule opts in with `apply_to_admins`, so an admin CI user would push straight through the gates its repositories rely on while the API went on reporting those gates as enforced.
 
-The *token* is not in IaC. It is issued by Forgejo, shown once, and installed as a user-level Actions secret named `FORGE_CI_TOKEN` — see [post-deploy-setup](../../../docs/runbooks/post-deploy-setup.md) for minting it and for granting `forge-ci` access to a repository, which is a separate step from the token.
+The *token* is not in IaC. It is issued by Forgejo, shown once, and installed as an organisation-level Actions secret named `FORGE_CI_TOKEN`. Neither is the organisation that secret hangs off, nor the `ci` team that gives `forge-ci` its repository access — Forgejo has no admin CLI for organisations, so both are made through the API. See [post-deploy-setup](../../../docs/runbooks/post-deploy-setup.md) for all three; the access grant is a separate concern from the token, and a repository outside the organisation gets neither.
 
 ## Upgrading
 

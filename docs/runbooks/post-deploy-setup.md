@@ -100,7 +100,81 @@ Public access to `homeassistant.matagoth.com` is currently set up manually in th
 
 Forgejo runs as a native binary in LXC 216 at `10.20.1.216`, configured by the `forgejo` Ansible role, and hosts the git repositories that are not on GitHub. Forgejo Actions runs their CI on the runner in 501 — see [create-runner](create-runner.md) for that pairing, which is a separate procedure.
 
-### 1. The Actions CI token
+### 1. The organisation and the `ci` team
+
+Repositories that carry CI live in the `matagoth-zaibatsu` organisation, not under the `matagoth` user. The reason is `forge-ci` (below): it is not an admin and every repository is private, so it must be granted access explicitly. Granted per repository, that is a manual step repeated for every new repository; granted through an organisation team, it is done once and inherited.
+
+Organisations cannot be created by the `forgejo` role — the local admin CLI has no equivalent of `admin user create` for them, and the API needs a token the role does not hold. `DEFAULT_ALLOW_CREATE_ORGANIZATION` is already true in `app.ini`, so this is a manual step rather than a configuration change.
+
+**Create the organisation**, signed in as `matagoth`:
+
+```bash
+curl -X POST \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"matagoth-zaibatsu","visibility":"private"}' \
+  https://forge.homelab.matagoth.com/api/v1/orgs
+```
+
+**Create the `ci` team.** `includes_all_repositories` is what makes this worth doing: a repository created in the organisation later is covered without a further grant.
+
+```bash
+curl -X POST \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "name":"ci",
+        "description":"forge-ci: opens the pull requests the automatic job token cannot",
+        "permission":"write",
+        "includes_all_repositories":true,
+        "can_create_org_repo":false,
+        "units":["repo.code","repo.pulls","repo.releases"]
+      }' \
+  https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/teams
+# note the team id in the response
+```
+
+The three units mirror the `write:repository` token scope below — code, pulls and releases and nothing else. A team granting more than the token can use would be misleading about what `forge-ci` can actually do.
+
+**Add `forge-ci` to it**, using the team id returned above:
+
+```bash
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<team-id>/members/forge-ci
+```
+
+`forge-ci` should be the team's only member. A human added here would be granted through CI's path rather than their own, which makes an audit of either one meaningless.
+
+Repositories move in with a transfer. Transferring into an organisation you already own completes immediately — there is no pending invitation to accept — and issues, pull requests, releases, Actions history and existing collaborators all survive it:
+
+```bash
+curl -X POST \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"new_owner":"matagoth-zaibatsu"}' \
+  https://forge.homelab.matagoth.com/api/v1/repos/matagoth/<repo>/transfer
+```
+
+Forgejo leaves a redirect at the old path afterwards, so a stale git remote keeps working and gives no sign it is stale. Update remotes rather than relying on it:
+
+```bash
+git remote set-url origin ssh://git@forge.home.matagoth.com:2222/matagoth-zaibatsu/<repo>.git
+```
+
+A *new* repository has to be created in the organisation deliberately. `fj repo create` takes no owner and always creates under the signed-in user, which puts the repository back in the personal namespace and outside the team grant. Create it in the organisation instead:
+
+```bash
+curl -X POST \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"<repo>","private":true,"default_branch":"main"}' \
+  https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/repos
+```
+
+Not everything belongs in the organisation. `agent-bot`'s Hermes state repositories are reached by deploy key, run no CI and never need `forge-ci`, so they stay under `agent-bot` — moving them would change Hermes' access path for no gain.
+
+### 2. The Actions CI token
 
 Forgejo hands every Actions job an automatic token. It is a real forge account, `forgejo-actions` (id `-2`), and its repository access **excludes the pulls unit**, so a workflow that tries to open a pull request gets:
 
@@ -129,10 +203,10 @@ su - git -c '/usr/local/bin/forgejo --config /etc/forgejo/app.ini \
 
 `write:repository` covers pulls, contents and releases, and nothing else — the token cannot read `/api/v1/user`, which is expected rather than a symptom. Add `read:user` only if something turns out to need it.
 
-**Install it as a secret.** Forgejo has no instance-level Actions secret; the admin panel offers global *variables* only, and the API exposes secrets at repository, organisation and user level. Every repository here is owned by the user `matagoth`, so a **user-level** secret is the one place a single copy reaches all of them:
+**Install it as a secret.** Forgejo has no instance-level Actions secret; the admin panel offers global *variables* only, and the API exposes secrets at repository, organisation and user level. An **organisation** secret is the one copy that reaches every repository in `matagoth-zaibatsu`:
 
 ```
-https://forge.homelab.matagoth.com/user/settings/actions/secrets
+https://forge.homelab.matagoth.com/org/matagoth-zaibatsu/settings/actions/secrets
 ```
 
 Add a secret named `FORGE_CI_TOKEN` with the minted value. The equivalent call, signed in as `matagoth`, is:
@@ -142,30 +216,30 @@ curl -X PUT \
   -H "Authorization: token <matagoth-token>" \
   -H 'Content-Type: application/json' \
   -d '{"data":"<forge-ci-token>"}' \
-  https://forge.homelab.matagoth.com/api/v1/user/actions/secrets/FORGE_CI_TOKEN
+  https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/actions/secrets/FORGE_CI_TOKEN
 ```
 
 The value is write-only afterwards. If it is ever lost, mint a new one and overwrite the secret rather than hunting for the old one — nothing else stores a copy, deliberately.
 
-### 2. Grant `forge-ci` access to each repository that needs it
+The level matters more than it looks. A secret set on the `matagoth` *user* reaches only repositories that user owns, so it resolves to nothing the moment a repository is transferred into the organisation — and a workflow whose `secrets.FORGE_CI_TOKEN` is empty fails with the same `403` shape as a badly scoped token. When moving a repository in, create the organisation secret first.
 
-The token's scope bounds what it *may* do; it grants no access to any repository. `forge-ci` is not an admin and every repository here is private, so it sees nothing until it is added as a collaborator. Do this per repository, as `matagoth`:
+An older user-level copy left behind is dead weight rather than a fallback — nothing resolves it once no repository is owned by that user — so delete it once the organisation secret is proven:
 
 ```bash
-curl -X PUT \
+curl -X DELETE \
   -H "Authorization: token <matagoth-token>" \
-  -H 'Content-Type: application/json' \
-  -d '{"permission":"write"}' \
-  https://forge.homelab.matagoth.com/api/v1/repos/matagoth/<repo>/collaborators/forge-ci
+  https://forge.homelab.matagoth.com/api/v1/user/actions/secrets/FORGE_CI_TOKEN
 ```
 
-Or **Settings → Collaborators** on the repository, with the *Write* permission.
+There is no API to *list* user-level secrets — `GET /api/v1/user/actions/secrets` is a 404, unlike its organisation equivalent — so confirm what is there at `https://forge.homelab.matagoth.com/user/settings/actions/secrets` rather than by query.
 
-Per-repository is the intended shape, not an oversight: the token is shared across the instance, the access it unlocks is not, and a repository whose workflows never open a pull request should not grant it. Should the number of repositories make this tiresome, the answer is to move them into an organisation and grant a team once — not to give `forge-ci` admin.
+Deleting the secret does not revoke the token it held, and **a superseded `forge-ci` token cannot be revoked without more work than it sounds**. The admin CLI generates tokens but neither lists nor deletes them, and `DELETE /api/v1/users/forge-ci/tokens/<name>` authenticates with basic auth *as `forge-ci`* — an account whose password is random and discarded at creation, so nobody holds it. Revoking one means setting a password on the account first, deleting the token with it, and letting the next converge clear the must-change-password flag that `admin user change-password` re-arms.
+
+The consequence is worth stating rather than discovering: **minting a replacement `forge-ci` token leaves the old one live**, with identical access, until that dance is done. Rotate only when there is a reason to, not as routine hygiene.
 
 ### 3. Confirm it
 
-The check that matters is the one that fails with the automatic token. From a workflow on a repository where `forge-ci` is a collaborator:
+The token's scope bounds what `forge-ci` *may* do; the team grant is what gives it access to anything. Both have to be right, and the check that matters is the one that fails with the automatic token. From a workflow on a repository in the organisation:
 
 ```yaml
 - name: Open a pull request with the CI token
