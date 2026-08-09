@@ -95,6 +95,89 @@
     state: started
     enabled: true
 
+- name: Actions CI user
+  when: forgejo_actions_enabled
+  block:
+    # `admin user create` errors when the account already exists, so existence is
+    # tested rather than the error swallowed — a create that fails for any other
+    # reason should still fail the converge.
+    - name: List the users
+      ansible.builtin.command:
+        cmd: >-
+          {{ forgejo_binary }}
+          --config {{ forgejo_config_dir }}/app.ini
+          admin user list
+        chdir: "{{ forgejo_data_dir }}"
+      become: true
+      become_method: ansible.builtin.su
+      become_user: "{{ forgejo_user }}"
+      changed_when: false
+      register: forgejo_users
+
+    # The password is random and discarded unread: this account authenticates with an
+    # access token and nothing should ever sign in as it. no_log is what discards it —
+    # --random-password prints the value to stdout.
+    - name: Create the Actions CI user
+      when: forgejo_users.stdout_lines | select('match', '\d+\s+' ~ forgejo_ci_user ~ '\s') | list | length == 0
+      ansible.builtin.command:
+        cmd: >-
+          {{ forgejo_binary }}
+          --config {{ forgejo_config_dir }}/app.ini
+          admin user create
+          --username {{ forgejo_ci_user }}
+          --email {{ forgejo_ci_email }}
+          --random-password
+          --must-change-password=false
+        chdir: "{{ forgejo_data_dir }}"
+      become: true
+      become_method: ansible.builtin.su
+      become_user: "{{ forgejo_user }}"
+      no_log: true
+      changed_when: true
+
+    # `admin user change-password` re-arms the must-change-password flag as a side
+    # effect. An account carrying it answers 403 to every API call with a message
+    # about changing the password, which reads like a token-scope problem and is not
+    # one — so rotating this account's password would quietly break every workflow
+    # that uses its token. Unset on each converge rather than only at creation.
+    - name: Clear the must-change-password flag
+      ansible.builtin.command:
+        cmd: >-
+          {{ forgejo_binary }}
+          --config {{ forgejo_config_dir }}/app.ini
+          admin user must-change-password
+          --unset {{ forgejo_ci_user }}
+        chdir: "{{ forgejo_data_dir }}"
+      become: true
+      become_method: ansible.builtin.su
+      become_user: "{{ forgejo_user }}"
+      changed_when: false
+
+    - name: List the admins
+      ansible.builtin.command:
+        cmd: >-
+          {{ forgejo_binary }}
+          --config {{ forgejo_config_dir }}/app.ini
+          admin user list --admin
+        chdir: "{{ forgejo_data_dir }}"
+      become: true
+      become_method: ansible.builtin.su
+      become_user: "{{ forgejo_user }}"
+      changed_when: false
+      register: forgejo_admins
+
+    # Branch protection exempts admins unless a rule opts in with apply_to_admins, so
+    # an admin CI user would push straight through the gates its repositories rely on
+    # while the API went on reporting those gates as enforced. The account's ordinary
+    # standing is the protection; assert it rather than trust it.
+    - name: The Actions CI user must not be an admin
+      ansible.builtin.assert:
+        that:
+          - forgejo_admins.stdout_lines | select('match', '\d+\s+' ~ forgejo_ci_user ~ '\s') | list | length == 0
+        fail_msg: >-
+          {{ forgejo_ci_user }} holds admin on this Forgejo. Remove it — admin status
+          exempts the account from the branch protection its token is meant to respect.
+
 - name: Actions runner registration
   when: forgejo_runner_secret | length > 0
   block:

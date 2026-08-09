@@ -49,6 +49,17 @@ This role also *registers* that runner, using the shared secret exported as `FOR
 
 Omitting `FORGEJO_RUNNER_SECRET` skips registration entirely, which is the right behaviour for a Forgejo that has no runner.
 
+### The CI user
+
+The role also creates `forgejo_ci_user` (`forge-ci`), the account whose token workflows use for the things the automatic per-job token cannot do — opening a pull request, chiefly. Creation is guarded on the user table, so the account is made once and left alone afterwards; its password is random and discarded, because nothing signs in as it.
+
+Two things the role does on *every* converge rather than only at creation:
+
+- It clears the must-change-password flag. `admin user change-password` re-arms that flag as a side effect, and an account carrying it answers `403` to every API call with a message about changing the password — which reads like a token-scope problem and is not one.
+- It asserts the account is not an admin, and fails the converge if it is. Branch protection exempts admins unless a rule opts in with `apply_to_admins`, so an admin CI user would push straight through the gates its repositories rely on while the API went on reporting those gates as enforced.
+
+The *token* is not in IaC. It is issued by Forgejo, shown once, and installed as a user-level Actions secret named `FORGE_CI_TOKEN` — see [post-deploy-setup](../../../docs/runbooks/post-deploy-setup.md) for minting it and for granting `forge-ci` access to a repository, which is a separate step from the token.
+
 ## Upgrading
 
 Bump `forgejo_version` in `defaults/main.yaml`. The role downloads the new binary in-place; the handler restarts the service. Forgejo's schema migrations run automatically on start. Check the upstream release notes for breaking changes before bumping across major versions.

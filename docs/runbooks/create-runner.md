@@ -114,6 +114,8 @@ jobs:
 
 Push it and watch the **Actions** tab. The first run is slow — the runner pulls the job image before it can start — and subsequent runs reuse it.
 
+A runner is only half of what a workflow needs. The token Forgejo hands each job cannot open a pull request on this instance, so repositories that want one use a shared token from a dedicated account instead — minting it and granting it access is in [post-deploy-setup](post-deploy-setup.md), under Forgejo.
+
 Note that the runner does the equivalent of `docker run`, so **a job image is never re-pulled once present**. Moving a tag upstream has no effect on `501` until the image is removed by hand:
 
 ```bash
