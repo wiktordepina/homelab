@@ -231,7 +231,11 @@ curl -X DELETE \
   https://forge.homelab.matagoth.com/api/v1/user/actions/secrets/FORGE_CI_TOKEN
 ```
 
-There is no API to *list* user-level secrets — `GET /api/v1/user/actions/secrets` is a 404, unlike its organisation equivalent — so confirm what is there at `https://forge.homelab.matagoth.com/user/settings/actions/secrets` rather than by query. Deleting the secret does not revoke the token it held; revoke that separately under `forge-ci`'s applications if it has been superseded.
+There is no API to *list* user-level secrets — `GET /api/v1/user/actions/secrets` is a 404, unlike its organisation equivalent — so confirm what is there at `https://forge.homelab.matagoth.com/user/settings/actions/secrets` rather than by query.
+
+Deleting the secret does not revoke the token it held, and **a superseded `forge-ci` token cannot be revoked without more work than it sounds**. The admin CLI generates tokens but neither lists nor deletes them, and `DELETE /api/v1/users/forge-ci/tokens/<name>` authenticates with basic auth *as `forge-ci`* — an account whose password is random and discarded at creation, so nobody holds it. Revoking one means setting a password on the account first, deleting the token with it, and letting the next converge clear the must-change-password flag that `admin user change-password` re-arms.
+
+The consequence is worth stating rather than discovering: **minting a replacement `forge-ci` token leaves the old one live**, with identical access, until that dance is done. Rotate only when there is a reason to, not as routine hygiene.
 
 ### 3. Confirm it
 
