@@ -44,7 +44,7 @@ A configuration apply fails with an SSH or unreachable error.
 
 **The container is not running.** Provisioning succeeded but the container is stopped, perhaps because of a host reboot. Start the container and retry.
 
-**The container is running but the SSH service is not yet up.** Newly provisioned containers have a brief window where they are running but the SSH service has not finished starting. Wait and retry; if it persists, the configuration role for SSH did not run, and the issue is a chicken-and-egg case where the first apply needs to bootstrap SSH itself.
+**The container is running but the SSH service is not yet up.** Newly provisioned hosts have a brief window where they are running but the SSH service has not finished starting. The rendered playbook already waits for the connection before running any role, so this should no longer surface as a failure — if it does, the wait timed out, meaning the host took unusually long to boot or never finished. Check the console through Proxmox rather than simply retrying.
 
 **The runner does not have an SSH key for the container.** Configuration apply expects a key to be available in the runner's mounted SSH directory (`~/.ssh` on the runner). If the directory is missing or empty, or the key has not been distributed to the container, configuration cannot connect.
 
