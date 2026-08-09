@@ -3,3 +3,21 @@
   ansible.builtin.systemd_service:
     name: nftables
     state: reloaded
+
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart hermes-gateway
+  # The gateway executes the agent in-process, so a code or configuration
+  # change that is not followed by a restart leaves the resident process
+  # importing a mixture of old and new modules — which fails every turn while
+  # the process still looks healthy and stays connected to every platform.
+  ansible.builtin.systemd_service:
+    name: hermes-gateway
+    state: restarted
+
+- name: Restart hermes-dashboard
+  ansible.builtin.systemd_service:
+    name: hermes-dashboard
+    state: restarted

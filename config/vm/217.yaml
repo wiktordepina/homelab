@@ -1,16 +1,14 @@
 ---
-# Hermes Agent — sandboxed AI gateway. A VM rather than an LXC because the
-# agent's terminal backend uses Docker; running dockerd inside an unprivileged
-# LXC works but the lifecycle is fiddly enough that a real kernel earns its
-# keep here. Sized to match the old custom mait-gateway VM it replaces
-# (6 vCPU / 12 GiB).
+# Hermes Agent — AI gateway. A VM rather than an LXC because the agent runs
+# arbitrary code as a passwordless-sudo user, so it wants a kernel boundary
+# rather than a shared one. Sized to match the old custom mait-gateway VM it
+# replaces (6 vCPU / 12 GiB).
 #
-# No extra mounts: state that needs to persist (skills, memories, config) is
-# pushed to dedicated repos on the homelab Forgejo (216) and pulled back on
-# rebuild. Everything else is rootfs — which already lives on the ZFS zpool
-# via the VM's local-zpool storage. The 250 GiB rootfs gives the agent room
-# for many docker image layers, large build scratch, and incidental artefacts
-# before any are committed to git.
+# No extra mounts, and no persistence: the agent's skills, memories, sessions,
+# board and state databases all live on the rootfs and are lost on a rebuild.
+# Take a `hermes backup` first — see the hermes_agent role README. The 250 GiB
+# rootfs (on the ZFS zpool via local-zpool storage) gives the agent room for
+# docker image layers, build scratch and incidental artefacts.
 terraform:
   vmid: 217
   hostname: hermes

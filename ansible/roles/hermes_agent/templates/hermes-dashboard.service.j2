@@ -1,0 +1,24 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=Hermes Agent Dashboard
+After=network-online.target hermes-gateway.service
+Wants=network-online.target hermes-gateway.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User={{ hermes_user }}
+Group={{ hermes_group }}
+WorkingDirectory={{ hermes_install_dir }}
+Environment="HOME={{ hermes_home }}"
+Environment="HERMES_HOME={{ hermes_data_dir }}"
+Environment="PATH={{ hermes_venv }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="VIRTUAL_ENV={{ hermes_venv }}"
+ExecStart={{ hermes_bin }} dashboard --host {{ hermes_dashboard_host }} --port {{ hermes_dashboard_port }} --no-open --skip-build
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
