@@ -51,11 +51,21 @@ The random passwords are printed to stdout once — capture them. The admin user
 
 ## Actions
 
-Actions is enabled through `app.ini`, and `forgejo_actions_default_url` sets where a workflow's `uses:` resolves when it carries no absolute URL. Forgejo does not run jobs itself — that is the [forgejo_runner](../forgejo_runner/README.md) role on `501`.
+Actions is enabled through `app.ini`, and `forgejo_actions_default_url` sets where a workflow's `uses:` resolves when it carries no absolute URL. Forgejo does not run jobs itself — that is the [forgejo_runner](../forgejo_runner/README.md) role, on its own containers in the `500–599` range.
 
-This role also *registers* that runner, using the shared secret exported as `FORGEJO_RUNNER_SECRET` from `/pve/secrets/forgejo.sh`. Registration is done offline (`forgejo-cli actions register`) rather than through the web UI, because the runner's credentials are templated onto the runner host by its role and a hand-registered pair would be overwritten on the next converge. The command is idempotent — Forgejo derives the runner's UUID from the secret's first 16 bytes, so re-asserting with an unchanged secret is a no-op.
+This role also *registers* those runners. `forgejo_runners` lists them, one entry per runner container:
 
-Omitting `FORGEJO_RUNNER_SECRET` skips registration entirely, which is the right behaviour for a Forgejo that has no runner.
+```yaml
+forgejo_runners:
+  - name: forge-runner-501
+    secret_env: FORGEJO_RUNNER_501_SECRET
+```
+
+`name` is what the runner is called in the admin list, and `secret_env` names the variable in `/pve/secrets/forgejo.sh` holding its 40-character shared secret. Registration is done offline (`forgejo-cli actions register`) rather than through the web UI, because a runner's credentials are templated onto the runner host by its own role and a hand-registered pair would be overwritten on the next converge. The command is idempotent — Forgejo derives a runner's UUID from the secret's first 16 bytes, so re-asserting with an unchanged secret is a no-op.
+
+That derivation is also why **two entries must never share a `secret_env`**: identical secrets yield an identical UUID, so the pair registers as one runner and whichever container converged last takes the other's place. The role asserts the secrets are distinct rather than letting that happen, because from the Forgejo side it looks like a runner that never appeared rather than like a mistake.
+
+An empty `forgejo_runners` skips registration entirely, which is the right behaviour for a Forgejo that has no runners.
 
 ### The CI user
 

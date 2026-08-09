@@ -1,4 +1,18 @@
 ---
+# Split from the credential check below because that one cannot run until
+# these two name something: the lookups that resolve the credentials are
+# written in terms of these variables.
+- name: Require the runner credential variable names
+  ansible.builtin.assert:
+    that:
+      - forgejo_runner_uuid_env | length > 0
+      - forgejo_runner_secret_env | length > 0
+    fail_msg: >-
+      forgejo_runner_uuid_env and forgejo_runner_secret_env must name this
+      runner's credential variables in this container's config/lxc/<vmid>.yaml.
+      Every runner needs its own pair — see the forgejo_runner role README.
+    quiet: true
+
 # An empty credential templates a config the daemon accepts but that Forgejo
 # rejects on every poll, which surfaces as an idle-looking runner that never
 # appears online. Fail here instead.
@@ -8,9 +22,9 @@
       - forgejo_runner_uuid | length > 0
       - forgejo_runner_token | length == 40
     fail_msg: >-
-      FORGEJO_RUNNER_UUID and FORGEJO_RUNNER_SECRET must be exported from
-      /pve/secrets/forgejo.sh on the apply runner. See the forgejo_runner
-      role README for how they are minted.
+      {{ forgejo_runner_uuid_env }} and {{ forgejo_runner_secret_env }} must be
+      exported from /pve/secrets/forgejo.sh on the apply runner. See the
+      forgejo_runner role README for how they are minted.
     quiet: true
 
 - name: Install forgejo-runner host dependencies

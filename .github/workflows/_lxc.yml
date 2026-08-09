@@ -42,6 +42,7 @@ on:
           - 215 - netbox
           - 216 - forge
           - 501 - forge-runner
+          - 502 - forge-runner-2
       tf_action:
         type: choice
         required: true

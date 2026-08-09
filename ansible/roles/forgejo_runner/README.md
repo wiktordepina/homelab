@@ -27,16 +27,25 @@ The runner is registered instance-level, so **every repository on the forge can 
 
 ## Credentials
 
-The runner authenticates with a UUID and a 40-character hexadecimal shared secret, both exported from `/pve/secrets/forgejo.sh` on the apply runner:
+A runner authenticates with a UUID and a 40-character hexadecimal shared secret, both exported from `/pve/secrets/forgejo.sh` on the apply runner. **Each runner has its own pair**, so the role does not hardcode which variables to read — the container's YAML names them:
 
-```bash
-export FORGEJO_RUNNER_SECRET='<40 hex characters>'
-export FORGEJO_RUNNER_UUID='<uuid printed by the register command>'
+```yaml
+- role: forgejo_runner
+  vars:
+    forgejo_runner_uuid_env: FORGEJO_RUNNER_501_UUID
+    forgejo_runner_secret_env: FORGEJO_RUNNER_501_SECRET
 ```
 
-They are minted once, by hand, and recorded there — the same shape as the `MOSQUITTO_HASH_*` secrets. The `forgejo` role re-asserts the registration on every converge using the same secret, which is idempotent: Forgejo derives the UUID from the secret's first 16 bytes, so the same secret always yields the same runner. [create-runner](../../../docs/runbooks/create-runner.md) has the commands.
+```bash
+export FORGEJO_RUNNER_501_SECRET='<40 hex characters>'
+export FORGEJO_RUNNER_501_UUID='<uuid printed by the register command>'
+```
 
-If either variable is missing the role fails on its first task rather than templating an empty credential, which would otherwise present as a runner that starts cleanly and never appears online.
+The indirection is the same shape as `mosquitto_users`' `password_hash_env`, and it exists because a shared secret is not merely untidy here but wrong: Forgejo derives a runner's UUID from the secret's first 16 bytes, so two containers given the same secret are one runner registered twice. They will each appear to converge successfully, and the forge will show a single runner whose jobs land on whichever container polled first.
+
+They are minted once, by hand, and recorded in `/pve/secrets/forgejo.sh`. The `forgejo` role re-asserts each registration on every converge using the same secret, which is idempotent for the same reason the derivation makes collisions dangerous. [create-runner](../../../docs/runbooks/create-runner.md) has the commands.
+
+If the variable names are unset, or if either variable they name is missing, the role fails on its first tasks rather than templating an empty credential — which would otherwise present as a runner that starts cleanly and never appears online.
 
 ## Labels
 
@@ -46,8 +55,10 @@ If either variable is missing the role fails on its first task rather than templ
 
 Images are pinned by tag rather than by digest. Note that the runner does the equivalent of `docker run`, so **an image is never re-pulled once present** — moving a tag has no effect on this host until the image is removed by hand.
 
+Every runner takes these defaults, and that uniformity is the point rather than an oversight. The runners exist to cover for one another, and they can only do that while any job can land on any of them. Giving one runner a label the others lack makes jobs using it single-lane again, which is the failure the fleet was grown to remove — so a new base image is added to *every* runner or to none.
+
 ## Upgrading
 
-Bump `forgejo_runner_version` in `defaults/main.yaml` and re-run `ansible_lxc 501`. The handler restarts the daemon; a job in flight at that moment is lost and has to be re-run.
+Bump `forgejo_runner_version` in `defaults/main.yaml` and re-run `ansible_lxc <vmid>` for each runner. The handler restarts the daemon; a job in flight at that moment is lost and has to be re-run — so converge them one at a time, and CI keeps a lane throughout.
 
 Check the upstream release notes before crossing a major version — v13 removed the `set-output`, `set-env` and `add-path` workflow commands and raised the minimum Docker version to 25.0, and changes of that shape break workflows rather than the runner.

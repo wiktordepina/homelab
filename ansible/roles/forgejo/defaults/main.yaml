@@ -23,8 +23,16 @@ forgejo_actions_enabled: true
 # Where a workflow's `uses:` resolves when it carries no absolute URL.
 forgejo_actions_default_url: https://data.forgejo.org
 
-forgejo_runner_name: homelab-ci
-forgejo_runner_secret: "{{ lookup('ansible.builtin.env', 'FORGEJO_RUNNER_SECRET') }}"
+# One entry per runner container, as `name` plus the `secret_env` naming the
+# variable in /pve/secrets/forgejo.sh that holds its shared secret. Empty by
+# default so the role stands up a Forgejo with no runners paired to it; the
+# containers that exist are listed in this container's config/lxc YAML, the
+# same way mosquitto's users are.
+#
+# Two entries must never share a secret_env. Forgejo derives a runner's UUID
+# from the first 16 bytes of its secret, so identical secrets collapse into a
+# single registration and the fleet quietly goes back to having one lane.
+forgejo_runners: []
 
 # The account whose token workflows use for the things the automatic per-job token
 # cannot do. Its token is minted by hand and lives as an Actions secret on the forge,
