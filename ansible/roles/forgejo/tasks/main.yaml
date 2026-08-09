@@ -49,25 +49,31 @@
     mode: '0755'
   notify: Restart forgejo service
 
-- name: Generate forgejo secrets (one-time)
-  # Generated once on first apply, persisted on the LXC rootfs.
-  # Loaded by the systemd unit via EnvironmentFile.
+- name: Generate the secret key (one-time)
+  # SECRET_KEY is the one secret Forgejo will not generate for itself: absent, it falls
+  # back to a well-known upstream default, and it is what encrypts 2FA secrets and
+  # stored credentials. Any string will do, so openssl is enough.
+  #
+  # The other three are deliberately not generated here. INTERNAL_TOKEN is a signed JWT
+  # rather than a random string, and a plausible-looking wrong value would break the
+  # internal API — which takes git push over SSH down with it. Forgejo writes all three
+  # into the files the *_URI settings point at, the first time it starts without them.
   ansible.builtin.shell:
     cmd: |
       umask 077
-      SECRET_KEY=$(openssl rand -hex 32)
-      INTERNAL_TOKEN=$(openssl rand -hex 64)
-      JWT_SECRET=$(openssl rand -hex 32)
-      LFS_JWT_SECRET=$(openssl rand -hex 32)
-      cat > {{ forgejo_config_dir }}/secrets.env <<EOF
-      FORGEJO__SECURITY__SECRET_KEY=$SECRET_KEY
-      FORGEJO__SECURITY__INTERNAL_TOKEN=$INTERNAL_TOKEN
-      FORGEJO__OAUTH2__JWT_SECRET=$JWT_SECRET
-      FORGEJO__SERVER__LFS_JWT_SECRET=$LFS_JWT_SECRET
-      EOF
-      chown root:{{ forgejo_group }} {{ forgejo_config_dir }}/secrets.env
-      chmod 0640 {{ forgejo_config_dir }}/secrets.env
-    creates: "{{ forgejo_config_dir }}/secrets.env"
+      openssl rand -hex 32 > {{ forgejo_config_dir }}/secret_key
+      chown {{ forgejo_user }}:{{ forgejo_group }} {{ forgejo_config_dir }}/secret_key
+    creates: "{{ forgejo_config_dir }}/secret_key"
+  notify: Restart forgejo service
+
+- name: Remove the environment file that never configured anything
+  # secrets.env set FORGEJO__* variables and the unit loaded it as an EnvironmentFile.
+  # Nothing ever read them: env-to-ini lives in `environment-to-ini`, a helper shipped
+  # only in the container image, and the string FORGEJO__ does not appear in the server
+  # binary at all. Removing it is the point of this change, not tidying after it.
+  ansible.builtin.file:
+    path: "{{ forgejo_config_dir }}/secrets.env"
+    state: absent
   notify: Restart forgejo service
 
 - name: Template forgejo config
