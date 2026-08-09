@@ -17,7 +17,11 @@ forgejo_runner_connection_name: homelab
 forgejo_runner_uuid: "{{ lookup('ansible.builtin.env', 'FORGEJO_RUNNER_UUID') }}"
 forgejo_runner_token: "{{ lookup('ansible.builtin.env', 'FORGEJO_RUNNER_SECRET') }}"
 
-forgejo_runner_capacity: 2
+# One concurrent job per core. The work is dominated by downloading toolchains
+# rather than by burning CPU, so oversubscribing further would still go wider —
+# but a job that does compile has a whole core, and 501 is the only runner on
+# the instance, so leaving headroom is worth more than the last of the fan-out.
+forgejo_runner_capacity: 4
 forgejo_runner_job_timeout: 1h
 forgejo_runner_log_level: info
 forgejo_runner_job_log_level: info
