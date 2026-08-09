@@ -98,11 +98,32 @@ Generate the password hash on the host, from the install directory:
 venv/bin/python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('…'))"
 ```
 
-## State persistence
+## State persistence — there is none
 
-There are **no bind-mounts** on this host. Anything the agent generates that needs to survive a rebuild — skills, memories, configuration — is pushed to dedicated repositories on the homelab Forgejo (`216`) and pulled back when the VM is re-provisioned. The 250 GiB rootfs (on the ZFS zpool) holds the working copies plus docker image layers and build scratch; none of that is treated as durable.
+There are **no bind-mounts** on this host, and nothing under `~/.hermes` is version controlled or backed up. The only git repository there is the upstream code checkout.
 
-`~/.hermes` also accumulates live state the role does not manage and a rebuild will not restore: `state.db`, `sessions/`, `memories/`, `kanban.db`, and the skills tree. Back these up separately if they matter.
+Everything the agent accumulates lives on the rootfs and dies with it:
+
+| Path | What it holds |
+|------|---------------|
+| `skills/` | the agent's skill tree |
+| `state.db` | the agent's primary store |
+| `sessions/` | conversation history |
+| `memories/`, `memory_store.db` | long-term memory |
+| `kanban.db`, `kanban/` | the agent's board |
+| `cron/` | scheduled jobs |
+| `plugins/`, `profiles/` | local customisation |
+| `state-snapshots/` | the curator's weekly snapshots |
+
+**A destroy-and-reapply of 217 loses all of it.** The role deliberately does not manage these paths — it provisions a working Hermes, not a restored one.
+
+Take a backup before rebuilding. Upstream ships `hermes backup`, which zips the whole `~/.hermes` directory:
+
+```sh
+./run/host-ssh 217 'runuser -u hermes -- bash -lc "hermes backup"'
+```
+
+Closing this gap properly — scheduled backups to somewhere off the VM — is not solved here.
 
 ## Out of scope
 
