@@ -25,3 +25,9 @@ forgejo_actions_default_url: https://data.forgejo.org
 
 forgejo_runner_name: homelab-ci
 forgejo_runner_secret: "{{ lookup('ansible.builtin.env', 'FORGEJO_RUNNER_SECRET') }}"
+
+# The account whose token workflows use for the things the automatic per-job token
+# cannot do. Its token is minted by hand and lives as an Actions secret on the forge,
+# not in this repository — see docs/runbooks/post-deploy-setup.md.
+forgejo_ci_user: forge-ci
+forgejo_ci_email: forge-ci@home.matagoth.com

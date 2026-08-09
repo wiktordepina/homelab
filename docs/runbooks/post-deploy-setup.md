@@ -94,6 +94,99 @@ This is *deferred* until monitoring is wired up, and is an *automation candidate
 
 Public access to `homeassistant.matagoth.com` is currently set up manually in the Cloudflare dashboard, the same way `ntfy.matagoth.com` is. See [concepts/domains-and-tls](../concepts/domains-and-tls.md) for context. This step is deferred and is an *automation candidate* when the tunnel routing itself moves into IaC.
 
+## Forgejo
+
+### What the service is
+
+Forgejo runs as a native binary in LXC 216 at `10.20.1.216`, configured by the `forgejo` Ansible role, and hosts the git repositories that are not on GitHub. Forgejo Actions runs their CI on the runner in 501 — see [create-runner](create-runner.md) for that pairing, which is a separate procedure.
+
+### 1. The Actions CI token
+
+Forgejo hands every Actions job an automatic token. It is a real forge account, `forgejo-actions` (id `-2`), and its repository access **excludes the pulls unit**, so a workflow that tries to open a pull request gets:
+
+```
+POST $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/pulls
+404 {"message":"Can't read pulls or can't read UnitTypeCode"}
+```
+
+A `permissions:` block in the workflow changes nothing — the unit is granted on the forge, not claimed by a workflow. Pushing a branch and cutting a Release both work with the automatic token; opening a pull request is the one thing that does not.
+
+The answer is a dedicated non-admin account, `forge-ci`, whose token is exposed to workflows as the secret `FORGE_CI_TOKEN`. The `forgejo` role creates that account and asserts it is not an admin, so only the token itself is manual — it is issued by the service and displayed once.
+
+**Mint the token** on the Forgejo container:
+
+```bash
+./run/host-ssh 216
+
+su - git -c '/usr/local/bin/forgejo --config /etc/forgejo/app.ini \
+  admin user generate-access-token \
+  --username forge-ci \
+  --token-name forge-ci-actions \
+  --scopes write:repository \
+  --raw'
+# 40 hexadecimal characters, printed once and never retrievable again
+```
+
+`write:repository` covers pulls, contents and releases, and nothing else — the token cannot read `/api/v1/user`, which is expected rather than a symptom. Add `read:user` only if something turns out to need it.
+
+**Install it as a secret.** Forgejo has no instance-level Actions secret; the admin panel offers global *variables* only, and the API exposes secrets at repository, organisation and user level. Every repository here is owned by the user `matagoth`, so a **user-level** secret is the one place a single copy reaches all of them:
+
+```
+https://forge.homelab.matagoth.com/user/settings/actions/secrets
+```
+
+Add a secret named `FORGE_CI_TOKEN` with the minted value. The equivalent call, signed in as `matagoth`, is:
+
+```bash
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"data":"<forge-ci-token>"}' \
+  https://forge.homelab.matagoth.com/api/v1/user/actions/secrets/FORGE_CI_TOKEN
+```
+
+The value is write-only afterwards. If it is ever lost, mint a new one and overwrite the secret rather than hunting for the old one — nothing else stores a copy, deliberately.
+
+### 2. Grant `forge-ci` access to each repository that needs it
+
+The token's scope bounds what it *may* do; it grants no access to any repository. `forge-ci` is not an admin and every repository here is private, so it sees nothing until it is added as a collaborator. Do this per repository, as `matagoth`:
+
+```bash
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"permission":"write"}' \
+  https://forge.homelab.matagoth.com/api/v1/repos/matagoth/<repo>/collaborators/forge-ci
+```
+
+Or **Settings → Collaborators** on the repository, with the *Write* permission.
+
+Per-repository is the intended shape, not an oversight: the token is shared across the instance, the access it unlocks is not, and a repository whose workflows never open a pull request should not grant it. Should the number of repositories make this tiresome, the answer is to move them into an organisation and grant a team once — not to give `forge-ci` admin.
+
+### 3. Confirm it
+
+The check that matters is the one that fails with the automatic token. From a workflow on a repository where `forge-ci` is a collaborator:
+
+```yaml
+- name: Open a pull request with the CI token
+  run: |
+    code=$(curl -sS -o /tmp/pr.json -w '%{http_code}' -X POST \
+      -H "Authorization: token ${{ secrets.FORGE_CI_TOKEN }}" \
+      -H "Content-Type: application/json" \
+      "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/pulls" \
+      -d '{"title":"probe","head":"<branch>","base":"main","body":"probe"}')
+    cat /tmp/pr.json
+    test "$code" -lt 300
+```
+
+A 2xx and a pull request authored by `forge-ci` is the whole proof. Forgejo exposes no log-fetch API, so read the outcome from the job's own status — `fj actions tasks` lists it — which is why the probe is a step that fails loudly rather than one that prints and passes.
+
+### On the blast radius
+
+The runner in 501 is instance-level and shared by every repository on the forge, and jobs get no Docker socket and no bind mounts, so this token is only as isolated as that machine. The codeowner accepts that: the forge is LAN-only and every repository on it is theirs, so the blast radius is their own repositories and reaching it already requires commit access to one of them.
+
+LAN-only is not the whole of the answer, though, because the risk that survives it is egress rather than ingress. The runner has outbound internet and workflows pull third-party actions from the Forgejo mirror; a compromised mirrored action in any repository's workflow could read this secret and send it out. That is the path to watch.
+
 ## NetAlertX
 
 ### What the service is
