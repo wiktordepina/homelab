@@ -3,6 +3,18 @@ hermes_user: hermes
 hermes_group: hermes
 hermes_home: /home/hermes
 
+hermes_data_dir: "{{ hermes_home }}/.hermes"
+hermes_install_dir: "{{ hermes_home }}/.hermes/hermes-agent"
+hermes_venv: "{{ hermes_install_dir }}/venv"
+hermes_bin: "{{ hermes_venv }}/bin/hermes"
+
+# Upstream has no release cadence worth pinning to — tags lag main by hundreds
+# of commits and the installer's own `--commit` guard refuses to roll an
+# existing install backwards. Tracking main is the deliberate choice; the cost
+# is that a rebuild lands wherever upstream is that day.
+hermes_branch: main
+hermes_installer_url: "https://raw.githubusercontent.com/NousResearch/hermes-agent/{{ hermes_branch }}/scripts/install.sh"
+
 # Source subnets allowed inbound on any port (RFC1918 ranges visible on the
 # homelab). The agent only sits on 10.20.0.0/16, but cross-VLAN traffic routed
 # in via OPNsense preserves source addresses, so the allowlist covers every
@@ -15,11 +27,90 @@ hermes_lan_subnets:
   - 192.168.200.0/24
 
 # Named internal homelab services Hermes is permitted to reach on their API
-# ports. LLM traffic always goes through the LiteLLM endpoint; provider keys
-# live there, not on this host.
+# ports.
 hermes_internal_egress:
-  - { host: 10.20.1.207, port: 4000 }   # litellm
   - { host: 10.20.1.216, port: 2222 }   # forgejo SSH (git push/pull)
   - { host: 10.20.1.216, port: 3000 }   # forgejo HTTP API
   - { host: 10.20.1.210, port: 3000 }   # grafana
   - { host: 10.20.1.206, port: 8123 }   # homeassistant
+
+hermes_api_server_host: 0.0.0.0
+hermes_api_server_port: 8642
+hermes_dashboard_port: 9119
+# A LAN bind is only offered once an auth provider exists; without a password
+# hash the dashboard would refuse to start at all, so fall back to loopback.
+hermes_dashboard_host: "{{ '0.0.0.0' if hermes_dashboard_basic_auth_hash else '127.0.0.1' }}"
+
+# Configuration keys asserted after the installer has written its baseline.
+# Deliberately a short list rather than a templated config.yaml: upstream owns
+# the file (it carries a `_config_version` and is rewritten by migrations on
+# every `hermes update`), so the role asserts only the values the homelab
+# actually cares about and leaves the other ~560 lines to upstream.
+#
+# Only string-valued keys belong here. `hermes config get` renders booleans and
+# integers with Python's repr, which never round-trips against the value we
+# would compare it to, so such settings are asserted through the environment
+# file instead — see hermes_env below.
+hermes_config:
+  model.provider: openrouter
+  model.base_url: https://openrouter.ai/api/v1
+  model.default: openai/gpt-5.4
+  model.api_mode: chat_completions
+  # The VM is the sandbox boundary, not the terminal backend — see README.
+  terminal.backend: local
+  timezone: Europe/London
+
+# Runtime credentials, exported from /pve/secrets/hermes.sh on the apply
+# runner. Everything here lands in ~/.hermes/.env, which is the only file
+# Hermes reads secrets from — including API_SERVER_KEY, which authenticates
+# the OpenAI-compatible endpoint and is therefore the one thing standing
+# between the LAN and agent execution as a passwordless-sudo user.
+hermes_secrets:
+  API_SERVER_KEY: "{{ lookup('ansible.builtin.env', 'HERMES_API_SERVER_KEY') }}"
+  OPENROUTER_API_KEY: "{{ lookup('ansible.builtin.env', 'HERMES_OPENROUTER_API_KEY') }}"
+  DEEPSEEK_API_KEY: "{{ lookup('ansible.builtin.env', 'HERMES_DEEPSEEK_API_KEY') }}"
+  TAVILY_API_KEY: "{{ lookup('ansible.builtin.env', 'HERMES_TAVILY_API_KEY') }}"
+  FIRECRAWL_API_KEY: "{{ lookup('ansible.builtin.env', 'HERMES_FIRECRAWL_API_KEY') }}"
+  DISCORD_BOT_TOKEN: "{{ lookup('ansible.builtin.env', 'HERMES_DISCORD_BOT_TOKEN') }}"
+  DISCORD_ALLOWED_USERS: "{{ lookup('ansible.builtin.env', 'HERMES_DISCORD_ALLOWED_USERS') }}"
+  DISCORD_HOME_CHANNEL: "{{ lookup('ansible.builtin.env', 'HERMES_DISCORD_HOME_CHANNEL') }}"
+  TELEGRAM_BOT_TOKEN: "{{ lookup('ansible.builtin.env', 'HERMES_TELEGRAM_BOT_TOKEN') }}"
+  TELEGRAM_ALLOWED_USERS: "{{ lookup('ansible.builtin.env', 'HERMES_TELEGRAM_ALLOWED_USERS') }}"
+  TELEGRAM_HOME_CHANNEL: "{{ lookup('ansible.builtin.env', 'HERMES_TELEGRAM_HOME_CHANNEL') }}"
+  HASS_TOKEN: "{{ lookup('ansible.builtin.env', 'HERMES_HASS_TOKEN') }}"
+
+# Non-secret .env entries. Hermes reads these from the same file, so they are
+# templated alongside rather than pushed through `hermes config set`.
+#
+# The role templates .env wholesale, so anything the installer's own copy sets
+# and this list omits silently reverts to the in-code default. The tuning
+# values below are carried for that reason rather than because the homelab
+# wants something unusual — TERMINAL_TIMEOUT in particular overrides
+# terminal.timeout in config.yaml, so dropping it would triple the limit.
+hermes_env:
+  HASS_URL: http://10.20.1.206:8123
+  API_SERVER_ENABLED: "true"
+  API_SERVER_HOST: "{{ hermes_api_server_host }}"
+  API_SERVER_PORT: "{{ hermes_api_server_port }}"
+  TERMINAL_MODAL_IMAGE: nikolaik/python-nodejs:python3.11-nodejs20
+  TERMINAL_TIMEOUT: "60"
+  TERMINAL_LIFETIME_SECONDS: "300"
+  BROWSER_SESSION_TIMEOUT: "300"
+  BROWSER_INACTIVITY_TIMEOUT: "120"
+  BROWSERBASE_PROXIES: "true"
+  BROWSERBASE_ADVANCED_STEALTH: "false"
+  WEB_TOOLS_DEBUG: "false"
+  VISION_TOOLS_DEBUG: "false"
+  MOA_TOOLS_DEBUG: "false"
+  IMAGE_TOOLS_DEBUG: "false"
+
+# The dashboard refuses a non-loopback bind unless an auth provider is
+# registered — upstream removed the unauthenticated public-bind escape hatch in
+# June 2026, and `--insecure` is now a no-op. Supplying a bcrypt hash keeps the
+# dashboard reachable across the LAN as before; leaving it empty forces the
+# loopback bind below, which needs an SSH tunnel to reach.
+#
+# Generate the hash on the host, from the install directory, with:
+#   venv/bin/python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('…'))"
+hermes_dashboard_basic_auth_user: "{{ lookup('ansible.builtin.env', 'HERMES_DASHBOARD_USER') }}"
+hermes_dashboard_basic_auth_hash: "{{ lookup('ansible.builtin.env', 'HERMES_DASHBOARD_PASSWORD_HASH') }}"

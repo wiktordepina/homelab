@@ -1,6 +1,6 @@
 ---
 - name: Install host packages Hermes' installer expects
-  # Most are pulled in by the upstream curl|bash anyway, but pre-installing
+  # Most are pulled in by the upstream installer anyway, but pre-installing
   # them avoids the installer making network requests for things APT can
   # serve from cache and keeps the installer fast and idempotent.
   ansible.builtin.apt:
@@ -62,3 +62,193 @@
     name: nftables
     state: started
     enabled: true
+
+- name: Fetch the upstream installer
+  ansible.builtin.get_url:
+    url: "{{ hermes_installer_url }}"
+    dest: /usr/local/src/hermes-install.sh
+    owner: root
+    group: root
+    mode: '0755'
+
+# Install-time only. The installer is a 3000-line script that clones, builds a
+# venv, provisions its own Node, and rebuilds the web UI; running it on every
+# converge would be both slow and risky. Subsequent version movement is a
+# deliberate `hermes update` by the operator — see the README.
+- name: Install Hermes Agent
+  ansible.builtin.command:
+    argv:
+      - /usr/local/src/hermes-install.sh
+      - --non-interactive
+      - --skip-setup
+      - --branch
+      - "{{ hermes_branch }}"
+      - --dir
+      - "{{ hermes_install_dir }}"
+      - --hermes-home
+      - "{{ hermes_data_dir }}"
+    creates: "{{ hermes_bin }}"
+  become: true
+  become_user: "{{ hermes_user }}"
+  environment:
+    HOME: "{{ hermes_home }}"
+    HERMES_HOME: "{{ hermes_data_dir }}"
+
+# Written before the setup wizard runs: the wizard resolves provider keys from
+# the environment, and Hermes reads every credential it holds — API_SERVER_KEY
+# included — from this file and nowhere else.
+- name: Template Hermes environment file
+  ansible.builtin.template:
+    src: hermes.env.j2
+    dest: "{{ hermes_data_dir }}/.env"
+    owner: "{{ hermes_user }}"
+    group: "{{ hermes_group }}"
+    mode: '0600'
+  notify:
+    - Restart hermes-gateway
+    - Restart hermes-dashboard
+
+- name: Generate the baseline configuration
+  ansible.builtin.command:
+    argv:
+      - "{{ hermes_bin }}"
+      - setup
+      - --non-interactive
+    creates: "{{ hermes_data_dir }}/config.yaml"
+  become: true
+  become_user: "{{ hermes_user }}"
+  environment:
+    HOME: "{{ hermes_home }}"
+    HERMES_HOME: "{{ hermes_data_dir }}"
+
+# `hermes config set` is the only supported way to edit config.yaml — upstream
+# rewrites the file wholesale during version migrations, so a templated copy
+# would be clobbered on the next update. Reading the value back first keeps the
+# task honest about whether it changed anything.
+- name: Assert homelab configuration keys
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      current=$("{{ hermes_bin }}" config get {{ item.key | quote }} 2>/dev/null || true)
+      if [ "$current" != {{ item.value | quote }} ]; then
+        "{{ hermes_bin }}" config set {{ item.key | quote }} {{ item.value | quote }}
+        echo CHANGED
+      fi
+  loop: "{{ hermes_config | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  become: true
+  become_user: "{{ hermes_user }}"
+  environment:
+    HOME: "{{ hermes_home }}"
+    HERMES_HOME: "{{ hermes_data_dir }}"
+  register: hermes_config_set
+  changed_when: "'CHANGED' in hermes_config_set.stdout"
+  notify: Restart hermes-gateway
+
+- name: Configure dashboard basic auth
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      current=$("{{ hermes_bin }}" config get {{ item.key | quote }} 2>/dev/null || true)
+      if [ "$current" != {{ item.value | quote }} ]; then
+        "{{ hermes_bin }}" config set {{ item.key | quote }} {{ item.value | quote }}
+        echo CHANGED
+      fi
+  loop:
+    - { key: dashboard.basic_auth.username, value: "{{ hermes_dashboard_basic_auth_user }}" }
+    - { key: dashboard.basic_auth.password_hash, value: "{{ hermes_dashboard_basic_auth_hash }}" }
+  loop_control:
+    label: "{{ item.key }}"
+  when: hermes_dashboard_basic_auth_hash | length > 0
+  become: true
+  become_user: "{{ hermes_user }}"
+  environment:
+    HOME: "{{ hermes_home }}"
+    HERMES_HOME: "{{ hermes_data_dir }}"
+  register: hermes_dashboard_auth_set
+  changed_when: "'CHANGED' in hermes_dashboard_auth_set.stdout"
+  no_log: true
+  notify: Restart hermes-dashboard
+
+# Earlier installs of this host ran the gateway and dashboard as *user* units
+# under `systemd --user` plus `loginctl enable-linger`. Two supervisors racing
+# for the same SQLite state and the same listening ports is worse than either
+# alone, so the legacy pair is torn down before the system units are asserted.
+- name: Resolve the hermes uid
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ hermes_user }}"
+
+- name: Stop legacy user units
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - --user
+      - disable
+      - --now
+      - "{{ item }}"
+  become: true
+  become_user: "{{ hermes_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[hermes_user][1] }}"
+  loop:
+    - hermes-gateway.service
+    - hermes-dashboard.service
+  register: hermes_legacy_stop
+  changed_when: hermes_legacy_stop.rc == 0
+  # A freshly built host has no user manager and no such units; the units only
+  # exist on hosts carrying the pre-role hand-built install.
+  failed_when: false
+
+- name: Remove legacy user unit files
+  ansible.builtin.file:
+    path: "{{ hermes_home }}/.config/systemd/user/{{ item }}"
+    state: absent
+  loop:
+    - hermes-gateway.service
+    - hermes-gateway.service.d
+    - hermes-dashboard.service
+
+- name: Install the gateway as a boot-time system service
+  # Upstream generates the unit itself (resolving user, group, home and the
+  # venv interpreter), which is why this is a CLI call and not a template.
+  ansible.builtin.command:
+    argv:
+      - "{{ hermes_bin }}"
+      - gateway
+      - install
+      - --system
+      - --run-as-user
+      - "{{ hermes_user }}"
+      - --start-on-login
+      - --no-start-now
+    creates: /etc/systemd/system/hermes-gateway.service
+  environment:
+    HERMES_HOME: "{{ hermes_data_dir }}"
+  notify: Restart hermes-gateway
+
+- name: Template the dashboard unit
+  # No upstream install command exists for the dashboard, so this one is ours.
+  # --skip-build matters: without it the dashboard runs `npm ci` and rebuilds
+  # the web UI on every start, which under Restart=always turns any startup
+  # failure into a loop that burns a core and 1 GiB per attempt.
+  ansible.builtin.template:
+    src: hermes-dashboard.service.j2
+    dest: /etc/systemd/system/hermes-dashboard.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart hermes-dashboard
+
+- name: Enable and start Hermes services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop:
+    - hermes-gateway
+    - hermes-dashboard

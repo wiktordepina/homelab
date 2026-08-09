@@ -40,9 +40,11 @@ table inet filter {
         ip daddr {{ svc.host }} tcp dport {{ svc.port }} accept
 {% endfor %}
 
-        # HTTP/HTTPS to anywhere: lets apt updates work and gives the agent
-        # the open web by default. LLM traffic still goes through the
-        # LiteLLM endpoint above; provider keys live there, not here.
+        # HTTP/HTTPS to anywhere: lets apt updates work, lets the installer
+        # reach GitHub, and gives the agent the open web by default. It also
+        # means the egress allowlist is not what constrains where inference
+        # traffic goes — the provider is a configuration choice, not a
+        # firewall one. See the README's network posture section.
         tcp dport { 80, 443 } accept
     }
 }
