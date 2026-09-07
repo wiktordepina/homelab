@@ -24,7 +24,7 @@ A consequence is that the first thing a brand-new runner does is build the image
 
 There is a sharp line between operations that need state and secrets and operations that do not.
 
-**Lint** (invoked via `./run/lint`) is read-only: it parses YAML, validates Terraform syntax, runs the Ansible playbook syntax checker, and checks formatting. It needs neither secrets nor state, only the source tree. It runs on a developer machine (against a locally built toolbox image) and on every CI push via `.github/workflows/lint.yml`. It is fast, safe, and deliberately the only thing developers have access to locally.
+**Lint** (invoked via `./run/lint`) is read-only: it parses YAML, validates Terraform syntax, runs the Ansible playbook syntax checker, and checks formatting. It needs neither secrets nor state, only the source tree. It runs on a developer machine (against a locally built toolbox image) and on every CI push via `.github/workflows/lint.yml`, where it uses a GitHub-hosted runner rather than the apply runner: a pushed branch should never execute code on the machine that holds the secrets. It is fast, safe, and deliberately the only thing developers have access to locally.
 
 **Apply** (invoked via `./run/execute_runner`) is mutating: it reaches out to Proxmox, opens SSH connections to containers, writes Terraform state, talks to upstream APIs. It needs secrets and state, so it runs only on the runner.
 
