@@ -6,7 +6,6 @@ resource "proxmox_lxc" "container" {
   memory          = var.memory
   nameserver      = var.nameserver
   onboot          = var.start_on_boot
-  password        = var.root_password
   ssh_public_keys = var.ssh_public_keys
   start           = var.start_after_creation
   swap            = var.swap
@@ -51,5 +50,12 @@ resource "proxmox_lxc" "container" {
       mp      = mountpoint.value.mp
       size    = mountpoint.value.size
     }
+  }
+
+  # No root password is set: access is by the seeded SSH keys and `pct enter`.
+  # Containers created before this had one, and the provider marks `password`
+  # ForceNew, so without this every existing container would be replaced.
+  lifecycle {
+    ignore_changes = [password]
   }
 }
