@@ -78,7 +78,7 @@ validate_tf_dir() {
   rc=$?
 
   rm -f "${dir}/__lint.auto.tfvars"
-  rm -rf "${dir}/.terraform" "${dir}/.terraform.lock.hcl"
+  rm -rf "${dir}/.terraform"
 
   return ${rc}
 }

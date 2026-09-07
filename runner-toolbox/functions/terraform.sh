@@ -99,7 +99,7 @@ run_terraform() {
 
   local tf_dir_absolute="$(pwd)/${tf_dir}"
 
-  trap "rm -rf ${tf_dir_absolute}/terraform.tfvars ${tf_dir_absolute}/.terraform ${tf_dir_absolute}/.terraform.lock.hcl ${tf_dir_absolute}/tf_apply.plan ${tf_dir_absolute}/tf_destroy.plan" EXIT
+  trap "rm -rf ${tf_dir_absolute}/terraform.tfvars ${tf_dir_absolute}/.terraform ${tf_dir_absolute}/tf_apply.plan ${tf_dir_absolute}/tf_destroy.plan" EXIT
 
   pushd "${tf_dir}" > /dev/null
   

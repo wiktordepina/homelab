@@ -6,7 +6,7 @@ The runner toolbox is the container image that holds every tool the homelab need
 
 The toolbox bundles, conceptually:
 
-- **Terraform**. Providers are fetched from the public registry at `terraform init` time; the Proxmox provider is the upstream Telmate release, pinned to an exact version in each Terraform root.
+- **Terraform**. Providers are fetched from the public registry at `terraform init` time; the Proxmox provider is the upstream Telmate release, pinned to an exact version in each Terraform root, and the committed `.terraform.lock.hcl` files pin the provider checksums so every run resolves the same build.
 - **Ansible** with the collections the homelab's roles depend on.
 - **Linting tools** for YAML, Ansible, and Terraform, plus a playbook syntax checker.
 - **General utilities** — shell, JSON and YAML processors, networking and SSH clients, version control — that the wrapper scripts rely on.
