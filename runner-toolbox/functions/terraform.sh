@@ -99,10 +99,23 @@ run_terraform() {
 
   local tf_dir_absolute="$(pwd)/${tf_dir}"
 
-  trap "rm -rf ${tf_dir_absolute}/terraform.tfvars ${tf_dir_absolute}/.terraform ${tf_dir_absolute}/tf_apply.plan ${tf_dir_absolute}/tf_destroy.plan" EXIT
+  trap "rm -rf ${tf_dir_absolute}/terraform.tfvars ${tf_dir_absolute}/.terraform ${tf_dir_absolute}/tf_apply.plan ${tf_dir_absolute}/tf_destroy.plan ${tf_dir_absolute}/terraform.tfstate.*.backup" EXIT
 
   pushd "${tf_dir}" > /dev/null
-  
+
+  # One-off migration. State written while the toolbox shipped its own
+  # provider build names the provider terraform.local/telmate/proxmox, and
+  # init refuses to continue while state references an address it cannot
+  # fetch. A failed init still writes the backend config, which is all that
+  # replace-provider needs; the second init then only has the registry
+  # address to satisfy. Remove this block once every state file has been
+  # through a plan.
+  if [[ -f "${tf_statefile}" ]] && grep -q 'terraform.local/telmate/proxmox' "${tf_statefile}"; then
+    terraform init -input=false --backend-config=path="${tf_statefile}" > /dev/null 2>&1 || true
+    terraform state replace-provider -auto-approve \
+      terraform.local/telmate/proxmox registry.terraform.io/telmate/proxmox
+  fi
+
   set -e
 
   terraform init --backend-config=path="${tf_statefile}"
