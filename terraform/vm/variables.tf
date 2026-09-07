@@ -1,6 +1,5 @@
 variable "vmid" {
-  type    = number
-  default = 0
+  type = number
 }
 
 variable "hostname" {

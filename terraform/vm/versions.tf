@@ -2,8 +2,8 @@ terraform {
   backend "local" {}
   required_providers {
     proxmox = {
-      source  = "terraform.local/telmate/proxmox"
-      version = "1.0.0"
+      source  = "Telmate/proxmox"
+      version = "3.0.2-rc10"
     }
   }
 }

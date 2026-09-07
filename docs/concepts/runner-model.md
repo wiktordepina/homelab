@@ -10,7 +10,7 @@ The reasons are covered in [secrets-and-state](secrets-and-state.md): credential
 
 ## The toolbox image
 
-The toolbox is a single container image that bundles every tool the homelab needs: Terraform with its custom provider, Ansible with the required collections, the linting tools, and the small wrapper scripts (`runner-toolbox/scripts/`) that compose them into the four control-plane operations.
+The toolbox is a single container image that bundles every tool the homelab needs: Terraform, Ansible with the required collections, the linting tools, and the small wrapper scripts (`runner-toolbox/scripts/`) that compose them into the four control-plane operations.
 
 The image is built on the runner itself, from the `runner-toolbox/` sources in this repository. The codeowner deliberately does not push it to a registry. The reasons:
 
