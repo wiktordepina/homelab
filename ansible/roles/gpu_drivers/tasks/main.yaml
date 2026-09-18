@@ -22,7 +22,7 @@
     dest: /etc/apt/sources.list.d/debian-non-free.list
     mode: "0644"
     content: |
-      deb http://deb.debian.org/debian {{ ansible_distribution_release }} main contrib non-free non-free-firmware
+      deb http://deb.debian.org/debian {{ ansible_facts['distribution_release'] }} main contrib non-free non-free-firmware
   register: gpu_drivers_non_free
 
 - name: Refresh apt cache after enabling non-free
@@ -41,7 +41,7 @@
     name: "{{ gpu_drivers_host_packages }}"
     state: present
   vars:
-    gpu_drivers_kernel_series: "{{ ansible_kernel.split('.')[:2] | join('.') }}"
+    gpu_drivers_kernel_series: "{{ ansible_facts['kernel'].split('.')[:2] | join('.') }}"
     gpu_drivers_host_packages:
       - "proxmox-headers-{{ gpu_drivers_kernel_series }}"
       - nvidia-tesla-535-driver

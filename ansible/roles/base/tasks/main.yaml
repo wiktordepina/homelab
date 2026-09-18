@@ -23,7 +23,7 @@
 # Block of KVM-guest-only setup. Each task gates on virtualization type so
 # LXCs and bare-metal hosts are unaffected.
 - name: KVM guest setup
-  when: ansible_virtualization_type == "kvm"
+  when: ansible_facts['virtualization_type'] == "kvm"
   block:
     # qemu-guest-agent ships preinstalled on Debian generic-cloud images but
     # is not enabled on first boot. Without it running, `agent = 1` in the
