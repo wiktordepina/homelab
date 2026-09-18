@@ -14,10 +14,10 @@ resource "proxmox_vm_qemu" "vm" {
   # process's host-side cgroup RSS, which tracks pages QEMU has touched,
   # not what the guest is actually using. qemu-guest-agent does not
   # populate this metric.
-  balloon  = var.memory
-  scsihw   = "virtio-scsi-single"
-  onboot   = var.start_on_boot
-  vm_state = "running"
+  balloon            = var.memory
+  scsihw             = "virtio-scsi-single"
+  start_at_node_boot = var.start_on_boot
+  power_state        = "running"
   # The clone-from-template path resets boot order to net0 (PXE) unless we
   # set it explicitly; without this the VM PXE-loops forever instead of
   # booting the rootfs.
