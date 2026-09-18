@@ -1,0 +1,120 @@
+---
+- name: Install system packages
+  ansible.builtin.apt:
+    name:
+      - python3-venv
+      # ansible.builtin.pip imports `packaging` on the target to parse
+      # version specifiers; Debian 13's stock python3.13 does not ship it,
+      # so the apt package is required for the pip task below to work.
+      - python3-packaging
+    state: present
+    update_cache: true
+
+- name: System user
+  ansible.builtin.user:
+    name: foxess-mqtt-bridge
+    system: true
+    shell: /usr/sbin/nologin
+    home: /var/lib/foxess-mqtt-bridge
+    create_home: false
+
+- name: Install directory
+  ansible.builtin.file:
+    path: /opt/foxess-mqtt-bridge
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Python venv
+  ansible.builtin.command: python3 -m venv /opt/foxess-mqtt-bridge/venv
+  args:
+    creates: /opt/foxess-mqtt-bridge/venv/bin/python
+
+- name: Requirements file
+  ansible.builtin.copy:
+    src: requirements.txt
+    dest: /opt/foxess-mqtt-bridge/requirements.txt
+    owner: root
+    group: root
+    mode: "0644"
+
+# Always run pip; the module is idempotent so already-installed packages
+# are a no-op. Gating on the requirements file's `changed` state was
+# tempting for speed but produced empty venvs whenever a prior run wrote
+# the file and then failed before pip — the next run saw the file
+# unchanged and skipped pip, leaving the daemon importing missing libs.
+- name: Install Python dependencies
+  ansible.builtin.pip:
+    requirements: /opt/foxess-mqtt-bridge/requirements.txt
+    virtualenv: /opt/foxess-mqtt-bridge/venv
+  notify:
+    - Restart foxess-mqtt-bridge
+
+- name: Daemon script
+  ansible.builtin.copy:
+    src: foxess_mqtt_bridge.py
+    dest: /opt/foxess-mqtt-bridge/foxess_mqtt_bridge.py
+    owner: root
+    group: root
+    mode: "0755"
+  notify:
+    - Restart foxess-mqtt-bridge
+
+- name: Config directory
+  ansible.builtin.file:
+    path: /etc/foxess-mqtt-bridge
+    state: directory
+    owner: root
+    group: foxess-mqtt-bridge
+    mode: "0750"
+
+- name: Config file
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: /etc/foxess-mqtt-bridge/config.yml
+    owner: root
+    group: foxess-mqtt-bridge
+    mode: "0640"
+  notify:
+    - Restart foxess-mqtt-bridge
+
+- name: FoxESS API key file
+  ansible.builtin.copy:
+    content: "{{ lookup('ansible.builtin.env', foxess_mqtt_bridge_api_key_env) }}"
+    dest: /etc/foxess-mqtt-bridge/api_key
+    owner: root
+    group: foxess-mqtt-bridge
+    mode: "0640"
+  no_log: true
+  notify:
+    - Restart foxess-mqtt-bridge
+
+- name: MQTT password file
+  ansible.builtin.copy:
+    content: "{{ lookup('ansible.builtin.env', foxess_mqtt_bridge_mqtt_password_env) }}"
+    dest: /etc/foxess-mqtt-bridge/mqtt_password
+    owner: root
+    group: foxess-mqtt-bridge
+    mode: "0640"
+  no_log: true
+  notify:
+    - Restart foxess-mqtt-bridge
+
+- name: Systemd unit
+  ansible.builtin.template:
+    src: foxess-mqtt-bridge.service.j2
+    dest: /etc/systemd/system/foxess-mqtt-bridge.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart foxess-mqtt-bridge
+
+- name: Enable service
+  ansible.builtin.systemd:
+    name: foxess-mqtt-bridge
+    enabled: true
+    state: started
+    daemon_reload: true
