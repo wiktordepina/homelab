@@ -50,6 +50,12 @@ ansible:
         signum_mqtt_bridge_mqtt_host: mosquitto.home.matagoth.com
         signum_mqtt_bridge_mqtt_username: signum-bridge
         signum_mqtt_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_SIGNUM_BRIDGE
+    - role: foxess_mqtt_bridge
+      vars:
+        foxess_mqtt_bridge_api_key_env: FOXESS_API_KEY
+        foxess_mqtt_bridge_mqtt_host: mosquitto.home.matagoth.com
+        foxess_mqtt_bridge_mqtt_username: foxess-bridge
+        foxess_mqtt_bridge_mqtt_password_env: MOSQUITTO_PASSWORD_FOXESS_BRIDGE
     - role: glow_energy_importer
       vars:
         glow_energy_importer_username: wiktordepina@gmail.com

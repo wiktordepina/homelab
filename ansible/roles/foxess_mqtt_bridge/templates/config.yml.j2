@@ -1,0 +1,20 @@
+api:
+  url: "{{ foxess_mqtt_bridge_api_url | default('https://www.foxesscloud.com') }}"
+  key_file: /etc/foxess-mqtt-bridge/api_key
+{% if foxess_mqtt_bridge_device_sn is defined %}
+  device_sn: "{{ foxess_mqtt_bridge_device_sn }}"
+{% endif %}
+
+poll_interval: {{ foxess_mqtt_bridge_poll_interval | default(120) }}
+http_timeout: {{ foxess_mqtt_bridge_http_timeout | default(30) }}
+
+mqtt:
+  host: {{ foxess_mqtt_bridge_mqtt_host }}
+  port: {{ foxess_mqtt_bridge_mqtt_port | default(1883) }}
+  username: {{ foxess_mqtt_bridge_mqtt_username }}
+  password_file: /etc/foxess-mqtt-bridge/mqtt_password
+  client_id: {{ foxess_mqtt_bridge_mqtt_client_id | default(inventory_hostname + '-foxess-mqtt-bridge') }}
+
+discovery:
+  prefix: {{ foxess_mqtt_bridge_discovery_prefix | default('homeassistant') }}
+  state_topic_prefix: {{ foxess_mqtt_bridge_state_topic_prefix | default('foxess') }}
