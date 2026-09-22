@@ -20,7 +20,7 @@ layout:
 {% endif %}
 {% endfor %}
 {% if entries %}
-{% set _ = groups.append({'title': subcategory.title, 'count': entries | length}) %}
+{% set _ = groups.append({'title': subcategory.title}) %}
 {% endif %}
 {% endfor %}
 {% if groups %}
@@ -28,11 +28,8 @@ layout:
     style: row
     columns: 4
 {% for group in groups %}
-{# Narrow rows for small groups, so a lone service does not stretch across the
-   full width of its column. #}
     {{ group.title }}:
-      style: row
-      columns: {{ [group.count, 4] | min }}
+      style: column
 {% endfor %}
 {% endif %}
 {% endfor %}
