@@ -43,7 +43,7 @@ logfile_log_level: 'info'             # default Warn, options (off, error, warn,
 logfile_max_count: 10                 # maximum number of log files to keep
 logfile_max_size : 20                 # maximum size per logfile in MiB
 
-show_progress: true                   # default true
+show_progress: false                  # default true; the bar redraws with \r, which journald stores as one huge entry per scan
 show_drive_stats: false               # default false
 benchmark_only: 'disabled'            # default disabled, options (disabled, I/O, XPU)
 
