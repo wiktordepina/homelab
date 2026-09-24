@@ -3,4 +3,7 @@
   hosts: 192.168.200.100
   roles:
     - telegraf
-    - gpu_drivers
+    # gpu_drivers paused: PVE now boots kernel 7.0 and the Tesla 535 DKMS
+    # module has only been built for 6.x. Re-running the role would try that
+    # build on the hypervisor. No guest uses the GPU meanwhile.
+    # - gpu_drivers
