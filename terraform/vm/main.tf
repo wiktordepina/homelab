@@ -23,6 +23,16 @@ resource "proxmox_vm_qemu" "vm" {
   # booting the rootfs.
   boot = "order=scsi0"
 
+  # The template carries serial0 but the provider drops any device the
+  # resource does not declare, leaving the clone with `vga: serial0` pointing
+  # at nothing. The cloud image boots with console=ttyS0, so without a real
+  # port serial-getty@ttyS0 fails and restarts every ~10s forever — one wtmp
+  # record and five journal lines per attempt, which filled VM 214's root.
+  serial {
+    id   = 0
+    type = "socket"
+  }
+
   # Once `cpu` block is used, the top-level cores/sockets/cpu_type fields
   # are forbidden by the provider — moving them all inside the block is
   # the documented path forward.
