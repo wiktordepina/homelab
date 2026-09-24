@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Takes and prunes ZFS snapshots per /etc/zfs-snapshots.conf, one dataset per
+# line: <dataset> <on-change|daily> <keep>. Only snapshots named auto_* are
+# counted or pruned, so hand-made snapshots are left alone.
+set -euo pipefail
+
+conf="${ZFS_SNAPSHOTS_CONF:-/etc/zfs-snapshots.conf}"
+prefix=auto_
+
+own_snapshots() {
+  zfs list -H -t snapshot -o name -s creation -d 1 "$1" | grep "@${prefix}" || true
+}
+
+while read -r dataset mode keep; do
+  [[ -z "${dataset}" || "${dataset}" == \#* ]] && continue
+
+  newest="$(own_snapshots "${dataset}" | tail -n 1)"
+  take=false
+  case "${mode}" in
+    on-change)
+      # written@<snap> counts only bytes written since that snapshot, so a
+      # hand-made snapshot in between does not hide a change. It only sees
+      # committed transaction groups, hence the sync.
+      zpool sync "${dataset%%/*}"
+      [[ -z "${newest}" || "$(zfs get -H -p -o value "written@${newest#*@}" "${dataset}")" -gt 0 ]] && take=true
+      ;;
+    daily)
+      [[ -z "${newest}" || "${newest#*@"${prefix}"}" != "$(date -u +%Y%m%d)"* ]] && take=true
+      ;;
+    *)
+      echo "unknown mode '${mode}' for ${dataset}" >&2
+      exit 1
+      ;;
+  esac
+
+  if "${take}"; then
+    snapshot="${dataset}@${prefix}$(date -u +%Y%m%dT%H%M%SZ)"
+    zfs snapshot "${snapshot}"
+    echo "took ${snapshot}"
+  fi
+
+  own_snapshots "${dataset}" | head -n "-${keep}" | while read -r old; do
+    zfs destroy "${old}"
+    echo "pruned ${old}"
+  done
+done < "${conf}"

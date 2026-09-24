@@ -1,0 +1,9 @@
+[Unit]
+Description=Take and prune ZFS snapshots
+Requires=local-fs.target
+After=local-fs.target
+ConditionFileNotEmpty=/etc/zfs-snapshots.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/zfs-snapshots

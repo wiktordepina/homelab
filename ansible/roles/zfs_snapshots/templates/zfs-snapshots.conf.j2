@@ -1,0 +1,5 @@
+# Managed by Ansible (zfs_snapshots role). Local edits are overwritten.
+# <dataset> <on-change|daily> <keep>
+{% for dataset in zfs_snapshots_datasets %}
+{{ dataset.name }} {{ dataset.mode }} {{ dataset.keep }}
+{% endfor %}

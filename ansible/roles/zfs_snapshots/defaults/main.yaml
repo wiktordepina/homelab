@@ -1,0 +1,4 @@
+---
+# Each entry: name (ZFS dataset), mode (on-change | daily), keep (how many of
+# this role's snapshots to retain).
+zfs_snapshots_datasets: []
