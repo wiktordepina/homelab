@@ -1,0 +1,29 @@
+[Unit]
+Description=FoxESS Cloud to MQTT bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=foxess-mqtt-bridge
+Group=foxess-mqtt-bridge
+ExecStart=/opt/foxess-mqtt-bridge/venv/bin/python /opt/foxess-mqtt-bridge/foxess_mqtt_bridge.py
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target

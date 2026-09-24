@@ -52,9 +52,35 @@ http:
   use_x_forwarded_for: true
   trusted_proxies:
     - 10.20.1.10   # nginx reverse proxy (LXC 110)
+  ip_ban_enabled: true
+  # Deliberately no login_attempts_threshold. HA's default is unlimited, and a
+  # finite value locks the Nabu Casa remote URL out — see "Nabu Casa remote URL
+  # returns 403" below.
 ```
 
 Restart HA: **Settings → System → Restart** (or `docker restart homeassistant` on the LXC). After restart, `https://homeassistant.homelab.matagoth.com` should load.
+
+#### Nabu Casa remote URL returns 403 Forbidden
+
+Symptom: the `*.ui.nabu.casa` URL answers `403 Forbidden` for everyone, while the LAN hostname works. Confirm with:
+
+```sh
+./run/host-ssh 206 'cat /mnt/homeassistant/ip_bans.yaml'
+./run/host-ssh 206 'grep -h "http.ban" /mnt/homeassistant/home-assistant.log.1 /mnt/homeassistant/home-assistant.log | tail'
+```
+
+Expected when this is the problem: a `127.0.0.1:` entry in `ip_bans.yaml`, and log lines like
+`Login attempt or request with invalid authentication from localhost (127.0.0.1). Requested URL: '/media/system/js/core.js'` followed by `Banned IP 127.0.0.1 for too many login attempts`.
+
+Why it happens: the Nabu Casa tunnel terminates inside HA over loopback and forwards no client address, so every remote visitor — you, the companion app, and internet scanners — is `127.0.0.1` to HA. Any request answered `401` counts as a failed login for that address, the counter is cumulative for the life of the process, and the Nabu Casa hostname is discoverable through certificate-transparency logs, so scanners probing for CMS paths hit it regularly. With `login_attempts_threshold` set, loopback is eventually banned and the whole remote path goes dark. Adding `127.0.0.1` to `trusted_proxies` does nothing here: there is no forwarded header to trust.
+
+Recover:
+
+```sh
+./run/host-ssh 206 'sed -i "/^127\.0\.0\.1:/,/banned_at/d" /mnt/homeassistant/ip_bans.yaml && docker restart homeassistant'
+```
+
+The restart is required — bans are loaded into memory at startup and editing the file alone does not lift one. Then make sure `login_attempts_threshold` is absent from the `http:` block, otherwise it will happen again. The ban feature cannot protect the Nabu Casa path (it can only ever ban loopback), so nothing is lost; for real brute-force protection enable TOTP MFA on the owner account under **Profile → Security**.
 
 This is *not an automation candidate* in its current form because HA writes to `configuration.yaml` itself (the UI persists changes there). Templating it from Ansible would clobber any UI-driven edits on the next `ansible_lxc` run. The right fix in the long run is to use HA's environment-variable form of the same setting, if upstream offers one.
 

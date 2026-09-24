@@ -14,14 +14,24 @@ resource "proxmox_vm_qemu" "vm" {
   # process's host-side cgroup RSS, which tracks pages QEMU has touched,
   # not what the guest is actually using. qemu-guest-agent does not
   # populate this metric.
-  balloon  = var.memory
-  scsihw   = "virtio-scsi-single"
-  onboot   = var.start_on_boot
-  vm_state = "running"
+  balloon            = var.memory
+  scsihw             = "virtio-scsi-single"
+  start_at_node_boot = var.start_on_boot
+  power_state        = "running"
   # The clone-from-template path resets boot order to net0 (PXE) unless we
   # set it explicitly; without this the VM PXE-loops forever instead of
   # booting the rootfs.
   boot = "order=scsi0"
+
+  # The template carries serial0 but the provider drops any device the
+  # resource does not declare, leaving the clone with `vga: serial0` pointing
+  # at nothing. The cloud image boots with console=ttyS0, so without a real
+  # port serial-getty@ttyS0 fails and restarts every ~10s forever — one wtmp
+  # record and five journal lines per attempt, which filled VM 214's root.
+  serial {
+    id   = 0
+    type = "socket"
+  }
 
   # Once `cpu` block is used, the top-level cores/sockets/cpu_type fields
   # are forbidden by the provider — moving them all inside the block is

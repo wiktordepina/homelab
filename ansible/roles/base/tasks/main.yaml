@@ -20,10 +20,33 @@
     autoremove: true
     purge: true
 
+# journald's default ceiling is 10% of the filesystem, which on VM 214's 3.8G
+# root is more than the headroom an upgrade needs. A fixed cap bounds every
+# host the same way regardless of disk size.
+- name: Create journald drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Cap journald disk usage
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/size.conf
+    content: |
+      [Journal]
+      SystemMaxUse=200M
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Restart journald
+
 # Block of KVM-guest-only setup. Each task gates on virtualization type so
 # LXCs and bare-metal hosts are unaffected.
 - name: KVM guest setup
-  when: ansible_virtualization_type == "kvm"
+  when: ansible_facts['virtualization_type'] == "kvm"
   block:
     # qemu-guest-agent ships preinstalled on Debian generic-cloud images but
     # is not enabled on first boot. Without it running, `agent = 1` in the
