@@ -1,0 +1,7 @@
+---
+# Without this, a newly listed dataset has no snapshot until the timer's next
+# tick, and a config or script error would only surface there, in the journal.
+- name: Take snapshots now
+  ansible.builtin.systemd_service:
+    name: zfs-snapshots.service
+    state: started

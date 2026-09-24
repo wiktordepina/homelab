@@ -1,0 +1,51 @@
+---
+- name: Validate dataset entries
+  ansible.builtin.assert:
+    that:
+      - zfs_snapshots_datasets | length > 0
+      - zfs_snapshots_datasets | map(attribute='mode') | difference(['on-change', 'daily']) | length == 0
+      - zfs_snapshots_datasets | map(attribute='keep') | select('integer') | select('>', 0) | list | length == zfs_snapshots_datasets | length
+    fail_msg: Each of zfs_snapshots_datasets needs name, mode (on-change or daily) and a positive integer keep.
+
+# Under relatime a read still updates atime once a day, which on-change mode
+# would count as a change: the runner reading every secret on every job would
+# push real versions out of retention.
+- name: Disable atime on on-change datasets
+  community.general.zfs:
+    name: "{{ item.name }}"
+    state: present
+    extra_zfs_properties:
+      atime: 'off'
+  loop: "{{ zfs_snapshots_datasets | selectattr('mode', 'equalto', 'on-change') }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Install zfs-snapshots script
+  ansible.builtin.copy:
+    src: zfs-snapshots
+    dest: /usr/local/sbin/zfs-snapshots
+    mode: '0755'
+  notify: Take snapshots now
+
+- name: Write zfs-snapshots config
+  ansible.builtin.template:
+    src: zfs-snapshots.conf.j2
+    dest: /etc/zfs-snapshots.conf
+    mode: '0644'
+  notify: Take snapshots now
+
+- name: Install zfs-snapshots units
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: '0644'
+  loop:
+    - zfs-snapshots.service
+    - zfs-snapshots.timer
+
+- name: Enable zfs-snapshots timer
+  ansible.builtin.systemd_service:
+    name: zfs-snapshots.timer
+    daemon_reload: true
+    state: started
+    enabled: true

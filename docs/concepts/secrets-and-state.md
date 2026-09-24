@@ -42,6 +42,8 @@ The mitigation is procedural rather than technical: the troubleshooting runbook 
 
 Terraform state is the source of truth for "what infrastructure exists according to the planner". If it is lost, Terraform's view of the world disappears, and the next apply will try to recreate everything (or, more dangerously, will create duplicates next to existing resources).
 
-State is therefore treated as precious. It lives in `/pve/terraform/` on persistent storage, on a pool with redundancy, on the same host that runs the runner. There is no off-host backup today; the codeowner accepts this gap and considers it a reasonable thing to fix when the cost of doing so falls below the cost of a state-loss incident. For now, the protection is "do not delete things on the host without thinking".
+State is therefore treated as precious. It lives in `/pve/terraform/` on persistent storage, on a pool with redundancy, on the same host that runs the runner.
+
+Both the state and the secrets are snapshotted on the host, each on the schedule that suits how it changes. Secrets change rarely and every change matters, so they are snapshotted whenever they change, keeping the last few versions however old. State changes on every apply, so it is snapshotted once a day, keeping the last few days. That recovers from a bad apply, a corrupted state file or a mistaken deletion. It does not recover from losing the pool: there is no off-host backup today. The codeowner accepts that gap and considers it a reasonable thing to fix when the cost of doing so falls below the cost of a state-loss incident.
 
 If state and reality drift — for example, after a manual change made on the Proxmox host outside of IaC — Terraform will detect the drift on the next plan. Reconciling it is a normal operation; details are in the troubleshooting runbook.
