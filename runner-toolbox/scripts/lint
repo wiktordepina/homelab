@@ -87,7 +87,6 @@ section 'terraform validate (lxc)'
 if validate_tf_dir terraform/lxc 'vmid = 999
 hostname = "stub"
 ip_address = "10.0.0.1/16"
-root_password = "stub"
 '; then
   ok 'terraform validate (lxc)'
 else

@@ -6,11 +6,6 @@ variable "ip_address" {
   type = string
 }
 
-variable "root_password" {
-  type      = string
-  sensitive = true
-}
-
 variable "cpu_core_count" {
   type    = number
   default = 4

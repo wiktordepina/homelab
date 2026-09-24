@@ -68,7 +68,6 @@ inject_tf_lxc_config() {
     inject_tf_var_for_lxc "${vmid}" "${output_folder}" "${key}" 
   done
   {
-    echo "root_password=\"${PM_PASS}\""
     echo "start_after_creation=true"
     echo "ssh_public_keys = <<-EOT"
     echo "$(cat config/worker_id_rsa.pub)"
