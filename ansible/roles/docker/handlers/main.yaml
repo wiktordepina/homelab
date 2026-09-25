@@ -1,3 +1,8 @@
 ---
+# Only a VM loads its own kernel modules. In an LXC the host kernel owns
+# them and systemd skips modules-load.d, so a reboot there changes nothing,
+# and under `-c local` (how the bootstrap converges apply runners) Ansible
+# refuses to reboot the machine it is running on.
 - name: Reboot
   ansible.builtin.reboot:
+  when: ansible_facts['virtualization_type'] != 'lxc'
