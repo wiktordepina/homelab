@@ -13,6 +13,7 @@ The role is written to run both over SSH and on the container itself with `ansib
 | `/home/runner/actions-runner/` | The runner, its registration (`.runner`, `.credentials*`) and the name of its systemd unit (`.service`) |
 | `/home/runner/.ssh/id_rsa` | The shared apply-runner key, copied from the secrets store at `0600` |
 | `/home/runner/.ssh/config` | Disables host-key checking for `10.*`. Owned by root, see below |
+| `/home/runner/.ssh/known_hosts` | PVE's host keys, pinned from `files/known_hosts`. PVE is not in `10.*`. Owned by root, like the config |
 | `/pve/secrets`, `/pve/terraform` | Bind mounts of `/zpool/secrets` and `/zpool/terraform` on PVE. Asserted, never created |
 
 `run/execute_runner` mounts `/home/runner/.ssh` into the toolbox as `/root/.ssh`, so everything in it is read by `ssh` running as root. That is why `config` is root-owned: `ssh` rejects a config owned by any other non-root user. The private key is fine as the runner's, because `ssh` only checks the permissions of keys owned by the user running it.
@@ -22,6 +23,15 @@ The role is written to run both over SSH and on the container itself with `ansib
 Every guest trusts one key, `config/worker_id_rsa.pub`, shared by all apply runners. Its private half lives in the secrets store at `/zpool/secrets/runner_id_rsa` on PVE, `0644` like every other file there, because an unprivileged container can only read it through the world bit. The role copies it into the runner's home at `0600`.
 
 The role fails before doing anything else if the mounts or the key are missing. A runner without them registers, takes jobs, and then fails every one.
+
+## PVE's host keys
+
+`files/known_hosts` pins the keys of `192.168.200.100`. If PVE is reinstalled, its host keys change and every PVE-side play fails with `Host key verification failed` until the file is updated from the new host:
+
+```bash
+./run/pve-ssh 'for t in ed25519 ecdsa rsa; do printf "192.168.200.100 %s\n" "$(cut -d" " -f1,2 /etc/ssh/ssh_host_${t}_key.pub)"; done' \
+  > ansible/roles/runner/files/known_hosts
+```
 
 ## Registration and updates
 
