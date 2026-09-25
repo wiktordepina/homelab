@@ -20,6 +20,7 @@ export ANSIBLE_CONFIG='/build/ansible/.ansible.cfg'
 #   run_ansible_lxc 204
 run_ansible_lxc() {
   local vmid="${1}" ; check_null vmid "${1}"
+  refuse_apply_runner "${vmid}"
 
   local lxc_ip
   lxc_ip=$(lxc_config "${vmid}" ".terraform.ip_address")

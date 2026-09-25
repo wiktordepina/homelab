@@ -24,6 +24,30 @@ check_null() {
   [ -z "${value}" ] && echo "Value for '${name}' missing" && exit 1
 }
 
+# refuse_apply_runner - Stop if the VMID is an apply runner.
+#
+# Description:
+#   Apply runners (600-699) are created and converged by the bootstrap,
+#   never by these operations. A job runs on an apply runner, so a Terraform
+#   replacement or an Ansible restart aimed at one can take out the machine
+#   running the job. Imported into Terraform, one would plan exactly that
+#   replacement: the provider does not read ostemplate or ssh_public_keys
+#   back, and both force a new container.
+#
+# Usage:
+#   refuse_apply_runner <vmid>
+#
+# Parameters:
+#   <vmid> - The ID of the container about to be operated on.
+refuse_apply_runner() {
+  local vmid="${1}" ; check_null vmid "${1}"
+
+  if [[ "${vmid}" =~ ^6[0-9]{2}$ ]]; then
+    echo "VMID ${vmid} is an apply runner; use bootstrap/apply-runner, not this operation."
+    exit 1
+  fi
+}
+
 # lxc_config - Gets LXC (Linux Containers) settings.
 #
 # Description:
