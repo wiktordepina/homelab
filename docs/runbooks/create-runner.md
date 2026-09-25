@@ -1,13 +1,15 @@
 # Create a runner
 
-Runners live in the `500–599` VMID range and come in two kinds. They are provisioned the same way as any other service (see [add-service](add-service.md)), with the runner-specific manual steps below.
+Runners come in two kinds, each with a VMID range of its own: `500–599` for CI runners and `600–699` for apply runners.
 
-- **Apply runners** execute this repository's own IaC: Terraform applies, Ansible runs, secret access, state mutation. They are GitHub Actions runners, they carry the `/pve/secrets` and `/pve/terraform` mounts, and they are the only execution surface the homelab has. `500` (`github-worker`) is the current one.
+- **Apply runners** execute this repository's own IaC: Terraform applies, Ansible runs, secret access, state mutation. They are GitHub Actions runners, they carry the `/pve/secrets` and `/pve/terraform` mounts, and they are the only execution surface the homelab has. `500` (`github-worker`) is the current one; it predates the range split and is being replaced by `600`.
 - **CI runners** execute workflows belonging to repositories hosted on the homelab Forgejo. They are Forgejo Actions runners, they carry **no** secret or state mounts, and they can apply nothing. `501` (`forge-runner`) and `502` (`forge-runner-2`) are the current ones.
 
 The distinction matters because a runner runs whatever a workflow tells it to. An apply runner is trusted with the credentials that change the homelab; a CI runner must not be, or every repository on the forge inherits that trust. Do not add the secret mounts to a CI runner to make something work — the thing that needs them belongs on an apply runner.
 
-Addresses do not follow the usual `10.20.1.<vmid>` mapping in this range; runners take `10.20.5.<vmid - 499>`. See [reference/lxc-schema](../reference/lxc-schema.md).
+Addresses do not follow the usual `10.20.1.<vmid>` mapping in either range: CI runners take `10.20.5.<vmid - 499>` and apply runners take `10.20.6.<vmid - 599>`. See [reference/lxc-schema](../reference/lxc-schema.md).
+
+CI runners are provisioned the same way as any other service (see [add-service](add-service.md)), with the runner-specific manual steps below. Apply runners are not: `terraform_lxc` and `ansible_lxc` refuse the `600–699` range. An apply runner's own container is where applies run, so provisioning or converging it from a job risks the job destroying or restarting the machine it is running on. Apply runners are created and converged by a bootstrap instead.
 
 ## What is in IaC and what is not
 
@@ -84,7 +86,7 @@ Both are read at apply time: the `forgejo` role uses the secret to re-assert the
 
 Two files, and both are needed — a runner container with no entry on `216` is never registered, and an entry on `216` with no container is a permanently offline runner in the admin list.
 
-`config/lxc/<vmid>.yaml` describes the container. It carries `base`, `docker` and `forgejo_runner`, no `/pve` mounts at all, and an address from the runner range (`10.20.5.<vmid - 499>` — see [reference/lxc-schema](../reference/lxc-schema.md)). The role is given the names of the variables recorded in step 2:
+`config/lxc/<vmid>.yaml` describes the container. It carries `base`, `docker` and `forgejo_runner`, no `/pve` mounts at all, and an address from the CI runner range (`10.20.5.<vmid - 499>` — see [reference/lxc-schema](../reference/lxc-schema.md)). The role is given the names of the variables recorded in step 2:
 
 ```yaml
 ansible:

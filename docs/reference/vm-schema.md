@@ -45,7 +45,7 @@ The `ansible:` section is identical in shape to the LXC equivalent: a list of ro
 
 ## VMID ranges
 
-Same partitioning as for LXCs (`100–199` infrastructure, `200–499` applications, `500–599` runners). VMs and LXCs share the VMID space because Proxmox enforces VMID uniqueness across both; the kind of guest is implementation detail, identity is what matters.
+Same partitioning as for LXCs (`100–199` infrastructure, `200–499` applications, `500–599` CI runners, `600–699` apply runners). VMs and LXCs share the VMID space because Proxmox enforces VMID uniqueness across both; the kind of guest is implementation detail, identity is what matters.
 
 VM templates live in a separate range starting at `9000` and are not addressable as services — they are not in DNS, not in the proxy, not in monitoring. The template the default schema clones from is documented in the [build-vm-template runbook](../runbooks/build-vm-template.md).
 
