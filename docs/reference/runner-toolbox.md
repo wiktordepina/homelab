@@ -58,9 +58,13 @@ A few smaller operations exist for plumbing — `ntfy_workflow_status` for workf
 
 ## Lifecycle of the image
 
-The image is built when `runner-toolbox/` sources change, not on every apply. Builds happen on the runner via `.github/workflows/_build_runner_image.yml`; the resulting image stays on the runner's local docker daemon and is reused across operations until the next rebuild. There is no garbage collection beyond ordinary docker housekeeping.
+The image is keyed to the commit being applied. `run/execute_runner` tags it with the git tree hash of `runner-toolbox/` at `HEAD` (`runner-toolbox:<tree-hash>`) and builds it on the runner the first time that tag is missing. Every apply therefore runs the toolbox from its own commit, on whichever runner the job lands on. Changing the toolbox sources means a new hash and one build per runner, on that runner's next job. Anything else in the commit leaves the hash, and the image, alone.
 
-A consequence is that an apply can fail because the toolbox image is older than the wrapper expects. The remedy is to rebuild the image; `./run/lint` does this automatically the first time it runs, which is the easiest way to ensure a fresh image is present.
+After a build, the runner removes its other `runner-toolbox` tags and any dangling layers, so each runner holds one image. The build cache is kept, so a rebuild only redoes the layers that changed.
+
+If `runner-toolbox/` has uncommitted changes, which only happens in a manual run on a runner, the image is built as `runner-toolbox:dirty` on every run instead, so a hash never names a tree it was not built from.
+
+`./run/lint` on a developer machine uses its own `runner-toolbox:latest` tag, rebuilt from the working tree on every run. It is cached, so this costs seconds unless the toolbox changed.
 
 ## Adding tools
 
