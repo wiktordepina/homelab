@@ -108,6 +108,18 @@
     group: root
     mode: '0644'
 
+# PVE is outside 10.*, so the rule above does not cover it, and every
+# PVE-side play (ansible_pve, and pve_extra on any LXC) would fail host-key
+# verification. Its keys are pinned rather than unchecked: it is the one host
+# that holds everything. Root-owned for the same reason as the config.
+- name: Pin the PVE host keys
+  ansible.builtin.copy:
+    src: known_hosts
+    dest: "{{ runner_home }}/.ssh/known_hosts"
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: Check for an installed runner
   ansible.builtin.stat:
     path: "{{ runner_dir }}/config.sh"
