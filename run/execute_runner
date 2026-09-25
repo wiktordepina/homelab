@@ -1,6 +1,30 @@
 #!/bin/bash
 
-# This script is used to run the github runner toolbox container
+# This script is used to run the github runner toolbox container.
+#
+# The image is tagged with the git tree hash of runner-toolbox/ at HEAD and
+# built on first use, so the toolbox a job runs is always the one from the
+# commit it is applying, on whichever runner picks the job up. A runner keeps
+# only its current image; older tags are pruned after each build.
+
+set -euo pipefail
+
+if [[ -n "$(git status --porcelain -- runner-toolbox)" ]]; then
+  # A hash would name a tree the image was not built from. Only a manual run
+  # on a runner can get here; CI checkouts are clean.
+  image='runner-toolbox:dirty'
+  docker build -q -t "${image}" runner-toolbox > /dev/null
+else
+  image="runner-toolbox:$(git rev-parse HEAD:runner-toolbox)"
+  if ! docker image inspect "${image}" > /dev/null 2>&1; then
+    echo "Building ${image}" >&2
+    docker build -t "${image}" runner-toolbox >&2
+    docker image ls runner-toolbox --format '{{.Repository}}:{{.Tag}}' \
+      | grep -vxF "${image}" \
+      | xargs -r docker image rm > /dev/null
+    docker image prune -f > /dev/null
+  fi
+fi
 
 docker run --rm \
   --name runner \
@@ -9,5 +33,5 @@ docker run --rm \
   -v /home/runner/.ssh:/root/.ssh \
   -v .:/build \
   -w /build \
-  runner-toolbox \
+  "${image}" \
   "${@}"
