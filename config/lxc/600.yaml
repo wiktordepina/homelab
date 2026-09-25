@@ -1,0 +1,24 @@
+---
+terraform:
+  vmid: 600
+  hostname: github-runner
+  ip_address: 10.20.6.1/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 4
+  memory: 8192
+  swap: 1024
+  start_on_boot: true
+  rootfs_size: 20G
+  ostemplate: local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst
+
+pve_extra:
+  - mp0: /zpool/secrets,mp=/pve/secrets
+  - mp1: /zpool/terraform,mp=/pve/terraform
+
+ansible:
+  roles:
+    - base
+    - docker
+    - role: runner
+      vars:
+        runner_name: github-runner-600
