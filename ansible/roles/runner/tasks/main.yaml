@@ -162,7 +162,8 @@
       - runner_registered.stat.exists or runner_registration_token | length > 0
     fail_msg: >-
       This runner is not registered with GitHub. Generate a registration token
-      and pass it as runner_registration_token; the bootstrap prompts for it.
+      and pass it as runner_registration_token; bootstrap/apply-runner prompts
+      for one whenever the runner is unregistered.
     quiet: true
 
 # --replace takes over an existing registration with the same name, so
