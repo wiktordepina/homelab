@@ -13,11 +13,11 @@ CI runners are provisioned the same way as any other service (see [add-service](
 
 ## What is in IaC and what is not
 
-A runner's *container* is provisioned by IaC like any other LXC: a YAML file at `config/lxc/<vmid>.yaml`, `base` plus its roles, and entries in the cross-cutting layers that apply. DNS and the reverse proxy do not apply to either kind — a runner publishes nothing — so the service catalogue has no entry for one either. Monitoring optionally applies.
+A runner's *container* is described like any other LXC: a YAML file at `config/lxc/<vmid>.yaml`, `base` plus its roles, and entries in the cross-cutting layers that apply. A CI runner's YAML is applied by `terraform_lxc` and `ansible_lxc`; an apply runner's is applied by the bootstrap. DNS and the reverse proxy do not apply to either kind — a runner publishes nothing — so the service catalogue has no entry for one either. Monitoring optionally applies.
 
 A runner's *pairing with its forge* is where the two kinds diverge:
 
-- **GitHub** issues a short-lived registration token bound to the human who generated it. Baking that into automation would leak a privileged credential into a system that does not need it, so it stays manual: IaC prepares the container, you paste a token into it once.
+- **GitHub** issues a short-lived registration token bound to the human who generated it. Baking that into automation would leak a privileged credential into a system that does not need it, so it stays manual: the bootstrap prompts for a token once.
 - **Forgejo** supports offline registration, where you mint the shared secret yourself. That secret lives in `/pve/secrets/` like every other secret and both ends converge to it, so only the initial minting is manual.
 
 ---
@@ -241,118 +241,154 @@ Removing the last CI runner leaves the forge with no way to run a job, which for
 
 # GitHub Actions apply runner
 
-One apply runner suffices for routine workload. Reasons to add a second include:
+An apply runner cannot be created the way everything else is, because creating things is its job. The first one has nothing to create it, and a runner creating or converging its own container from a job would be operating on the machine the job runs on. `terraform_lxc` and `ansible_lxc` therefore refuse the `600–699` range, and apply runners are built by `bootstrap/apply-runner` from a laptop instead.
 
-- **Self-update.** The same runner cannot apply changes that take itself offline (image rebuild, reboot, kernel update). A second runner unblocks those operations.
-- **Capacity.** Concurrent jobs queue if there is only one runner. A second runner reduces that queue when applies overlap.
-- **Isolation.** Some workloads benefit from running on a runner that does not share state with the production runner.
+The bootstrap is deliberately small. It creates the container on PVE from `config/lxc/<vmid>.yaml`, copies the repository in, and runs the container's own roles on the container itself with `ansible-playbook -c local`. Everything that makes the container a runner — the user, the SSH key and config, the Actions runner, its registration and service, the toolbox image — is the [`runner` role](../../ansible/roles/runner/README.md). The laptop never holds a secret: the only credential that passes through it is the registration token, and it goes in on stdin.
 
-If none of these applies, do not add one.
+It all goes through PVE (`pct create`, `pct push`, `pct exec`), so the laptop only needs to reach PVE, which `./run/pve-ssh` already does. The new container does not have to trust the laptop, and homelab DNS does not have to be up.
 
-## 1. Provision the container
+## Before you start
 
-Add `config/lxc/<vmid>.yaml` for the new VMID, declaring the container with the resources it needs and listing the runner role under `ansible:`. An apply runner needs the persistent mounts that make it apply-capable: `/pve/secrets/` and `/pve/terraform/` from the host, plus the runner's `~/.ssh`. Without them it can do nothing useful.
+- **The shared SSH key is in the secrets store.** Every guest trusts one apply-runner key, `config/worker_id_rsa.pub`. Its private half must be at `/zpool/secrets/runner_id_rsa` on PVE, with the `.pub` alongside, both `0644`. The `runner` role refuses to continue without them.
 
-The mount points, applied via `pve_extra:` so they are bind-mounts of the host paths rather than allocated volumes:
+  ```bash
+  ./run/pve-ssh 'ls -la /zpool/secrets/runner_id_rsa*; ssh-keygen -lf /zpool/secrets/runner_id_rsa.pub'
+  # -rw-r--r-- 1 root root 2610 ... /zpool/secrets/runner_id_rsa
+  # -rw-r--r-- 1 root root  574 ... /zpool/secrets/runner_id_rsa.pub
+  # 3072 SHA256:TpoSkxWUZox8YT2qAP/DqAtOcSDthQIo9/O84ed/yiw runner@github-worker (RSA)
+  ```
+
+  The fingerprint must match `ssh-keygen -lf config/worker_id_rsa.pub`.
+
+- **`yq` is on the laptop.** The bootstrap reads the container's YAML with it.
+- **Changes are committed.** The bootstrap copies the repository as of `HEAD`, not the working tree.
+
+## 1. Declare the container
+
+`config/lxc/<vmid>.yaml`, in the `600–699` range, addressed `10.20.6.<vmid - 599>`. The schema is the ordinary one, with two differences: the template must be pinned, because the bootstrap does not guess one, and the `/pve` mounts go under `pve_extra`, from where the bootstrap passes them to `pct create`:
 
 ```yaml
+---
+terraform:
+  vmid: 600
+  hostname: github-runner
+  ip_address: 10.20.6.1/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 4
+  memory: 8192
+  swap: 1024
+  start_on_boot: true
+  rootfs_size: 20G
+  ostemplate: local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst
+
 pve_extra:
   - mp0: /zpool/secrets,mp=/pve/secrets
   - mp1: /zpool/terraform,mp=/pve/terraform
+
+ansible:
+  roles:
+    - base
+    - docker
+    - role: runner
+      vars:
+        runner_name: github-runner-600
 ```
 
-Run `terraform_lxc <vmid> apply` followed by `ansible_lxc <vmid>` through `./run/execute_runner` from an existing runner. After this phase, the container exists, has the toolchain installed, and can build the toolbox image, but does not yet appear in GitHub as an available runner.
+The runner is named `github-runner-<vmid>`, the only name that leads from a runner offline in GitHub's list back to a container. There is no `_lxc.yml` dropdown entry and no `homelab_iac.yml` matrix entry: the workflows run through the operations that refuse this range, and lint leaves it out of the dropdown check.
 
-## 2. Register with GitHub
+Merge the YAML before creating the runner, so the container that exists is the one `main` describes.
 
-Generate a one-time runner registration token from GitHub's repository settings (**Settings → Actions → Runners → New self-hosted runner**). Tokens expire quickly; generate the token immediately before this step, not in advance.
+## 2. Create it
 
-In a shell on the new runner container, run the GitHub installer with the token:
+Generate a registration token under **Settings → Actions → Runners → New self-hosted runner** on the repository. It is the value after `--token` in the *Configure* snippet, and it expires after an hour, so generate it right before this step. Then:
 
 ```bash
-# Setup
-GH_RUNNER_VERSION=2.322.0
-read -p 'Input GitHub Actions Runner Token: ' GH_RUNNER_TOKEN
-
-# Create folder and download runner
-mkdir -p ~/actions-runner && cd ~/actions-runner
-curl -O -L "https://github.com/actions/runner/releases/download/v${GH_RUNNER_VERSION}/actions-runner-linux-x64-${GH_RUNNER_VERSION}.tar.gz"
-tar xzf "./actions-runner-linux-x64-${GH_RUNNER_VERSION}.tar.gz"
-./bin/installdependencies.sh
-
-# Configure and install as a service
-RUNNER_ALLOW_RUNASROOT=1 ./config.sh \
-  --url https://github.com/wiktordepina/homelab \
-  --token "${GH_RUNNER_TOKEN}"
-./svc.sh install root
-./svc.sh start
+bootstrap/apply-runner create <vmid>
+# GitHub registration token:
+#
+# ==> Fetching template debian-13-standard_13.6-1_amd64.tar.zst if PVE lacks it
+# ==> Creating container <vmid>
+# ==> Waiting for the network
+# ==> Pushing the repository at <commit>
+# ==> Converging <vmid> locally
+# PLAY RECAP ...
+# localhost : ok=... changed=... failed=0 ...
+#
+# ==> Done. <vmid> should now show as Idle under Settings -> Actions -> Runners
 ```
 
-The registration writes a configuration file inside the container and installs a systemd service that starts on boot.
+The token is asked for first, so the rest runs unattended. On a fresh container it takes about ten minutes, most of it building the toolbox image.
 
-After registration, the runner appears in GitHub's runner list. Note that the registration is per-runner-instance: destroying the container removes the runner from GitHub on the next housekeeping pass, but a clean removal involves de-registering before destroying. See "Removing a runner" below.
-
-## 3. Build the toolbox image
-
-The runner cannot apply anything until it has the toolbox image. `./run/lint` builds it on first run; alternatively, build it explicitly:
+The new runner is not yet trusted by the laptop. To reach it with `./run/host-ssh`, push the laptop's key through PVE once:
 
 ```bash
-cd /build  # Wherever the repo is cloned on the runner
-git clone https://github.com/wiktordepina/homelab.git  # If not already present
-cd homelab/runner-toolbox
-docker build -t runner-toolbox .
+./run/host-key-push <vmid>
 ```
 
-Subsequent applies reuse the existing image until the `runner-toolbox/` sources change.
+## 3. Confirm it works
 
-After this phase, the runner is ready to pick up jobs.
+In GitHub's runner list, the new runner is **Idle** with the labels `self-hosted, Linux, X64`. On the container:
+
+```bash
+./run/host-ssh <vmid> 'systemctl status "actions.runner.*" --no-pager | head -5'
+./run/host-ssh <vmid> 'ls /pve/secrets /pve/terraform; docker image ls runner-toolbox'
+```
+
+Idle only means registered. It is proven by running real work: dispatch **Build Runner Image**, then an LXC plan and an LXC converge against a quiet container, and a DNS plan. Every workflow is `runs-on: self-hosted`, so while another apply runner is online the job may land on either. To prove a new one specifically, stop the others' runner service for the duration.
+
+If `create` fails at registration — usually an expired token — the container is otherwise complete. Generate a fresh token and finish with `converge`, which asks for one when the runner is not registered:
+
+```bash
+bootstrap/apply-runner converge <vmid>
+# Not registered yet. GitHub registration token:
+```
+
+Any other failure is cheapest to redo from scratch: `./run/pve-ssh 'pct stop <vmid>; pct destroy <vmid> --purge'` and run `create` again. An apply runner keeps nothing of its own; its state and secrets are the PVE bind mounts.
+
+## Converging a runner
+
+An apply runner is converged by the bootstrap too, for the same reason it is created by it: a job converging its own runner can restart Docker or the runner service underneath itself. After changing an apply runner's YAML or any of its roles, merge, then:
+
+```bash
+bootstrap/apply-runner converge <vmid>
+```
+
+This pushes `HEAD` and re-runs the roles. A registered runner needs no token. The runner service is restarted if the role changes it, so run it while no apply is in flight.
+
+Resizing is not a converge. `cpu_core_count`, `memory` and the rest of `terraform:` only take effect at creation, so change the YAML and either rebuild the runner or apply the same change with `pct set` so the two agree.
 
 ## Updating the runner software
 
-The runner software is installed inside the container by the runner role. Updating to a new version is a configuration change: bump the version pinned by the role, then re-run `ansible_lxc <vmid>`. The role handles stopping the service, swapping the binaries, and starting the service again.
-
-If you ever need to update by hand on the container (for an out-of-band fix only — drift is undesirable):
-
-```bash
-cd ~/actions-runner
-./svc.sh stop
-
-GH_RUNNER_VERSION=<new-version>
-curl -O -L "https://github.com/actions/runner/releases/download/v${GH_RUNNER_VERSION}/actions-runner-linux-x64-${GH_RUNNER_VERSION}.tar.gz"
-tar xzf "./actions-runner-linux-x64-${GH_RUNNER_VERSION}.tar.gz"
-
-./svc.sh start
-```
-
-Manual updates produce drift that the next configuration apply will partially undo and partially leave alone, in confusing combinations. Prefer the role.
+The runner updates itself. GitHub stops dispatching to a runner that falls too far behind, so the `runner` role installs `runner_version` on a fresh container and leaves an installed runner's binaries alone. Bump `runner_version` and `runner_checksum` in the role's defaults only to change what a new runner starts from. The checksum is in the release notes, next to `actions-runner-linux-x64-<version>.tar.gz`.
 
 ## Removing a runner
 
-Reverse the steps:
-
-1. From GitHub's runner list, remove the runner. This is a graceful de-registration; the runner stops accepting new jobs.
+1. From GitHub's runner list, remove the runner. It stops accepting new jobs.
 2. Wait for any in-flight job to finish.
-3. Run `terraform_lxc <vmid> destroy` to remove the container, and delete `config/lxc/<vmid>.yaml`.
+3. Destroy the container. There is no Terraform state to clean up:
 
-Removing the container before de-registering leaves an orphan entry in GitHub's runner list, which has to be cleaned up by hand.
+   ```bash
+   ./run/pve-ssh 'pct stop <vmid>; pct destroy <vmid> --purge'
+   ```
+
+4. Delete `config/lxc/<vmid>.yaml`.
+
+Removing the container before de-registering leaves an orphan entry in GitHub's runner list, which has to be removed by hand. Removing the last apply runner leaves the homelab with nothing that can apply changes except this bootstrap. Confirm that is intended.
 
 ## Verifying an apply runner is healthy
 
 An apply runner is healthy when:
 
-- It appears as **idle** in GitHub's runner list when no job is queued.
-- A trivial workflow run (a no-op job dispatched manually) completes on it.
-- `./run/lint` completes locally on the runner, confirming the toolbox image builds and runs.
-
-Useful diagnostic commands on the runner container:
+- It appears as **Idle** in GitHub's runner list when no job is queued.
+- A trivial workflow run completes on it.
+- Its mounts are populated and its toolbox image exists.
 
 ```bash
 # Service status
-journalctl -u 'actions.runner.*' -n 100
+./run/host-ssh <vmid> 'journalctl -u "actions.runner.*" -n 100 --no-pager'
 
-# Confirm secret/state mounts are populated
-ls -la /pve/secrets/
-ls -la /pve/terraform/
+# Secret and state mounts, and the key the role installed from them
+./run/host-ssh <vmid> 'ls -la /pve/secrets/ /pve/terraform/ /home/runner/.ssh/'
 ```
 
 Anything less means there is a misconfiguration to chase; the [troubleshooting runbook](troubleshooting.md) covers the common causes.

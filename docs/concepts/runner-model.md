@@ -8,6 +8,14 @@ Every operation that mutates the homelab — Terraform applies against Proxmox, 
 
 The reasons are covered in [secrets-and-state](secrets-and-state.md): credentials and Terraform state live only on the host, mounted only into the runner. Anywhere else, applies simply cannot work because the inputs are not there.
 
+## Where apply runners come from
+
+There is one exception to that rule, and it is the runner itself. An apply runner cannot be provisioned by the process it hosts. The first one has nothing to provision it. After that, a job reshaping the container it runs in can destroy or restart the machine underneath itself, and the provisioning tooling would happily plan exactly that. So the ordinary provisioning and configuration operations refuse apply runners outright. Instead, apply runners are created and re-configured by a small bootstrap run from a developer machine, which drives the hypervisor directly and configures the new container from the inside.
+
+The exception is kept narrow on purpose. The bootstrap carries no secrets and no state: those stay on the host and reach a runner only through its mounts, exactly as before. The only credential passing through the developer machine is the one-time registration token the forge issues to a human. There is still one definition of what a runner *is*. The bootstrap applies the same configuration code everything else uses; it contributes only the steps no runner can do for itself. And because an apply runner holds nothing of its own, rebuilding one is cheap, which in turn keeps the bootstrap exercised rather than left to rot until the day it is needed.
+
+The distinction from CI runners is deliberate as well. They hold no credentials, so provisioning them from a job risks nothing, and they go through the ordinary path like any other container.
+
 ## The toolbox image
 
 The toolbox is a single container image that bundles every tool the homelab needs: Terraform, Ansible with the required collections, the linting tools, and the small wrapper scripts (`runner-toolbox/scripts/`) that compose them into the four control-plane operations.
