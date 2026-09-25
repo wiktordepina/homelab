@@ -64,9 +64,16 @@ A small inline-tasks form exists for one-off configuration that does not justify
 
 ## VMID ranges
 
-The VMID space is partitioned by purpose: `100–199` for infrastructure containers, `200–499` for applications, `500–599` for runners. The ranges are conventions, not enforced limits, and exist so that anyone looking at a number can immediately tell what kind of container it is. See [concepts/networking](../concepts/networking.md) for the addressing model that the VMID feeds into.
+The VMID space is partitioned by purpose: `100–199` for infrastructure containers, `200–499` for applications, `500–599` for CI runners, `600–699` for apply runners. The ranges are conventions, not enforced limits, and exist so that anyone looking at a number can immediately tell what kind of container it is. See [concepts/networking](../concepts/networking.md) for the addressing model that the VMID feeds into.
 
-Containers below `500` take the address `10.20.1.<vmid>`. Runners cannot, because their VMIDs do not fit in an octet; they take `10.20.5.<vmid - 499>`, so `500` is `10.20.5.1`, `501` is `10.20.5.2` and `502` is `10.20.5.3`. Set `ip_address` accordingly — nothing derives it for you.
+Containers below `500` take the address `10.20.1.<vmid>`. Runners cannot, because their VMIDs do not fit in an octet, so each runner range has a subnet of its own:
+
+- CI runners take `10.20.5.<vmid - 499>`: `501` is `10.20.5.2`, `502` is `10.20.5.3`.
+- Apply runners take `10.20.6.<vmid - 599>`: `600` is `10.20.6.1`.
+
+Set `ip_address` accordingly — nothing derives it for you.
+
+An apply runner's file is read by the bootstrap, not by the `terraform_lxc` and `ansible_lxc` operations, which refuse the `600–699` range. The schema is the same; see [create-runner](../runbooks/create-runner.md) for why.
 
 ## What the schema does not describe
 

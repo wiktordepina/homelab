@@ -210,6 +210,8 @@ fi
 # in 1:1 sync with the per-VMID YAML files. Catches the case where someone
 # adds a new container or VM and forgets to update the dropdown (or the
 # reverse — stale dropdown entry pointing at a VMID that no longer exists).
+# Apply runners (600-699) are left out: the LXC operations refuse them, so a
+# dropdown entry would only offer a job that is certain to fail.
 check_workflow_dropdown() {
   local kind="${1}"        # "lxc" or "vm"
   local config_glob="${2}" # "config/lxc/*.yaml"
@@ -219,6 +221,7 @@ check_workflow_dropdown() {
   expected=$(shopt -s nullglob; for cfg in ${config_glob}; do
     local vmid hostname
     vmid=$(basename "${cfg}" .yaml)
+    [[ "${kind}" == lxc && "${vmid}" =~ ^6[0-9]{2}$ ]] && continue
     hostname=$(yq -r '.terraform.hostname' "${cfg}")
     echo "${vmid} - ${hostname}"
   done | sort)

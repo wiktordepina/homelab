@@ -161,6 +161,8 @@ run_terraform_lxc() {
   local vmid="${1}"      ; check_null vmid "${1}"
   local tf_action="${2}" ; check_null tf_action "${2}"
 
+  refuse_apply_runner "${vmid}"
+
   local tf_dir='terraform/lxc'
   local tf_statefile="${TF_STATEFILE_BASEDIR}/lxc-${vmid}.tfstate"
 
