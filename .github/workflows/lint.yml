@@ -8,8 +8,7 @@ on:
 
 # Lint needs the source tree and nothing else, so it runs on GitHub-hosted
 # runners. Keeping it off the self-hosted apply runner means a pushed branch
-# cannot execute code next to /pve/secrets, and cannot retag the
-# runner-toolbox:latest image that the apply workflows run.
+# cannot execute code next to /pve/secrets.
 permissions:
   contents: read
 
@@ -37,3 +36,5 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Run linters
         run: ./run/lint
+        env:
+          LINT_IMAGE_PREBUILT: 'true'

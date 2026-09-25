@@ -26,7 +26,7 @@ The image is built on the runner itself, from the `runner-toolbox/` sources in t
 - **No version drift.** The image that built last week does not need to be hunted down. A fresh build from the current commit is always the right artefact.
 - **No registry dependency.** The homelab can apply changes without depending on any external service beyond GitHub itself.
 
-A consequence is that the first thing a brand-new runner does is build the image. After that, builds are incremental and triggered by changes to the toolbox sources.
+The image a job runs is always the one built from the commit it is applying. Each runner builds it the first time a job needs it, and keeps it until the toolbox sources change. With more than one runner, none of them can be left on an older toolbox than the others, and an apply can never race a rebuild. The cost is that the first job on a new runner, and the first after each toolbox change, waits for a build.
 
 ## The lint-versus-apply split
 

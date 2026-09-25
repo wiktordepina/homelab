@@ -23,9 +23,3 @@ runner_state_dir: /pve/terraform
 
 # The one key every guest trusts, shared by all apply runners.
 runner_ssh_key: "{{ runner_secrets_dir }}/runner_id_rsa"
-
-# A checkout of this repository on the runner. The bootstrap sets it so a new
-# runner arrives with its toolbox image; in steady state the image is rebuilt
-# by the Build Runner Image workflow, which has the checkout the role lacks.
-runner_toolbox_src: ""
-runner_toolbox_image: runner-toolbox:latest

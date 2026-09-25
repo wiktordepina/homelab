@@ -7,16 +7,18 @@
 #   keys) and runs the bundled `lint` script. Safe to run on any machine with
 #   Docker and the locally-built runner-toolbox image.
 #
-#   If the image is missing, build it once: `docker build runner-toolbox -t runner-toolbox:latest`
+#   The image is rebuilt from the working tree on every run. It is cached, so
+#   this costs seconds unless runner-toolbox/ changed, and a stale image would
+#   lint with stale scripts. CI builds it beforehand with its own layer cache
+#   and sets LINT_IMAGE_PREBUILT to skip this.
 #
 # Usage:
 #   ./run/lint
 
 set -euo pipefail
 
-if ! docker image inspect runner-toolbox:latest > /dev/null 2>&1; then
-  echo 'runner-toolbox:latest image not found locally.'
-  docker build runner-toolbox -t runner-toolbox:latest
+if [[ -z "${LINT_IMAGE_PREBUILT:-}" ]]; then
+  docker build -q runner-toolbox -t runner-toolbox:latest > /dev/null
 fi
 
 docker run --rm \

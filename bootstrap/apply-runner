@@ -160,7 +160,7 @@ if ! command -v ansible-playbook >/dev/null; then
 fi
 cd "$src"
 ANSIBLE_ROLES_PATH=ansible/roles ANSIBLE_PYTHON_INTERPRETER=auto_silent ansible-playbook -i localhost, /tmp/apply-runner.json \
-  -e runner_toolbox_src="$src" -e @/tmp/apply-runner-vars.yml
+  -e @/tmp/apply-runner-vars.yml
 EOF
 
 # The playbook is the YAML's own roles and tasks, pointed at localhost. JSON

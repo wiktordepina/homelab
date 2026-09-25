@@ -22,13 +22,7 @@ on:
 concurrency: homelab-iac
 
 jobs:
-  BuildRunnerImage:
-    uses: ./.github/workflows/_build_runner_image.yml
-    with:
-      skip_notify: ${{ inputs.skip_notify || false }}
   DeployLXCs:
-    needs:
-      - BuildRunnerImage
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -60,8 +54,6 @@ jobs:
       tf_action: ${{ inputs.tf_action || 'apply' }}
       skip_notify: ${{ inputs.skip_notify || false}}
   DeployVMs:
-    needs:
-      - BuildRunnerImage
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -76,8 +68,6 @@ jobs:
       tf_action: ${{ inputs.tf_action || 'apply' }}
       skip_notify: ${{ inputs.skip_notify || false}}
   DeployExternalHosts:
-    needs:
-      - BuildRunnerImage
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -90,8 +80,6 @@ jobs:
       hostname: ${{ matrix.hostname }}
       skip_notify: ${{ inputs.skip_notify || false }}
   UpdateDNSRecords:
-    needs:
-      - BuildRunnerImage
     name: Update DNS records
     uses: ./.github/workflows/_dns.yml
     with:

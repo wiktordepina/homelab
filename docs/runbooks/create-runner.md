@@ -243,7 +243,7 @@ Removing the last CI runner leaves the forge with no way to run a job, which for
 
 An apply runner cannot be created the way everything else is, because creating things is its job. The first one has nothing to create it, and a runner creating or converging its own container from a job would be operating on the machine the job runs on. `terraform_lxc` and `ansible_lxc` therefore refuse the `600–699` range, and apply runners are built by `bootstrap/apply-runner` from a laptop instead.
 
-The bootstrap is deliberately small. It creates the container on PVE from `config/lxc/<vmid>.yaml`, copies the repository in, and runs the container's own roles on the container itself with `ansible-playbook -c local`. Everything that makes the container a runner — the user, the SSH key and config, the Actions runner, its registration and service, the toolbox image — is the [`runner` role](../../ansible/roles/runner/README.md). The laptop never holds a secret: the only credential that passes through it is the registration token, and it goes in on stdin.
+The bootstrap is deliberately small. It creates the container on PVE from `config/lxc/<vmid>.yaml`, copies the repository in, and runs the container's own roles on the container itself with `ansible-playbook -c local`. Everything that makes the container a runner — the user, the SSH key and config, the Actions runner, its registration and service — is the [`runner` role](../../ansible/roles/runner/README.md). The laptop never holds a secret: the only credential that passes through it is the registration token, and it goes in on stdin.
 
 It all goes through PVE (`pct create`, `pct push`, `pct exec`), so the laptop only needs to reach PVE, which `./run/pve-ssh` already does. The new container does not have to trust the laptop, and homelab DNS does not have to be up.
 
@@ -322,7 +322,7 @@ bootstrap/apply-runner create <vmid>
 # ==> Done. <vmid> should now show as Idle under Settings -> Actions -> Runners
 ```
 
-The token is asked for first, so the rest runs unattended. On a fresh container it takes about ten minutes, most of it building the toolbox image.
+The token is asked for first, so the rest runs unattended. On a fresh container it takes a few minutes. The toolbox image is not built yet: the runner's first job builds it, which adds about two and a half minutes to that job.
 
 The new runner is not yet trusted by the laptop. To reach it with `./run/host-ssh`, push the laptop's key through PVE once:
 
@@ -336,10 +336,10 @@ In GitHub's runner list, the new runner is **Idle** with the labels `self-hosted
 
 ```bash
 ./run/host-ssh <vmid> 'systemctl status "actions.runner.*" --no-pager | head -5'
-./run/host-ssh <vmid> 'ls /pve/secrets /pve/terraform; docker image ls runner-toolbox'
+./run/host-ssh <vmid> 'ls /pve/secrets /pve/terraform'
 ```
 
-Idle only means registered. It is proven by running real work: dispatch **Build Runner Image**, then an LXC plan and an LXC converge against a quiet container, and a DNS plan. Every workflow is `runs-on: self-hosted`, so while another apply runner is online the job may land on either. To prove a new one specifically, stop the others' runner service for the duration.
+Idle only means registered. It is proven by running real work: an LXC plan (the first job also builds the toolbox image), an LXC apply against a quiet container with `pve_extra` so the PVE-side play runs too, a DNS plan, and the PVE workflow. Every workflow is `runs-on: self-hosted`, so while another apply runner is online the job may land on either. To prove a new one specifically, stop the others' runner service for the duration.
 
 If `create` fails at registration — usually an expired token — the container is otherwise complete. Generate a fresh token and finish with `converge`, which asks for one when the runner is not registered:
 
@@ -386,7 +386,7 @@ An apply runner is healthy when:
 
 - It appears as **Idle** in GitHub's runner list when no job is queued.
 - A trivial workflow run completes on it.
-- Its mounts are populated and its toolbox image exists.
+- Its mounts are populated, and after its first job it holds one `runner-toolbox:<tree-hash>` image, matching `git rev-parse HEAD:runner-toolbox` on `main`.
 
 ```bash
 # Service status
