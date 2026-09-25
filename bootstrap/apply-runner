@@ -21,14 +21,11 @@
 # `converge` prompts for one only if the runner is not registered, which is
 # how a `create` that failed at registration is finished.
 #
-# Environment overrides:
-#   PVE_USER   user on the Proxmox host (default: root)
-#   PVE_HOST   Proxmox host address     (default: 192.168.200.100)
+# PVE is reached through run/pve-ssh, so its PVE_HOST and PVE_USER overrides
+# apply here too.
 
 set -euo pipefail
 
-PVE_USER="${PVE_USER:-root}"
-PVE_HOST="${PVE_HOST:-192.168.200.100}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REMOTE_SRC=/opt/homelab-bootstrap
 
@@ -36,7 +33,7 @@ usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; }
 die() { echo "apply-runner: $*" >&2; exit 1; }
 step() { printf '\n==> %s\n' "$*"; }
 
-pve() { ssh -o StrictHostKeyChecking=accept-new "${PVE_USER}@${PVE_HOST}" "$@"; }
+pve() { "${REPO_ROOT}/run/pve-ssh" "$@"; }
 
 if [[ $# -ne 2 || "$1" == "-h" || "$1" == "--help" ]]; then
   usage; exit 0
@@ -52,10 +49,22 @@ yaml="${REPO_ROOT}/config/lxc/${vmid}.yaml"
 command -v yq >/dev/null || die "yq not found in PATH"
 
 # Unset fields fall back to the same defaults as terraform/lxc/variables.tf,
-# so a runner's YAML reads the same way as any other container's.
+# so a runner's YAML reads the same way as any other container's. Fields this
+# script does not apply are refused rather than silently dropped.
+SUPPORTED_FIELDS=(vmid hostname ip_address nameserver gateway cpu_core_count memory swap
+  start_on_boot rootfs_size storage network_bridge ostemplate)
+unsupported="$(yq -r '.terraform | keys[]' "${yaml}" \
+  | grep -vxF -f <(printf '%s\n' "${SUPPORTED_FIELDS[@]}") | paste -sd, - || true)"
+[[ -z "${unsupported}" ]] || die "config/lxc/${vmid}.yaml sets fields the bootstrap does not apply: ${unsupported}"
+[[ "$(yq -r '.terraform.vmid' "${yaml}")" == "${vmid}" ]] || die "terraform.vmid in config/lxc/${vmid}.yaml is not ${vmid}"
+
 tf() { yq -r --arg d "$2" ".terraform.$1 // \$d" "${yaml}"; }
 
+# Checked first, so that a failure below means what it says rather than
+# "PVE is unreachable".
+pve_reachable() { pve -o ConnectTimeout=10 true </dev/null >/dev/null 2>&1; }
 container_exists() { pve "pct status ${vmid}" </dev/null >/dev/null 2>&1; }
+container_running() { pve "pct status ${vmid}" </dev/null 2>/dev/null | grep -q 'status: running'; }
 runner_registered() { pve "pct exec ${vmid} -- test -f /home/runner/actions-runner/.runner" </dev/null; }
 
 create_container() {
@@ -72,10 +81,12 @@ create_container() {
   local onboot=0
   [[ "$(tf start_on_boot false)" == true ]] && onboot=1
 
-  local mounts=()
-  while IFS='=' read -r key value; do
-    mounts+=("--${key}" "${value}")
-  done < <(yq -r '.pve_extra // [] | .[] | to_entries[] | .key + "=" + .value' "${yaml}")
+  # pve_extra means what it means for every other container: lines for
+  # /etc/pve/lxc/<vmid>.conf. They are written in before the first start, so
+  # mounts and device rules are in place when the container boots. Base64
+  # keeps them intact through the ssh hop.
+  local extra
+  extra="$(yq -r '.pve_extra // [] | .[] | to_entries[] | .key + ": " + .value' "${yaml}" | base64 -w0)"
 
   step "Fetching template ${template_file} if PVE lacks it"
   pve "pveam list local | grep -qF '${template_file}' || pveam download local '${template_file}'" </dev/null
@@ -97,13 +108,24 @@ create_container() {
     --features nesting=1,keyctl=1 \
     --onboot ${onboot} \
     --ssh-public-keys /tmp/apply-runner-${vmid}.keys \
-    ${mounts[*]@Q} \
     && rm -f /tmp/apply-runner-${vmid}.keys \
+    && printf '%s' '${extra}' | base64 -d >> /etc/pve/lxc/${vmid}.conf \
     && pct start ${vmid}" </dev/null
 
   step "Waiting for the network"
   pve "for _ in \$(seq 30); do pct exec ${vmid} -- getent hosts deb.debian.org >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1" </dev/null \
     || die "container ${vmid} has no working DNS after 60s"
+}
+
+# The runner is live infrastructure, so converging it from an unmerged branch
+# is allowed (the first runner is proven that way) but never by accident.
+confirm_head_on_main() {
+  git -C "${REPO_ROOT}" fetch -q origin main 2>/dev/null \
+    || echo "apply-runner: note: could not fetch origin; comparing against the last fetched main"
+  git -C "${REPO_ROOT}" merge-base --is-ancestor HEAD origin/main && return 0
+  local answer
+  read -rp "HEAD ($(git -C "${REPO_ROOT}" rev-parse --abbrev-ref HEAD)) is not on origin/main. Push it to the runner anyway? [y/N] " answer || true
+  [[ "${answer}" == y || "${answer}" == Y ]] || die "stopped; merge first or check out main"
 }
 
 push_repo() {
@@ -158,9 +180,13 @@ converge() {
     bash -c \"\$(printf '%s' ${script} | base64 -d)\" _ ${REMOTE_SRC} ${playbook}"
 }
 
+pve_reachable || die "cannot reach PVE through run/pve-ssh"
+
+# Prompts come before any ssh call that could read stdin: ssh would swallow
+# the answers.
 case "${action}" in
   create)
-    # Before any ssh call: ssh reads stdin and would swallow the token.
+    confirm_head_on_main
     read -rsp 'GitHub registration token: ' token || true; echo
     [[ -n "${token:-}" ]] || die "a registration token is required"
     container_exists && die "container ${vmid} already exists; destroy it first or use converge"
@@ -170,7 +196,9 @@ case "${action}" in
     step "Done. ${vmid} should now show as Idle under Settings -> Actions -> Runners"
     ;;
   converge)
+    confirm_head_on_main
     container_exists || die "container ${vmid} does not exist; use create"
+    container_running || die "container ${vmid} is stopped; start it with: ./run/pve-ssh pct start ${vmid}"
     token=''
     if ! runner_registered; then
       read -rsp 'Not registered yet. GitHub registration token: ' token || true; echo

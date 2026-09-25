@@ -261,11 +261,16 @@ It all goes through PVE (`pct create`, `pct push`, `pct exec`), so the laptop on
   The fingerprint must match `ssh-keygen -lf config/worker_id_rsa.pub`.
 
 - **`yq` is on the laptop.** The bootstrap reads the container's YAML with it.
-- **Changes are committed.** The bootstrap copies the repository as of `HEAD`, not the working tree.
+- **Changes are committed and merged.** The bootstrap copies the repository as of `HEAD`, not the working tree. If `HEAD` is not on `origin/main`, it asks before pushing it to the runner; say yes only when proving an unmerged change on purpose.
+- **The template is fetchable.** The bootstrap looks for the pinned `ostemplate` in PVE's `local` storage and downloads it there if missing. On a freshly installed PVE whose template index has never been refreshed, the download fails with an unknown-template error; refresh it first:
+
+  ```bash
+  ./run/pve-ssh 'pveam update'
+  ```
 
 ## 1. Declare the container
 
-`config/lxc/<vmid>.yaml`, in the `600–699` range, addressed `10.20.6.<vmid - 599>`. The schema is the ordinary one, with two differences: the template must be pinned, because the bootstrap does not guess one, and the `/pve` mounts go under `pve_extra`, from where the bootstrap passes them to `pct create`:
+`config/lxc/<vmid>.yaml`, in the `600–699` range, addressed `10.20.6.<vmid - 599>`. The schema is the ordinary one, with three differences: the template must be pinned, because the bootstrap does not guess one; the `/pve` mounts go under `pve_extra`, which the bootstrap writes into the container's Proxmox config before its first start, just as `ansible_lxc` does for other containers; and only the `terraform:` fields the bootstrap knows how to apply are allowed (`vmid`, `hostname`, `ip_address`, `nameserver`, `gateway`, `cpu_core_count`, `memory`, `swap`, `start_on_boot`, `rootfs_size`, `storage`, `network_bridge`, `ostemplate`). Anything else stops it with an error rather than being silently ignored. Apply runners are always unprivileged with nesting and keyctl.
 
 ```yaml
 ---
@@ -353,7 +358,7 @@ An apply runner is converged by the bootstrap too, for the same reason it is cre
 bootstrap/apply-runner converge <vmid>
 ```
 
-This pushes `HEAD` and re-runs the roles. A registered runner needs no token. The runner service is restarted if the role changes it, so run it while no apply is in flight.
+This pushes `HEAD` and re-runs the roles. A registered runner needs no token. Run it while no apply is in flight: the `docker` role can restart the Docker daemon, which kills the toolbox container a running job lives in.
 
 Resizing is not a converge. `cpu_core_count`, `memory` and the rest of `terraform:` only take effect at creation, so change the YAML and either rebuild the runner or apply the same change with `pct set` so the two agree.
 
