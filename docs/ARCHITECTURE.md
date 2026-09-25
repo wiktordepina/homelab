@@ -33,8 +33,8 @@ Some boundaries are load-bearing. They explain why parts of the system look the 
 This repository describes a steady state. It does not bootstrap from a bare environment. The following are taken as already provided when the IaC runs:
 
 - A routed `10.20.0.0/16` network with a gateway and upstream resolver, supplied by a separate OpenSense device that this repository does not manage.
-- A Proxmox VE host with ZFS-backed storage, reachable on the management network, with persistent directories prepared for secrets and Terraform state.
-- A registered self-hosted GitHub Actions runner with the secret and state directories mounted into its environment.
+- A Proxmox VE host with ZFS-backed storage, reachable on the management network, with persistent directories prepared for secrets (including the shared apply-runner SSH key) and Terraform state.
+- A developer machine that can reach the Proxmox host over SSH. The apply runner is not assumed: the bootstrap creates it from the repository, and a GitHub registration token is the one input it asks for (see [runbooks/create-runner](runbooks/create-runner.md)).
 - A Cloudflare account and tunnel credential, with any public routes configured manually.
 
 Establishing those inputs is out of scope for this documentation set and will be addressed separately.

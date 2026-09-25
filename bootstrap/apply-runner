@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# Create or converge a GitHub Actions apply runner (VMID 600-699) from its
+# config/lxc/<vmid>.yaml, without an existing runner.
+#
+# Everything goes through PVE: `pct create` builds the container, `pct push`
+# copies this repository in, and `pct exec` runs the container's roles on the
+# container itself with `ansible-playbook -c local`. The container never has
+# to trust this machine, and homelab DNS does not have to be up.
+#
+# This is the one place the homelab is changed from outside a runner. It is
+# kept to the imperative steps a runner cannot do for itself; what a runner
+# *is* lives in the runner role.
+#
+# Usage:
+#   apply-runner create <vmid>     create, configure and register a runner
+#   apply-runner converge <vmid>   re-apply the roles to an existing runner
+#
+# Both push the repository as of HEAD, not the working tree, so commit first.
+# `create` prompts for a GitHub registration token up front (Settings ->
+# Actions -> Runners -> New self-hosted runner), so the rest runs unattended.
+# `converge` prompts for one only if the runner is not registered, which is
+# how a `create` that failed at registration is finished.
+#
+# PVE is reached through run/pve-ssh, so its PVE_HOST and PVE_USER overrides
+# apply here too.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REMOTE_SRC=/opt/homelab-bootstrap
+
+usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; }
+die() { echo "apply-runner: $*" >&2; exit 1; }
+step() { printf '\n==> %s\n' "$*"; }
+
+pve() { "${REPO_ROOT}/run/pve-ssh" "$@"; }
+
+if [[ $# -ne 2 || "$1" == "-h" || "$1" == "--help" ]]; then
+  usage; exit 0
+fi
+
+action="$1"
+vmid="$2"
+yaml="${REPO_ROOT}/config/lxc/${vmid}.yaml"
+
+[[ "${action}" == create || "${action}" == converge ]] || die "unknown action: ${action}"
+[[ "${vmid}" =~ ^6[0-9]{2}$ ]] || die "${vmid} is not an apply runner VMID (600-699)"
+[[ -f "${yaml}" ]] || die "no config at config/lxc/${vmid}.yaml"
+command -v yq >/dev/null || die "yq not found in PATH"
+
+# Unset fields fall back to the same defaults as terraform/lxc/variables.tf,
+# so a runner's YAML reads the same way as any other container's. Fields this
+# script does not apply are refused rather than silently dropped.
+SUPPORTED_FIELDS=(vmid hostname ip_address nameserver gateway cpu_core_count memory swap
+  start_on_boot rootfs_size storage network_bridge ostemplate)
+unsupported="$(yq -r '.terraform | keys[]' "${yaml}" \
+  | grep -vxF -f <(printf '%s\n' "${SUPPORTED_FIELDS[@]}") | paste -sd, - || true)"
+[[ -z "${unsupported}" ]] || die "config/lxc/${vmid}.yaml sets fields the bootstrap does not apply: ${unsupported}"
+[[ "$(yq -r '.terraform.vmid' "${yaml}")" == "${vmid}" ]] || die "terraform.vmid in config/lxc/${vmid}.yaml is not ${vmid}"
+
+tf() { yq -r --arg d "$2" ".terraform.$1 // \$d" "${yaml}"; }
+
+# Checked first, so that a failure below means what it says rather than
+# "PVE is unreachable".
+pve_reachable() { pve -o ConnectTimeout=10 true </dev/null >/dev/null 2>&1; }
+container_exists() { pve "pct status ${vmid}" </dev/null >/dev/null 2>&1; }
+container_running() { pve "pct status ${vmid}" </dev/null 2>/dev/null | grep -q 'status: running'; }
+runner_registered() { pve "pct exec ${vmid} -- test -f /home/runner/actions-runner/.runner" </dev/null; }
+
+create_container() {
+  local ostemplate template_file rootfs_size ip gateway
+  ostemplate="$(tf ostemplate '')"
+  [[ -n "${ostemplate}" ]] || die "config/lxc/${vmid}.yaml must pin terraform.ostemplate"
+  template_file="${ostemplate#*:vztmpl/}"
+
+  rootfs_size="$(tf rootfs_size 20G)"
+  [[ "${rootfs_size}" =~ ^([0-9]+)G$ ]] || die "rootfs_size must be whole gigabytes, e.g. 20G"
+  ip="$(tf ip_address '')"
+  gateway="$(tf gateway 10.20.0.1)"
+
+  local onboot=0
+  [[ "$(tf start_on_boot false)" == true ]] && onboot=1
+
+  # pve_extra means what it means for every other container: lines for
+  # /etc/pve/lxc/<vmid>.conf. They are written in before the first start, so
+  # mounts and device rules are in place when the container boots. Base64
+  # keeps them intact through the ssh hop.
+  local extra
+  extra="$(yq -r '.pve_extra // [] | .[] | to_entries[] | .key + ": " + .value' "${yaml}" | base64 -w0)"
+
+  step "Fetching template ${template_file} if PVE lacks it"
+  pve "pveam list local | grep -qF '${template_file}' || pveam download local '${template_file}'" </dev/null
+
+  # The same keys Terraform seeds into every other container, so this runner
+  # is reachable by the other apply runners and via PVE (host-key-push).
+  step "Creating container ${vmid}"
+  pve "cat > /tmp/apply-runner-${vmid}.keys" \
+    < <(cat "${REPO_ROOT}/config/worker_id_rsa.pub" "${REPO_ROOT}/config/root_pve_id_rsa.pub")
+  pve "pct create ${vmid} '${ostemplate}' \
+    --hostname '$(tf hostname '')' \
+    --cores '$(tf cpu_core_count 4)' \
+    --memory '$(tf memory 2048)' \
+    --swap '$(tf swap 512)' \
+    --rootfs '$(tf storage local-zpool):${BASH_REMATCH[1]}' \
+    --net0 'name=eth0,bridge=$(tf network_bridge vmbr1),ip=${ip},gw=${gateway}' \
+    --nameserver '$(tf nameserver 10.20.0.1)' \
+    --unprivileged 1 \
+    --features nesting=1,keyctl=1 \
+    --onboot ${onboot} \
+    --ssh-public-keys /tmp/apply-runner-${vmid}.keys \
+    && rm -f /tmp/apply-runner-${vmid}.keys \
+    && printf '%s' '${extra}' | base64 -d >> /etc/pve/lxc/${vmid}.conf \
+    && pct start ${vmid}" </dev/null
+
+  step "Waiting for the network"
+  pve "for _ in \$(seq 30); do pct exec ${vmid} -- getent hosts deb.debian.org >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1" </dev/null \
+    || die "container ${vmid} has no working DNS after 60s"
+}
+
+# The runner is live infrastructure, so converging it from an unmerged branch
+# is allowed (the first runner is proven that way) but never by accident.
+confirm_head_on_main() {
+  git -C "${REPO_ROOT}" fetch -q origin main 2>/dev/null \
+    || echo "apply-runner: note: could not fetch origin; comparing against the last fetched main"
+  git -C "${REPO_ROOT}" merge-base --is-ancestor HEAD origin/main && return 0
+  local answer
+  read -rp "HEAD ($(git -C "${REPO_ROOT}" rev-parse --abbrev-ref HEAD)) is not on origin/main. Push it to the runner anyway? [y/N] " answer || true
+  [[ "${answer}" == y || "${answer}" == Y ]] || die "stopped; merge first or check out main"
+}
+
+push_repo() {
+  step "Pushing the repository at $(git -C "${REPO_ROOT}" rev-parse --short HEAD)"
+  [[ -z "$(git -C "${REPO_ROOT}" status --porcelain --untracked-files=no)" ]] \
+    || echo "apply-runner: note: uncommitted changes are not pushed, only HEAD"
+  git -C "${REPO_ROOT}" archive --format=tar.gz HEAD \
+    | pve "cat > /tmp/apply-runner-${vmid}.tgz \
+        && pct push ${vmid} /tmp/apply-runner-${vmid}.tgz /tmp/homelab.tgz \
+        && rm -f /tmp/apply-runner-${vmid}.tgz \
+        && pct exec ${vmid} -- bash -c 'rm -rf ${REMOTE_SRC} && mkdir -p ${REMOTE_SRC} \
+             && tar xzf /tmp/homelab.tgz -C ${REMOTE_SRC} && rm /tmp/homelab.tgz'"
+}
+
+# Runs inside the container. Arguments: the repository path, then the
+# playbook, base64-encoded. The registration token, possibly empty, is the
+# only line on stdin, so it is never on a command line on PVE or in the
+# container; Ansible reads it back out of the environment.
+read -r -d '' CONTAINER_SCRIPT <<'EOF' || true
+set -euo pipefail
+src="$1"
+IFS= read -r RUNNER_REGISTRATION_TOKEN || true
+export RUNNER_REGISTRATION_TOKEN
+printf '%s' "$2" | base64 -d > /tmp/apply-runner.json
+cat > /tmp/apply-runner-vars.yml <<'VARS'
+runner_registration_token: "{{ lookup('env', 'RUNNER_REGISTRATION_TOKEN') }}"
+VARS
+trap 'rm -f /tmp/apply-runner.json /tmp/apply-runner-vars.yml' EXIT
+if ! command -v ansible-playbook >/dev/null; then
+  apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ansible-core >/dev/null
+fi
+cd "$src"
+ANSIBLE_ROLES_PATH=ansible/roles ANSIBLE_PYTHON_INTERPRETER=auto_silent ansible-playbook -i localhost, /tmp/apply-runner.json \
+  -e runner_toolbox_src="$src" -e @/tmp/apply-runner-vars.yml
+EOF
+
+# The playbook is the YAML's own roles and tasks, pointed at localhost. JSON
+# is valid YAML, and quoting every string sidesteps YAML 1.1 reading
+# something like "23:00" as a number.
+converge() {
+  local token="${1:-}"
+  local playbook script
+  playbook="$(yq -c '[{hosts: "localhost", connection: "local", roles: .ansible.roles}
+    + (if .ansible.tasks then {tasks: .ansible.tasks} else {} end)]' "${yaml}" | base64 -w0)"
+  script="$(printf '%s' "${CONTAINER_SCRIPT}" | base64 -w0)"
+
+  step "Converging ${vmid} locally"
+  # pct exec passes on this shell's LANG, which the minimal template lacks,
+  # and Ansible will not start without a usable locale.
+  printf '%s\n' "${token}" | pve "pct exec ${vmid} -- env LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+    bash -c \"\$(printf '%s' ${script} | base64 -d)\" _ ${REMOTE_SRC} ${playbook}"
+}
+
+pve_reachable || die "cannot reach PVE through run/pve-ssh"
+
+# Prompts come before any ssh call that could read stdin: ssh would swallow
+# the answers.
+case "${action}" in
+  create)
+    confirm_head_on_main
+    read -rsp 'GitHub registration token: ' token || true; echo
+    [[ -n "${token:-}" ]] || die "a registration token is required"
+    container_exists && die "container ${vmid} already exists; destroy it first or use converge"
+    create_container
+    push_repo
+    converge "${token}"
+    step "Done. ${vmid} should now show as Idle under Settings -> Actions -> Runners"
+    ;;
+  converge)
+    confirm_head_on_main
+    container_exists || die "container ${vmid} does not exist; use create"
+    container_running || die "container ${vmid} is stopped; start it with: ./run/pve-ssh pct start ${vmid}"
+    token=''
+    if ! runner_registered; then
+      read -rsp 'Not registered yet. GitHub registration token: ' token || true; echo
+      [[ -n "${token}" ]] || die "a registration token is required"
+    fi
+    push_repo
+    converge "${token}"
+    ;;
+esac

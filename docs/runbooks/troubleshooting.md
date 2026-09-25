@@ -46,7 +46,7 @@ A configuration apply fails with an SSH or unreachable error.
 
 **The container is running but the SSH service is not yet up.** Newly provisioned hosts have a brief window where they are running but the SSH service has not finished starting. The rendered playbook already waits for the connection before running any role, so this should no longer surface as a failure — if it does, the wait timed out, meaning the host took unusually long to boot or never finished. Check the console through Proxmox rather than simply retrying.
 
-**The runner does not have an SSH key for the container.** Configuration apply expects a key to be available in the runner's mounted SSH directory (`~/.ssh` on the runner). If the directory is missing or empty, or the key has not been distributed to the container, configuration cannot connect.
+**The runner does not have an SSH key for the container.** Configuration apply expects a key to be available in the runner's mounted SSH directory (`~/.ssh` on the runner). The `runner` role installs it there from `/pve/secrets/runner_id_rsa`; if that file is missing, the role fails rather than leaving the directory empty. If the key is present but the container rejects it, the container does not trust `config/worker_id_rsa.pub`. Terraform seeds it only at creation, so a container created some other way has to be given it by hand.
 
 **Network unreachable.** The runner cannot reach the container's address at all. Confirm the container's network attachment is correct and that the address matches `10.20.1.<vmid>`. The VMID-to-address mapping is rigid; a mismatch here means `config/lxc/<vmid>.yaml` or the actual network configuration has drifted.
 
