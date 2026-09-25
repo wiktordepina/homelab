@@ -1,0 +1,31 @@
+---
+runner_user: runner
+runner_home: /home/runner
+runner_dir: "{{ runner_home }}/actions-runner"
+
+# The install version only. The runner updates itself in place after it
+# registers, and GitHub stops dispatching to runners that fall far enough
+# behind, so the role never downgrades or re-pins an installed runner.
+runner_version: "2.337.0"
+runner_checksum: "sha256:70920811a4f8ad4328818682bca5c6469c1c942fab52448868071d0063816613"
+
+runner_repo_url: https://github.com/wiktordepina/homelab
+
+# Set per runner in config/lxc/<vmid>.yaml: github-runner-<vmid>.
+runner_name: ""
+
+# Passed by the bootstrap for a first registration and never stored. Once
+# the runner is registered, converges run without it.
+runner_registration_token: ""
+
+runner_secrets_dir: /pve/secrets
+runner_state_dir: /pve/terraform
+
+# The one key every guest trusts, shared by all apply runners.
+runner_ssh_key: "{{ runner_secrets_dir }}/runner_id_rsa"
+
+# A checkout of this repository on the runner. The bootstrap sets it so a new
+# runner arrives with its toolbox image; in steady state the image is rebuilt
+# by the Build Runner Image workflow, which has the checkout the role lacks.
+runner_toolbox_src: ""
+runner_toolbox_image: runner-toolbox:latest
