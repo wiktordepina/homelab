@@ -20,6 +20,17 @@
     update_cache: true
     cache_valid_time: 3600
 
+# Chromium's shared libraries are host-owned: upstream installs the browser
+# binaries into the hermes user's cache but only prints an `install-deps` hint
+# for the libraries, expecting the operator to supply them with root. The list
+# is Playwright's own debian13-x64 `tools` + `chromium` set, installed from a
+# static list rather than by running `playwright install-deps` as root out of
+# a venv the agent can write to.
+- name: Install Chromium's system libraries for the browser tools
+  ansible.builtin.apt:
+    name: "{{ hermes_browser_packages }}"
+    state: present
+
 - name: Create hermes group
   ansible.builtin.group:
     name: "{{ hermes_group }}"
@@ -33,20 +44,6 @@
     shell: /bin/bash
     system: true
     create_home: true
-
-# The upstream Hermes installer (and a handful of its runtime helpers) call
-# `sudo apt-get …` directly. The VM itself is the sandbox boundary — egress
-# is locked down by nftables and no host paths are bind-mounted — so granting
-# the agent passwordless sudo *inside* the guest does not weaken isolation
-# from the rest of the homelab.
-- name: Grant hermes passwordless sudo
-  ansible.builtin.copy:
-    dest: /etc/sudoers.d/hermes-nopasswd
-    content: "{{ hermes_user }} ALL=(ALL) NOPASSWD:ALL\n"
-    owner: root
-    group: root
-    mode: '0440'
-    validate: /usr/sbin/visudo -cf %s
 
 - name: Template nftables ruleset
   ansible.builtin.template:

@@ -15,6 +15,43 @@ hermes_bin: "{{ hermes_venv }}/bin/hermes"
 hermes_branch: main
 hermes_installer_url: "https://raw.githubusercontent.com/NousResearch/hermes-agent/{{ hermes_branch }}/scripts/install.sh"
 
+# Playwright's debian13-x64 dependency set for Chromium (its `tools` and
+# `chromium` lists in packages/playwright-core/src/server/registry/nativeDeps.ts).
+# Re-check it when the VM template moves to a new Debian release.
+hermes_browser_packages:
+  - xvfb
+  - fonts-noto-color-emoji
+  - fonts-unifont
+  - libfontconfig1
+  - libfreetype6
+  - xfonts-scalable
+  - fonts-liberation
+  - fonts-ipafont-gothic
+  - fonts-wqy-zenhei
+  - fonts-tlwg-loma-otf
+  - fonts-freefont-ttf
+  - libasound2t64
+  - libatk-bridge2.0-0t64
+  - libatk1.0-0t64
+  - libatspi2.0-0t64
+  - libcairo2
+  - libcups2t64
+  - libdbus-1-3
+  - libdrm2
+  - libgbm1
+  - libglib2.0-0t64
+  - libnspr4
+  - libnss3
+  - libpango-1.0-0
+  - libx11-6
+  - libxcb1
+  - libxcomposite1
+  - libxdamage1
+  - libxext6
+  - libxfixes3
+  - libxkbcommon0
+  - libxrandr2
+
 # Source subnets allowed inbound on any port (RFC1918 ranges visible on the
 # homelab). The agent only sits on 10.20.0.0/16, but cross-VLAN traffic routed
 # in via OPNsense preserves source addresses, so the allowlist covers every
@@ -64,7 +101,7 @@ hermes_config:
 # runner. Everything here lands in ~/.hermes/.env, which is the only file
 # Hermes reads secrets from — including API_SERVER_KEY, which authenticates
 # the OpenAI-compatible endpoint and is therefore the one thing standing
-# between the LAN and agent execution as a passwordless-sudo user.
+# between the LAN and agent execution as the hermes user.
 hermes_secrets:
   API_SERVER_KEY: "{{ lookup('ansible.builtin.env', 'HERMES_API_SERVER_KEY') }}"
   OPENROUTER_API_KEY: "{{ lookup('ansible.builtin.env', 'HERMES_OPENROUTER_API_KEY') }}"

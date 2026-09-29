@@ -6,8 +6,8 @@ Deploys Hermes Agent ([NousResearch/hermes-agent](https://github.com/NousResearc
 
 | Layer | Result |
 |------|--------|
-| APT | `git`, `ripgrep`, `ffmpeg`, `nodejs`, `npm`, `python3` (+ `pip`, `venv`), `curl`, `ca-certificates`, `nftables`. These are what the upstream installer expects on the host. |
-| User | System user `hermes` with home at `/home/hermes`, granted passwordless sudo via `/etc/sudoers.d/hermes-nopasswd`. The upstream installer relies on `sudo apt-get` working as the run-time user. |
+| APT | `git`, `ripgrep`, `ffmpeg`, `nodejs`, `npm`, `python3` (+ `pip`, `venv`), `curl`, `ca-certificates`, `nftables` for the installer, plus Chromium's system libraries (`hermes_browser_packages`) for the browser tools. |
+| User | System user `hermes` with home at `/home/hermes`. No sudo — see [Privilege](#privilege). |
 | Firewall | `/etc/nftables.conf` rendered from the template, service enabled. |
 | Install | `scripts/install.sh --non-interactive --skip-setup` from the tracked branch, run as `hermes`. |
 | Credentials | `~/.hermes/.env` templated from `/pve/secrets/hermes.sh`. |
@@ -59,7 +59,7 @@ export HERMES_USER_CONTEXT_B64=…        # optional, see Identity
 
 An unset variable templates as empty, which disables that integration rather than failing the converge — a host without a Discord token simply comes up without Discord.
 
-`HERMES_API_SERVER_KEY` is the one that matters most. It is the bearer token on the OpenAI-compatible endpoint, and that endpoint dispatches agent turns that run as `hermes` — who has passwordless sudo. Anything holding this key has root on the VM.
+`HERMES_API_SERVER_KEY` is the one that matters most. It is the bearer token on the OpenAI-compatible endpoint, and that endpoint dispatches agent turns that run as `hermes`. Anything holding this key can do whatever `hermes` can on the VM.
 
 ## Identity
 
@@ -96,12 +96,24 @@ Because `443` is open to anywhere, **the firewall does not constrain where infer
 The VM is the boundary, and it is a coarse one. Inside the guest:
 
 - the terminal backend is `local`, so tool calls run unsandboxed as `hermes`;
-- `hermes` holds passwordless sudo;
 - the API server binds `0.0.0.0`, reachable from every homelab subnet, gated only by `API_SERVER_KEY`.
 
-That combination means a leaked `API_SERVER_KEY`, or any LAN host that can reach `:8642`, gets arbitrary code execution as root on this VM. It does not get the rest of the homelab — no `/pve/secrets` or `/pve/terraform` mounts exist here, and egress to internal services is allowlisted — but treat 217 as a machine whose contents are exposed to whatever the agent is told to do.
+That combination means a leaked `API_SERVER_KEY`, or any LAN host that can reach `:8642`, gets arbitrary code execution as `hermes` on this VM — which reaches every credential in `~/.hermes/.env` and everything the agent has accumulated, but not root. It does not get the rest of the homelab — no `/pve/secrets` or `/pve/terraform` mounts exist here, and egress to internal services is allowlisted — but treat 217 as a machine whose contents are exposed to whatever the agent is told to do.
 
 Hermes prints a startup warning to this effect. It is accurate, not noise.
+
+## Privilege
+
+`hermes` has no sudo and is not in the `docker` group, which would be root by another name. Nothing the agent runs needs root: the upstream installer, `hermes update`, and the runtime package manager (`hermes pm`) all install into the `hermes` user's own directories.
+
+Anything that genuinely needs root is the role's job and runs as part of a converge instead. Today that means the APT packages above. Upstream installs Chromium itself but leaves its shared libraries to the host, so the role carries Playwright's Debian dependency list in `hermes_browser_packages` rather than running `playwright install-deps` as root out of a virtualenv the agent can write to.
+
+When the agent asks for a system package, add it to the role rather than granting sudo. Check it from the operator side:
+
+```sh
+./run/host-ssh 217 'runuser -u hermes -- sudo -n true'
+# expected: sudo: a password is required
+```
 
 ## Services
 
