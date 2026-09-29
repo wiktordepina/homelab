@@ -5,8 +5,10 @@ hermes_home: /home/hermes
 
 hermes_data_dir: "{{ hermes_home }}/.hermes"
 hermes_install_dir: "{{ hermes_home }}/.hermes/hermes-agent"
-hermes_venv: "{{ hermes_install_dir }}/venv"
-hermes_bin: "{{ hermes_venv }}/bin/hermes"
+# The installer's own launcher, and the path it calls itself. It runs the
+# managed Python that `hermes pm` keeps under ~/.hermes/tools, whose versioned
+# path moves on every update, so nothing here names the interpreter directly.
+hermes_bin: "{{ hermes_install_dir }}/.hermes/bin/hermes"
 
 # Upstream has no release cadence worth pinning to — tags lag main by hundreds
 # of commits and the installer's own `--commit` guard refuses to roll an
@@ -157,8 +159,9 @@ hermes_user_context: "{{ lookup('ansible.builtin.env', 'HERMES_USER_CONTEXT_B64'
 # dashboard reachable across the LAN as before; leaving it empty forces the
 # loopback bind below, which needs an SSH tunnel to reach.
 #
-# Generate the hash on the host as the hermes user, from the install directory:
-#   ./venv/bin/python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('…'))"
+# Generate the hash on the host as the hermes user, from the install directory,
+# with the managed Python (hermes_bootstrap puts its dependencies on the path):
+#   ~/.hermes/tools/python-*/bin/python3 -c "import hermes_bootstrap; from plugins.dashboard_auth.basic import hash_password; print(hash_password('…'))"
 # The value is scrypt$<n>$<r>$<p>$<salt>$<key> and is full of '$', so it must be
 # single-quoted in /pve/secrets/hermes.sh. See the README.
 hermes_dashboard_basic_auth_user: "{{ lookup('ansible.builtin.env', 'HERMES_DASHBOARD_USER') }}"

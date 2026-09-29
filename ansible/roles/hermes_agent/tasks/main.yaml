@@ -68,8 +68,8 @@
     group: root
     mode: '0755'
 
-# Install-time only. The installer is a 3000-line script that clones, builds a
-# venv, provisions its own Node, and rebuilds the web UI; running it on every
+# Install-time only. The installer clones, provisions its own Python, Node and
+# tools through `hermes pm`, and builds the web UI; running it on every
 # converge would be both slow and risky. Subsequent version movement is a
 # deliberate `hermes update` by the operator — see the README.
 - name: Install Hermes Agent
@@ -248,7 +248,7 @@
 
 - name: Install the gateway as a boot-time system service
   # Upstream generates the unit itself (resolving user, group, home and the
-  # venv interpreter), which is why this is a CLI call and not a template.
+  # managed interpreter), which is why this is a CLI call and not a template.
   ansible.builtin.command:
     argv:
       - "{{ hermes_bin }}"
