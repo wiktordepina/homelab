@@ -38,7 +38,7 @@ pull() {
 
   # The remote side refuses a missing or stale archive, so a backup job that
   # has stopped running on the host is caught here rather than pulled forever.
-  ssh -n -o BatchMode=yes -o ConnectTimeout=15 "root@${host}" \
+  ssh -n -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "root@${host}" \
     "f=$(printf %q "${path}"); [ -f \"\$f\" ] || exit 3; [ -n \"\$(find \"\$f\" -mmin -$((max_age_hours * 60)))\" ] || exit 4; cat \"\$f\"" \
     > "${incoming}"
   rc=$?
