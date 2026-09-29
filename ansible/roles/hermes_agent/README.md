@@ -108,6 +108,8 @@ Hermes prints a startup warning to this effect. It is accurate, not noise.
 
 Anything that genuinely needs root is the role's job and runs as part of a converge instead. Today that means the APT packages above. Upstream installs Chromium itself but leaves its shared libraries to the host, so the role carries Playwright's Debian dependency list in `hermes_browser_packages` rather than running `playwright install-deps` as root out of a virtualenv the agent can write to.
 
+The one grant `hermes` does hold is a polkit rule (`/etc/polkit-1/rules.d/50-hermes-units.rules`) that lets it start, stop and restart `hermes-gateway.service` and `hermes-dashboard.service`, and nothing else. `hermes update` restarts the dashboard with a plain `systemctl restart`. Without the rule the update exits non-zero and leaves the dashboard running pre-update code. The gateway needs no grant: it restarts itself by exiting with the code its unit restarts on.
+
 When the agent asks for a system package, add it to the role rather than granting sudo. Check it from the operator side:
 
 ```sh

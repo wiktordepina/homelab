@@ -284,6 +284,19 @@
     - Reload systemd
     - Restart hermes-dashboard
 
+# `hermes update` restarts the dashboard with a plain `systemctl restart`, which
+# an unprivileged user cannot do to a system unit. Without this the update
+# exits non-zero and leaves the dashboard running pre-update code. The grant
+# covers only the hermes units and only start/stop/restart; polkitd picks the
+# file up without a reload.
+- name: Let hermes restart its own services
+  ansible.builtin.template:
+    src: hermes-units.rules.j2
+    dest: /etc/polkit-1/rules.d/50-hermes-units.rules
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: Enable and start Hermes services
   ansible.builtin.systemd_service:
     name: "{{ item }}"
