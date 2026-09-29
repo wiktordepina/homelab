@@ -1,0 +1,69 @@
+---
+- name: Validate job entries
+  ansible.builtin.assert:
+    that:
+      - backup_pull_jobs | length > 0
+      - item.name is match('^[a-z0-9][a-z0-9-]*$')
+      - item.host | length > 0
+      - item.path is match('^/')
+      - item.max_age_hours is integer and item.max_age_hours > 0
+      - item.keep is integer and item.keep > 0
+      - item.age_identity is match('^/')
+    fail_msg: Each of backup_pull_jobs needs name, host, an absolute path, positive integer max_age_hours and keep, and an absolute age_identity.
+  loop: "{{ backup_pull_jobs }}"
+  loop_control:
+    label: "{{ item.name | default('?') }}"
+
+- name: Install age
+  ansible.builtin.apt:
+    name: age
+    state: present
+
+- name: Create the backups dataset
+  community.general.zfs:
+    name: "{{ backup_pull_dataset }}"
+    state: present
+
+- name: Keep the backups dataset root-only
+  ansible.builtin.file:
+    path: "{{ backup_pull_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Install backup-pull script
+  ansible.builtin.copy:
+    src: backup-pull
+    dest: /usr/local/sbin/backup-pull
+    mode: '0755'
+  notify: Pull backups now
+
+- name: Write backup-pull config
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/{{ item }}"
+    mode: '0644'
+  loop:
+    - backup-pull.conf
+    - backup-pull.env
+  notify: Pull backups now
+
+- name: Install backup-pull units
+  ansible.builtin.copy:
+    src: backup-pull.service
+    dest: /etc/systemd/system/backup-pull.service
+    mode: '0644'
+
+- name: Install backup-pull timer
+  ansible.builtin.template:
+    src: backup-pull.timer.j2
+    dest: /etc/systemd/system/backup-pull.timer
+    mode: '0644'
+
+- name: Enable backup-pull timer
+  ansible.builtin.systemd_service:
+    name: backup-pull.timer
+    daemon_reload: true
+    state: started
+    enabled: true

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Takes a full `hermes backup`, encrypts it to the homelab's age recipient and
+# publishes it as {{ hermes_backup_archive }} for the PVE host to pull. The
+# plaintext zip holds .env and never leaves the private work directory.
+set -euo pipefail
+umask 077
+
+work="$(mktemp -d "{{ hermes_backup_dir }}/.work.XXXXXX")"
+trap 'rm -rf "${work}"' EXIT
+
+"{{ hermes_bin }}" backup --output "${work}/hermes.zip" --keep 0
+age --recipient "{{ hermes_backup_age_recipient }}" --output "${work}/hermes.zip.age" "${work}/hermes.zip"
+mv -f "${work}/hermes.zip.age" "{{ hermes_backup_archive }}"
+echo "published $(stat -c %s "{{ hermes_backup_archive }}") bytes to {{ hermes_backup_archive }}"

@@ -21,3 +21,12 @@
   ansible.builtin.systemd_service:
     name: hermes-dashboard
     state: restarted
+
+# A fresh host otherwise has nothing for the PVE pull until the first night,
+# and a broken script would only show up then. Runs last, after the gateway
+# handlers, so the backup sees the converged state.
+- name: Take a backup now
+  ansible.builtin.systemd_service:
+    name: hermes-backup.service
+    state: started
+    daemon_reload: true

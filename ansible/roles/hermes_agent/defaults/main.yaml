@@ -98,6 +98,9 @@ hermes_config:
   # The VM is the sandbox boundary, not the terminal backend — see README.
   terminal.backend: local
   timezone: Europe/London
+  # quick (upstream's default) snapshots only critical files before an update;
+  # full adds a restorable `hermes backup` zip under ~/.hermes/backups/.
+  updates.pre_update_backup: full
 
 # Runtime credentials, exported from /pve/secrets/hermes.sh on the apply
 # runner. Everything here lands in ~/.hermes/.env, which is the only file
@@ -166,3 +169,14 @@ hermes_user_context: "{{ lookup('ansible.builtin.env', 'HERMES_USER_CONTEXT_B64'
 # single-quoted in /pve/secrets/hermes.sh. See the README.
 hermes_dashboard_basic_auth_user: "{{ lookup('ansible.builtin.env', 'HERMES_DASHBOARD_USER') }}"
 hermes_dashboard_basic_auth_hash: "{{ lookup('ansible.builtin.env', 'HERMES_DASHBOARD_PASSWORD_HASH') }}"
+
+# Nightly encrypted backup, pulled from here by the PVE host (backup_pull role).
+# Only the latest archive is kept on this VM; history lives on the zpool.
+hermes_backup_dir: /var/lib/hermes-backup
+hermes_backup_archive: "{{ hermes_backup_dir }}/hermes.zip.age"
+hermes_backup_schedule: "*-*-* 02:30:00"
+# The age public key the archive is encrypted to. The private half is in
+# /pve/secrets/hermes-backup.agekey and the operator's password manager, never
+# on this VM. Required: an empty recipient fails the converge rather than
+# quietly leaving the host without backups.
+hermes_backup_age_recipient: "{{ lookup('ansible.builtin.env', 'HERMES_BACKUP_AGE_RECIPIENT') }}"

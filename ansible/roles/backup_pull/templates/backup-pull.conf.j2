@@ -1,0 +1,5 @@
+# Managed by Ansible (backup_pull role). Local edits are overwritten.
+# <name> <host> <remote path> <max age hours> <keep> <age identity file>
+{% for job in backup_pull_jobs %}
+{{ job.name }} {{ job.host }} {{ job.path }} {{ job.max_age_hours }} {{ job.keep }} {{ job.age_identity }}
+{% endfor %}

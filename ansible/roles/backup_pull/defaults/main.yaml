@@ -1,0 +1,16 @@
+---
+# Each entry: name (directory and file prefix under the dataset), host (reached
+# as root with the PVE key Terraform seeds into every guest), path (the
+# encrypted archive on the guest), max_age_hours (older is reported as a
+# stopped backup job), keep (how many pulled archives to retain) and
+# age_identity (private key used to verify each pull decrypts).
+backup_pull_jobs: []
+
+backup_pull_dataset: zpool/backups
+backup_pull_root: "/{{ backup_pull_dataset }}"
+backup_pull_schedule: "*-*-* 04:00:00"
+
+# Straight at the ntfy container rather than through the proxy's DNS name, so
+# an alert does not depend on DNS or the reverse proxy being healthy.
+backup_pull_ntfy_url: http://10.20.1.202
+backup_pull_ntfy_topic: homelab-alerts

@@ -11,6 +11,15 @@
           - name: zpool/terraform
             mode: daily
             keep: 5
+    - role: backup_pull
+      vars:
+        backup_pull_jobs:
+          - name: hermes
+            host: 10.20.1.217
+            path: /var/lib/hermes-backup/hermes.zip.age
+            max_age_hours: 26
+            keep: 14
+            age_identity: /zpool/secrets/hermes-backup.agekey
     - telegraf
     # gpu_drivers paused: PVE now boots kernel 7.0 and the Tesla 535 DKMS
     # module has only been built for 6.x. Re-running the role would try that

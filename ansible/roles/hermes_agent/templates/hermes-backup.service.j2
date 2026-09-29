@@ -1,0 +1,12 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=Encrypted Hermes backup for the PVE pull
+After=hermes-gateway.service
+
+[Service]
+Type=oneshot
+User={{ hermes_user }}
+Group={{ hermes_group }}
+Environment="HOME={{ hermes_home }}"
+Environment="HERMES_HOME={{ hermes_data_dir }}"
+ExecStart=/usr/local/bin/hermes-backup
