@@ -258,7 +258,7 @@ It all goes through PVE (`pct create`, `pct push`, `pct exec`), so the laptop on
   # 3072 SHA256:TpoSkxWUZox8YT2qAP/DqAtOcSDthQIo9/O84ed/yiw runner@github-worker (RSA)
   ```
 
-  The fingerprint must match `ssh-keygen -lf config/worker_id_rsa.pub`.
+  The fingerprint must match `ssh-keygen -lf config/worker_id_rsa.pub`. The `runner@github-worker` comment is historical: the key was minted on the original, hand-built apply runner and outlived it.
 
 - **`yq` is on the laptop.** The bootstrap reads the container's YAML with it.
 - **Changes are committed and merged.** The bootstrap copies the repository as of `HEAD`, not the working tree. If `HEAD` is not on `origin/main`, it asks before pushing it to the runner; say yes only when proving an unmerged change on purpose.
