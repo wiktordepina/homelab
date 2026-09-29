@@ -9,7 +9,16 @@ umask 077
 work="$(mktemp -d "{{ hermes_backup_dir }}/.work.XXXXXX")"
 trap 'rm -rf "${work}"' EXIT
 
-"{{ hermes_bin }}" backup --output "${work}/hermes.zip" --keep 0
+# A live home has files that come and go (lock files around a gateway restart,
+# for one); upstream then reports the backup incomplete and exits non-zero.
+# Such a miss is transient, so retry before failing.
+for attempt in 1 2 3; do
+  rm -f "${work}/hermes.zip"
+  "{{ hermes_bin }}" backup --output "${work}/hermes.zip" --keep 0 && break
+  [[ "${attempt}" -eq 3 ]] && exit 1
+  echo "backup attempt ${attempt} failed; retrying in 30s" >&2
+  sleep 30
+done
 age --recipient "{{ hermes_backup_age_recipient }}" --output "${work}/hermes.zip.age" "${work}/hermes.zip"
 mv -f "${work}/hermes.zip.age" "{{ hermes_backup_archive }}"
 echo "published $(stat -c %s "{{ hermes_backup_archive }}") bytes to {{ hermes_backup_archive }}"
