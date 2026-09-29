@@ -16,6 +16,9 @@ Environment="PATH={{ hermes_home }}/.local/bin:/usr/local/sbin:/usr/local/bin:/u
 ExecStart={{ hermes_bin }} dashboard --host {{ hermes_dashboard_host }} --port {{ hermes_dashboard_port }} --no-open --skip-build
 Restart=always
 RestartSec=5
+# Upstream's exit code for a permanent refusal (a LAN bind with no auth
+# provider, for one); `hermes update` flags any unit that would crash-loop on it.
+RestartPreventExitStatus=78
 StandardOutput=journal
 StandardError=journal
 
