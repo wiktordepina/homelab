@@ -40,6 +40,9 @@ services:
       retries: 10
 
   # One-shot: re-asserts the read-only reporting role and functions, then exits.
+  # It waits for the database itself because depends_on only orders `up`: the
+  # containers role follows `up` with a `restart` when stack files change, which
+  # bounces db and this container together.
   reporting:
     image: postgres:16
     restart: "no"
@@ -54,7 +57,12 @@ services:
       REPORTING_PWD: "{{ lookup('ansible.builtin.env', 'LITELLM_REPORTING_PWD') }}"
     volumes:
       - ./reporting.sql:/reporting.sql:ro
-    command: ["sh", "-c", "psql -v ON_ERROR_STOP=1 -v reporting_pwd=\"$$REPORTING_PWD\" -f /reporting.sql"]
+    command:
+      - sh
+      - -c
+      - >-
+        for i in $$(seq 60); do pg_isready -q && break; sleep 2; done;
+        psql -v ON_ERROR_STOP=1 -v reporting_pwd="$$REPORTING_PWD" -f /reporting.sql
 
 
 volumes:
