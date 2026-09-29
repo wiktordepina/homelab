@@ -260,7 +260,12 @@
       - --start-on-login
       - --no-start-now
     creates: /etc/systemd/system/hermes-gateway.service
+  # Runs as root, so HOME has to point at the hermes user's home as well:
+  # upstream only gives the unit the bare `hermes-gateway` name when
+  # HERMES_HOME is the calling process's own ~/.hermes, and otherwise names it
+  # `hermes-gateway-<hash of the path>`.
   environment:
+    HOME: "{{ hermes_home }}"
     HERMES_HOME: "{{ hermes_data_dir }}"
   notify: Restart hermes-gateway
 
