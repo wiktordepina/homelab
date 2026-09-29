@@ -7,7 +7,7 @@ Deploys Hermes Agent ([NousResearch/hermes-agent](https://github.com/NousResearc
 | Layer | Result |
 |------|--------|
 | APT | `git`, `ripgrep`, `ffmpeg`, `nodejs`, `npm`, `python3` (+ `pip`, `venv`), `curl`, `ca-certificates`, `nftables` for the installer, plus Chromium's system libraries (`hermes_browser_packages`) for the browser tools. |
-| User | System user `hermes` with home at `/home/hermes`. No sudo — see [Privilege](#privilege). |
+| User | System user `hermes` with home at `/home/hermes`. No general sudo — see [Privilege](#privilege). |
 | Firewall | `/etc/nftables.conf` rendered from the template, service enabled. |
 | Install | `scripts/install.sh --non-interactive --skip-setup` from the tracked branch, run as `hermes`. |
 | Credentials | `~/.hermes/.env` templated from `/pve/secrets/hermes.sh`. |
@@ -104,11 +104,16 @@ Hermes prints a startup warning to this effect. It is accurate, not noise.
 
 ## Privilege
 
-`hermes` has no sudo and is not in the `docker` group, which would be root by another name. Nothing the agent runs needs root: the upstream installer, `hermes update`, and the runtime package manager (`hermes pm`) all install into the `hermes` user's own directories.
+`hermes` has no general sudo and is not in the `docker` group, which would be root by another name. Nothing the agent runs needs root: the upstream installer, `hermes update`, and the runtime package manager (`hermes pm`) all install into the `hermes` user's own directories.
 
 Anything that genuinely needs root is the role's job and runs as part of a converge instead. Today that means the APT packages above. Upstream installs Chromium itself but leaves its shared libraries to the host, so the role carries Playwright's Debian dependency list in `hermes_browser_packages` rather than running `playwright install-deps` as root out of a virtualenv the agent can write to.
 
-The one grant `hermes` does hold is a polkit rule (`/etc/polkit-1/rules.d/50-hermes-units.rules`) that lets it start, stop and restart `hermes-gateway.service` and `hermes-dashboard.service`, and nothing else. `hermes update` restarts the dashboard with a plain `systemctl restart`. Without the rule the update exits non-zero and leaves the dashboard running pre-update code. The gateway needs no grant: it restarts itself by exiting with the code its unit restarts on.
+It holds two narrow grants, both so that `hermes update` can restart the dashboard onto new code:
+
+- a polkit rule (`/etc/polkit-1/rules.d/50-hermes-units.rules`) allowing start, stop and restart of `hermes-gateway.service` and `hermes-dashboard.service`, for the update's plain `systemctl restart`;
+- a sudoers entry (`/etc/sudoers.d/hermes-dashboard-restart`) for exactly `systemctl --no-ask-password reset-failed hermes-dashboard` and `… restart hermes-dashboard`. The update's fleet pass only ever tries `sudo -n` with that argv and reports the update incomplete otherwise. If upstream changes the argv, the update goes back to exiting non-zero with "Update incomplete"; compare its output against the entry.
+
+Without either, the update exits non-zero and the dashboard keeps running pre-update code. The gateway needs neither: it restarts itself by exiting with the code its unit restarts on.
 
 When the agent asks for a system package, add it to the role rather than granting sudo. Check it from the operator side:
 

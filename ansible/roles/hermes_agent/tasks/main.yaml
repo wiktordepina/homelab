@@ -297,6 +297,19 @@
     group: root
     mode: '0644'
 
+# The polkit rule covers `hermes update`'s dashboard restart, but its fleet
+# pass only ever tries `sudo -n` and reports the update incomplete without it.
+# Scoped to the exact argv upstream runs, so `sudo -n true` still fails.
+- name: Let hermes restart the dashboard through sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/hermes-dashboard-restart
+    content: |
+      {{ hermes_user }} ALL=(root) NOPASSWD: /usr/bin/systemctl --no-ask-password reset-failed hermes-dashboard, /usr/bin/systemctl --no-ask-password restart hermes-dashboard
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+
 - name: Enable and start Hermes services
   ansible.builtin.systemd_service:
     name: "{{ item }}"
