@@ -4,9 +4,10 @@
 # shared one. Sized to match the old custom mait-gateway VM it replaces
 # (6 vCPU / 12 GiB).
 #
-# No extra mounts, and no persistence: the agent's skills, memories, sessions,
-# board and state databases all live on the rootfs and are lost on a rebuild.
-# Take a `hermes backup` first — see the hermes_agent role README. The 250 GiB
+# No extra mounts: the agent's skills, memories, sessions, board and state
+# databases live on the rootfs and are lost on a rebuild. A nightly encrypted
+# backup is pulled onto the zpool by PVE; restoring it is a manual step (see the
+# hermes_agent role README). The 250 GiB
 # rootfs (on the ZFS zpool via local-zpool storage) gives the agent room for
 # docker image layers, build scratch and incidental artefacts.
 terraform:

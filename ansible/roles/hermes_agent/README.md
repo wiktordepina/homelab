@@ -151,11 +151,9 @@ export HERMES_DASHBOARD_PASSWORD_HASH='scrypt$16384$…'
 
 Setting the pair and re-converging is enough to move the dashboard from loopback to the LAN; the unit's bind address follows the hash's presence.
 
-## State persistence — there is none
+## State and backups
 
-There are **no bind-mounts** on this host, and nothing under `~/.hermes` is version controlled or backed up. The only git repository there is the upstream code checkout.
-
-Everything the agent accumulates lives on the rootfs and dies with it:
+There are **no bind-mounts** on this host. Everything the agent accumulates lives on the rootfs and dies with it on a rebuild:
 
 | Path | What it holds |
 |------|---------------|
@@ -166,17 +164,66 @@ Everything the agent accumulates lives on the rootfs and dies with it:
 | `kanban.db`, `kanban/` | the agent's board |
 | `cron/` | scheduled jobs |
 | `plugins/`, `profiles/` | local customisation |
-| `state-snapshots/` | the curator's weekly snapshots |
 
-**A destroy-and-reapply of 217 loses all of it.** The role deliberately does not manage these paths — it provisions a working Hermes, not a restored one.
+The role provisions a working Hermes, not a restored one. Restoring is a separate, manual step from the nightly backups.
 
-Take a backup before rebuilding. Upstream ships `hermes backup`, which zips the whole `~/.hermes` directory:
+### Nightly backup
+
+`hermes-backup.timer` runs `/usr/local/bin/hermes-backup` as `hermes` at 02:30. The script:
+
+1. takes a full `hermes backup` into a private work directory, retrying up to three times, because a file that vanishes mid-backup (a lock file, say) makes upstream report it incomplete;
+2. encrypts it with `age` to `HERMES_BACKUP_AGE_RECIPIENT`;
+3. publishes it as `/var/lib/hermes-backup/hermes.zip.age`, replacing the previous one.
+
+Only the latest archive is kept here. The PVE host pulls it at 04:00 (the `backup_pull` role), verifies it decrypts to a sound zip, keeps fourteen on `zpool/backups/hermes/`, and alerts on `homelab-alerts` in ntfy if the archive is missing, older than 26 hours, or unreadable. The VM holds only the public key and no credential that reaches PVE.
+
+The private key is `/pve/secrets/hermes-backup.agekey`, with a copy in the operator's password manager. The public half goes in `/pve/secrets/hermes.sh`:
 
 ```sh
-./run/host-ssh 217 'runuser -u hermes -- bash -lc "hermes backup"'
+export HERMES_BACKUP_AGE_RECIPIENT=age1…   # age-keygen -y /zpool/secrets/hermes-backup.agekey
 ```
 
-Closing this gap properly — scheduled backups to somewhere off the VM — is not solved here.
+The converge fails if it is unset, rather than leaving the host without backups. A converge that changes the script or units also takes a backup straight away.
+
+Separately, `updates.pre_update_backup: full` makes every `hermes update` write its own zip to `~/.hermes/backups/` first, as a local undo for a bad update.
+
+Run a backup now, and see what the last runs did:
+
+```sh
+./run/host-ssh 217 'systemctl start hermes-backup.service; journalctl -u hermes-backup.service -n 5 --no-pager'
+```
+
+### Restoring
+
+The archive is decrypted on PVE and streamed straight to 217, so the plaintext (which holds `.env`) touches neither the laptop nor the zpool. Restore onto a rebuilt 217 after its converge has finished.
+
+1. Pick an archive. The newest may be the empty state the rebuild's converge just backed up, so check the timestamps:
+
+   ```sh
+   ./run/pve-ssh 'ls -l /zpool/backups/hermes/'
+   ```
+
+2. Decrypt it on PVE into 217's backup directory:
+
+   ```sh
+   ./run/pve-ssh 'age -d -i /zpool/secrets/hermes-backup.agekey /zpool/backups/hermes/<archive> \
+     | ssh root@10.20.1.217 "install -m 0600 -o hermes -g hermes /dev/stdin /var/lib/hermes-backup/restore.zip"'
+   ```
+
+   After a rebuild, clear 217's old host key on PVE first (`ssh-keygen -f /root/.ssh/known_hosts -R 10.20.1.217`).
+
+3. Import with both services stopped, then remove the plaintext:
+
+   ```sh
+   ./run/host-ssh 217 'systemctl stop hermes-gateway hermes-dashboard \
+     && runuser -u hermes -- env HOME=/home/hermes HERMES_HOME=/home/hermes/.hermes \
+          /home/hermes/.hermes/hermes-agent/.hermes/bin/hermes import --force /var/lib/hermes-backup/restore.zip; \
+     rm -f /var/lib/hermes-backup/restore.zip; systemctl start hermes-gateway hermes-dashboard'
+   ```
+
+   The import ends with `Done. Your Hermes configuration has been restored.` It also suggests switching to a per-user gateway service; ignore that, since the role runs system units on purpose.
+
+4. Re-converge (`./run/execute_runner ansible_vm 217`, or the VM workflow's `apply`). The archive carries the old `.env`, `SOUL.md` and `config.yaml`, and the converge puts the role's current values back over them.
 
 ## Out of scope
 
