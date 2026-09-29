@@ -1,0 +1,10 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=Pull guest backups daily
+
+[Timer]
+OnCalendar={{ backup_pull_schedule }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,6 @@
+---
+# Surfaces a broken job at converge time instead of at the next scheduled run.
+- name: Pull backups now
+  ansible.builtin.systemd_service:
+    name: backup-pull.service
+    state: started

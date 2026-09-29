@@ -1,0 +1,9 @@
+[Unit]
+Description=Pull encrypted backups from guests onto the zpool
+Requires=local-fs.target network-online.target
+After=local-fs.target network-online.target
+ConditionFileNotEmpty=/etc/backup-pull.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/backup-pull

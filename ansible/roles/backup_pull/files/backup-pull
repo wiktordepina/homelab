@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Pulls one encrypted archive per job in /etc/backup-pull.conf onto the zpool,
+# verifies it decrypts to a readable backup, and prunes to the newest <keep>.
+# One job per line:
+#   <name> <host> <remote path> <max age hours> <keep> <age identity file>
+# Any failed job is reported to ntfy; the run exits non-zero if any failed.
+set -uo pipefail
+
+conf="${BACKUP_PULL_CONF:-/etc/backup-pull.conf}"
+# shellcheck source=/dev/null
+source /etc/backup-pull.env
+
+alert() {
+  local name="$1" message="$2"
+  echo "${name}: ${message}" >&2
+  # shellcheck source=/dev/null
+  NTFY_CREDS="$(source /zpool/secrets/ntfy.sh && echo "${NTFY_CREDS}")"
+  curl -fsS -o /dev/null -u "${NTFY_CREDS}" \
+    -H "Title: Backup pull failed: ${name}" -H 'Tags: warning,floppy_disk' -H 'Priority: high' \
+    -d "${message}" "${BACKUP_PULL_NTFY_URL}/${BACKUP_PULL_NTFY_TOPIC}" \
+    || echo "${name}: could not reach ntfy either" >&2
+}
+
+# Scratch files for the job in flight: the pulled ciphertext, and its
+# decryption for the integrity check (on tmpfs, root-only, never kept).
+incoming=''
+plaintext=''
+cleanup() { rm -f "${incoming}" "${plaintext}"; }
+trap cleanup EXIT
+
+pull() {
+  local name="$1" host="$2" path="$3" max_age_hours="$4" keep="$5" identity="$6"
+  local dest="${BACKUP_PULL_ROOT}/${name}" archive rc
+
+  mkdir -p "${dest}"
+  incoming="$(mktemp -p "${dest}" .incoming.XXXXXX)"
+  plaintext="$(mktemp -p /run backup-pull.XXXXXX)"
+
+  # The remote side refuses a missing or stale archive, so a backup job that
+  # has stopped running on the host is caught here rather than pulled forever.
+  ssh -n -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "root@${host}" \
+    "f=$(printf %q "${path}"); [ -f \"\$f\" ] || exit 3; [ -n \"\$(find \"\$f\" -mmin -$((max_age_hours * 60)))\" ] || exit 4; cat \"\$f\"" \
+    > "${incoming}"
+  rc=$?
+  case "${rc}" in
+    0) ;;
+    3) alert "${name}" "No archive at ${host}:${path}."; return 1 ;;
+    4) alert "${name}" "Archive at ${host}:${path} is older than ${max_age_hours}h; the backup job on ${host} has stopped producing new ones."; return 1 ;;
+    255) alert "${name}" "Could not SSH to ${host} (host down, or its host key changed after a rebuild)."; return 1 ;;
+    *) alert "${name}" "Pull from ${host} failed with exit ${rc}."; return 1 ;;
+  esac
+
+  if ! age --decrypt --identity "${identity}" --output "${plaintext}" "${incoming}"; then
+    alert "${name}" "Pulled archive from ${host} does not decrypt with ${identity}."
+    return 1
+  fi
+  if ! python3 - "${plaintext}" <<'PY'
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1]) as z:
+    bad = z.testzip()
+    if bad is not None:
+        sys.exit(f"corrupt member {bad}")
+    if not z.namelist():
+        sys.exit("empty archive")
+PY
+  then
+    alert "${name}" "Pulled archive from ${host} decrypts but is not a valid zip."
+    return 1
+  fi
+
+  archive="${dest}/${name}-$(date -u +%Y%m%dT%H%M%SZ).zip.age"
+  mv "${incoming}" "${archive}"
+  chmod 0600 "${archive}"
+  echo "${name}: pulled ${archive##*/} ($(stat -c %s "${archive}") bytes)"
+  find "${dest}" -maxdepth 1 -name "${name}-*.zip.age" | sort | head -n "-${keep}" | while read -r old; do
+    rm -f "${old}"
+    echo "${name}: pruned ${old##*/}"
+  done
+}
+
+failed=0
+while read -r name host path max_age_hours keep identity; do
+  [[ -z "${name}" || "${name}" == \#* ]] && continue
+  pull "${name}" "${host}" "${path}" "${max_age_hours}" "${keep}" "${identity}" || failed=1
+  cleanup
+done < "${conf}"
+exit "${failed}"
