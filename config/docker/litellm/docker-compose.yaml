@@ -39,6 +39,23 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot: re-asserts the read-only reporting role and functions, then exits.
+  reporting:
+    image: postgres:16
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: llmproxy
+      PGDATABASE: litellm
+      PGPASSWORD: "{{ lookup('ansible.builtin.env', 'LITELLM_DB_PWD') }}"
+      REPORTING_PWD: "{{ lookup('ansible.builtin.env', 'LITELLM_REPORTING_PWD') }}"
+    volumes:
+      - ./reporting.sql:/reporting.sql:ro
+    command: ["sh", "-c", "psql -v ON_ERROR_STOP=1 -v reporting_pwd=\"$$REPORTING_PWD\" -f /reporting.sql"]
+
 
 volumes:
   postgres_data:
