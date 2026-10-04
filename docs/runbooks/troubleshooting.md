@@ -62,6 +62,28 @@ GitHub reports the runner as offline; workflows queue but do not start.
 
 **The runner's registration has been revoked or expired.** Re-registering with a fresh token fixes this; see [create-runner](create-runner.md).
 
+## A forge CI job cannot download something
+
+A Forgejo Actions job on 501 or 502 fails while fetching a toolchain, package or action: `403` from the proxy, `CONNECT tunnel failed`, `Could not resolve host`, or a connect timeout.
+
+**The name is not on the runners' egress allowlist.** Jobs reach the outside only through squid on the runner, by name. See what was refused:
+
+```bash
+./run/host-ssh <vmid> 'grep TCP_DENIED /var/log/squid/access.log | tail -20 | awk "{print \$6, \$7}"'
+```
+
+If the refused name is one the job genuinely needs, add it to `forgejo_runner_egress_allowlist` in the `forgejo_runner` role's defaults and converge every runner, one at a time. The role README's *Adding to the allowlist* section has the details.
+
+**The tool ignores the proxy.** Nothing shows in squid's log, and the job fails on connect or resolve instead. The job tried to go round the proxy, and the firewall dropped it:
+
+```bash
+./run/host-ssh <vmid> 'nft list set inet egress observed_forward'
+```
+
+Configure the tool to use `HTTPS_PROXY` (it is already in every job's environment) rather than opening the firewall.
+
+**The cache misses every time.** If squid's log shows `TCP_DENIED` for the runner's own address on port 40000, the daemon is sending cache traffic through the proxy. Its unit's `NO_PROXY` must include the runner's own address.
+
 ## A workflow apply succeeded but the change is not live
 
 The CI run is green, but the change does not appear to have taken effect.

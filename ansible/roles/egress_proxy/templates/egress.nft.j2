@@ -1,0 +1,97 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+#
+# A table of its own, replaced atomically on load. Never `flush ruleset`:
+# Docker keeps its NAT and forwarding rules in iptables-nft tables on the
+# same host, and a global flush would take every container's networking
+# with it until dockerd restarts.
+
+table inet egress
+delete table inet egress
+
+{% set verdict = 'drop' if egress_proxy_enforce else 'accept' %}
+table inet egress {
+    # What was refused (or, in observation mode, would have been), by
+    # destination. nftables `log` is silent inside a container's network
+    # namespace, so these sets are the record. They hold IPv4 only, which
+    # is why each verdict is a rule of its own: a set update keyed on
+    # `ip daddr` silently skips IPv6, and the verdict must not.
+    set observed_forward {
+        type ipv4_addr . inet_proto . inet_service
+        flags dynamic,timeout
+        timeout 7d
+        size 4096
+    }
+
+    set observed_output {
+        type ipv4_addr . inet_proto . inet_service
+        flags dynamic,timeout
+        timeout 7d
+        size 4096
+    }
+
+    set lan {
+        type ipv4_addr
+        flags interval
+        elements = { {{ egress_proxy_lan_ranges | join(', ') }} }
+    }
+
+    chain input {
+        type filter hook input priority filter; policy accept;
+
+        ct state established,related accept
+{% for iface in egress_proxy_client_interfaces %}
+        iifname "{{ iface }}" tcp dport { {{ ([egress_proxy_port] + egress_proxy_client_ports) | join(', ') }} } accept
+        iifname "{{ iface }}" counter {{ verdict }}
+{% endfor %}
+        iifname != "lo" tcp dport {{ egress_proxy_port }} counter drop
+    }
+{% if egress_proxy_client_interfaces %}
+
+    # A client's packets never leave this host directly, DNS included:
+    # going through the proxy is the only way out, which also closes DNS
+    # as a tunnel.
+    chain forward {
+        type filter hook forward priority filter; policy accept;
+
+{% for daddr in egress_proxy_blocked_destinations %}
+        ip daddr {{ daddr }} counter drop
+{% endfor %}
+        ct state established,related accept
+        # Client to client on the bridges (a job and its service containers)
+        # is not egress. With bridge netfilter on, it passes this hook too.
+        # Separating one Docker network from another stays Docker's own
+        # isolation rules' job; an accept here does not override their drop.
+{% for iface in egress_proxy_client_interfaces %}
+        iifname "{{ iface }}" oifname "{{ iface }}" accept
+{% endfor %}
+{% for iface in egress_proxy_client_interfaces %}
+        iifname "{{ iface }}" update @observed_forward { ip daddr . meta l4proto . th dport }
+        iifname "{{ iface }}" counter {{ verdict }}
+{% endfor %}
+    }
+{% endif %}
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+
+{% for daddr in egress_proxy_blocked_destinations %}
+        ip daddr {{ daddr }} counter drop
+{% endfor %}
+        ct state established,related accept
+        oifname "lo" accept
+        ip daddr {{ egress_proxy_resolver }} meta l4proto { tcp, udp } th dport 53 accept
+{% for iface in egress_proxy_client_interfaces %}
+        oifname "{{ iface }}" accept
+{% endfor %}
+{% for dest in egress_proxy_direct_destinations %}
+        # {{ dest.comment }}
+        ip daddr {{ dest.daddr }} tcp dport {{ dest.port }} accept
+{% endfor %}
+        ip daddr @lan update @observed_output { ip daddr . meta l4proto . th dport }
+        ip daddr @lan counter {{ verdict }}
+        meta skuid { {{ ([egress_proxy_squid_uid] + egress_proxy_direct_uids) | join(', ') }} } tcp dport { 80, 443 } accept
+        update @observed_output { ip daddr . meta l4proto . th dport }
+        counter {{ verdict }}
+    }
+}

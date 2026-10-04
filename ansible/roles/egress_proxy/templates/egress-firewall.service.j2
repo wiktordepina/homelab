@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+#
+# Loads the egress table and nothing else, rather than going through
+# nftables.service: that unit's /etc/nftables.conf begins with
+# `flush ruleset`, which would also clear Docker's tables on any reload.
+
+[Unit]
+Description=Egress allowlist (nftables table inet egress)
+DefaultDependencies=no
+Before=network-pre.target docker.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f {{ egress_proxy_nft_file }}
+ExecReload=/usr/sbin/nft -f {{ egress_proxy_nft_file }}
+ExecStop=/usr/sbin/nft delete table inet egress
+
+[Install]
+WantedBy=multi-user.target

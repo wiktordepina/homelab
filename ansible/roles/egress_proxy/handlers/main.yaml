@@ -1,0 +1,11 @@
+---
+- name: Reload squid
+  ansible.builtin.systemd_service:
+    name: squid
+    state: reloaded
+
+- name: Reload egress firewall
+  ansible.builtin.systemd_service:
+    name: egress-firewall
+    daemon_reload: true
+    state: reloaded

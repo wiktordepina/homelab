@@ -1,0 +1,80 @@
+---
+- name: Install squid and nftables
+  ansible.builtin.apt:
+    name:
+      - squid
+      - nftables
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# nftables matches socket owners by number. Resolving the names here, rather
+# than writing them into the ruleset, keeps the load from depending on how
+# nft's parser treats a name like `_apt`.
+- name: Read the passwd database
+  ansible.builtin.getent:
+    database: passwd
+
+- name: Resolve the users the firewall names to uids
+  ansible.builtin.set_fact:
+    egress_proxy_squid_uid: "{{ ansible_facts.getent_passwd['proxy'][1] }}"
+    egress_proxy_direct_uids: "{{ egress_proxy_direct_users | map('extract', ansible_facts.getent_passwd) | map(attribute='1') | list }}"
+
+- name: Template the squid allowlist
+  ansible.builtin.copy:
+    content: |
+      {% for name in egress_proxy_allowlist %}
+      {{ name }}
+      {% endfor %}
+    dest: /etc/squid/allowlist.txt
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload squid
+
+- name: Template squid config
+  ansible.builtin.template:
+    src: squid.conf.j2
+    dest: /etc/squid/squid.conf
+    owner: root
+    group: root
+    mode: '0644'
+    validate: squid -k parse -f %s
+  notify: Reload squid
+
+- name: Create the nftables include directory
+  ansible.builtin.file:
+    path: "{{ egress_proxy_nft_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Template the egress ruleset
+  ansible.builtin.template:
+    src: egress.nft.j2
+    dest: "{{ egress_proxy_nft_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+    validate: nft -c -f %s
+  notify: Reload egress firewall
+
+- name: Install the egress firewall unit
+  ansible.builtin.template:
+    src: egress-firewall.service.j2
+    dest: /etc/systemd/system/egress-firewall.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload egress firewall
+
+- name: Enable and start squid and the egress firewall
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    daemon_reload: true
+    state: started
+    enabled: true
+  loop:
+    - squid
+    - egress-firewall

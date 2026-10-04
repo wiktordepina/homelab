@@ -157,7 +157,11 @@ If a runner does not appear, its own daemon log says why:
 ./run/host-ssh <vmid> 'journalctl -u forgejo-runner -n 100 --no-pager'
 ```
 
-The two failures worth recognising: a `401` on every poll means the UUID and secret in `/etc/forgejo-runner/config.yml` do not match what Forgejo holds — re-run step 1 with the same secret and compare. A DNS or TLS error on `forge.homelab.matagoth.com` means the runner is registered fine but cannot reach the instance through the reverse proxy, which is a networking problem and not a registration one.
+The two failures worth recognising: a `401` on every poll means the UUID and secret in `/etc/forgejo-runner/config.yml` do not match what Forgejo holds — re-run step 1 with the same secret and compare. A connection error or timeout on `forge.home.matagoth.com:3000` means the runner is registered fine but cannot reach the instance, which is a networking problem and not a registration one. The runner polls Forgejo directly, not through the reverse proxy, and its egress firewall allows exactly that address and port. Check the table is loaded and still names it:
+
+```bash
+./run/host-ssh <vmid> 'systemctl is-active egress-firewall; nft list chain inet egress output | grep 3000'
+```
 
 ## Proving the path end to end
 

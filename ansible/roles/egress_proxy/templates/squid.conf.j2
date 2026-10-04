@@ -1,0 +1,43 @@
+# {{ ansible_managed }}
+#
+# A forward proxy that decides by name and nothing else. It does not
+# intercept TLS: a CONNECT is allowed or refused on its host name, and what
+# passes inside the tunnel is not inspected.
+
+http_port {{ egress_proxy_port }}
+
+# Who may use it. The firewall already limits port {{ egress_proxy_port }}
+# to loopback and the client interfaces; this is the second lock.
+acl clients src 127.0.0.0/8 {{ egress_proxy_lan_ranges | join(' ') }}
+
+acl SSL_ports port 443
+acl Safe_ports port 80 443{% for port in egress_proxy_extra_ports %} {{ port }}{% endfor %}
+
+acl CONNECT method CONNECT
+# -n: never match an IP-literal request by reverse lookup, or anyone who
+# can set a PTR record to an allowed name gets through.
+acl allowlist dstdomain -n "/etc/squid/allowlist.txt"
+
+http_access deny !clients
+http_access deny !Safe_ports
+http_access deny CONNECT !SSL_ports
+{% if egress_proxy_enforce %}
+http_access allow allowlist
+{% else %}
+# Observation mode: everything is allowed and logged.
+http_access allow all
+{% endif %}
+http_access deny all
+
+cache deny all
+# The pinger ICMP-probes every destination for squid's network database,
+# which the firewall would only drop, and nothing here uses.
+pinger_enable off
+forwarded_for delete
+
+access_log daemon:/var/log/squid/access.log squid
+logfile_rotate 7
+
+# The default waits up to 30s for open connections on restart, which stalls
+# every converge that touches this file.
+shutdown_lifetime 3 seconds

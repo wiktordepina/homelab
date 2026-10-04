@@ -285,7 +285,7 @@ A 2xx and a pull request authored by `forge-ci` is the whole proof. Forgejo expo
 
 The runners in 501 and 502 are instance-level and shared by every repository on the forge, and jobs get no Docker socket and no bind mounts, so this token is only as isolated as those machines. The codeowner accepts that: the forge is LAN-only and every repository on it is theirs, so the blast radius is their own repositories and reaching it already requires commit access to one of them.
 
-LAN-only is not the whole of the answer, though, because the risk that survives it is egress rather than ingress. The runner has outbound internet and workflows pull third-party actions from the Forgejo mirror; a compromised mirrored action in any repository's workflow could read this secret and send it out. That is the path to watch.
+LAN-only is not the whole of the answer, though, because the risk that survives it is egress rather than ingress. Workflows pull third-party actions from the Forgejo mirror, and a compromised mirrored action in any repository's workflow could read this secret. The runners' egress allowlist (see the [`forgejo_runner` role README](../../ansible/roles/forgejo_runner/README.md#what-the-runner-can-and-cannot-reach)) narrows where it could send it, to the handful of names CI needs. But some of those names, `github.com` among them, accept uploads, so the path is narrowed, not closed. It is still the one to watch.
 
 ## NetAlertX
 
