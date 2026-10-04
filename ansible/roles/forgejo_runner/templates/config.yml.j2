@@ -10,14 +10,29 @@ runner:
 {% for label in forgejo_runner_labels %}
     - {{ label }}
 {% endfor %}
+  envs:
+{% for name, value in forgejo_runner_job_envs.items() %}
+    {{ name }}: "{{ value }}"
+{% endfor %}
 
 cache:
   enabled: true
   dir: {{ forgejo_runner_home }}/.cache/actcache
+  host: {{ ansible_facts.default_ipv4.address }}
+  port: {{ forgejo_runner_cache_port }}
+  proxy_port: {{ forgejo_runner_cache_proxy_port }}
 
 container:
   network: ""
   privileged: false
+  # Without an explicit --dns, Docker's embedded resolver forwards a job's
+  # lookups from the host's namespace, where the egress firewall cannot tell
+  # them from the host's own and DNS stays open as a tunnel. Pointing jobs at
+  # a dead loopback resolver makes external lookups fail fast; the proxy
+  # resolves for them, and service containers still resolve by name. A
+  # workflow adding its own --dns gets forwarding from the job's namespace,
+  # which the firewall drops.
+  options: "--dns 127.0.0.1"
   # Empty means a job cannot bind-mount anything from this host into its
   # container, and "-" means it is handed no Docker socket. Both are the
   # difference between a test runner and a machine a workflow can escape from.

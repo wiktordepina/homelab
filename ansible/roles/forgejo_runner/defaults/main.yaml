@@ -7,11 +7,16 @@ forgejo_runner_home: /var/lib/forgejo-runner
 forgejo_runner_config_dir: /etc/forgejo-runner
 forgejo_runner_binary: /usr/local/bin/forgejo-runner
 
-# Registering against ROOT_URL rather than the container address: Forgejo
-# embeds ROOT_URL in the callbacks it hands back to a job, so a runner that
-# reached the instance by a different name would be told to report to an
-# address the job containers cannot resolve.
-forgejo_runner_instance_url: https://forge.homelab.matagoth.com/
+# Forgejo's own address, plain HTTP on the LAN, rather than ROOT_URL. The
+# runner hands this URL to every job as the server to clone from and call
+# the API on, so it decides where job traffic to the forge goes: here, 216
+# alone, rather than the reverse proxy that fronts every other service and
+# would let a job ask for any of them by Host header. The egress firewall
+# opens exactly this address and port.
+forgejo_runner_forge_host: forge.home.matagoth.com
+forgejo_runner_forge_ip: 10.20.1.216
+forgejo_runner_forge_port: 3000
+forgejo_runner_instance_url: "http://{{ forgejo_runner_forge_host }}:{{ forgejo_runner_forge_port }}/"
 forgejo_runner_connection_name: homelab
 
 # Which pair of variables in /pve/secrets/forgejo.sh holds *this* runner's
@@ -42,3 +47,41 @@ forgejo_runner_job_log_level: info
 forgejo_runner_labels:
   - docker:docker://docker.io/library/node:22-bookworm
   - ubuntu-latest:docker://docker.io/library/node:22-bookworm
+
+# Pinned rather than random so the egress firewall has a fixed port to open
+# to job containers. Jobs are only given the proxy; the server behind it
+# authenticates the proxy with a shared secret.
+forgejo_runner_cache_port: 40000
+forgejo_runner_cache_proxy_port: 40001
+
+# Jobs reach the outside only through the egress proxy on this host. Both
+# spellings, because curl reads only the lowercase http_proxy.
+forgejo_runner_job_proxy: "http://{{ ansible_facts.default_ipv4.address }}:3128"
+forgejo_runner_job_envs:
+  HTTP_PROXY: "{{ forgejo_runner_job_proxy }}"
+  HTTPS_PROXY: "{{ forgejo_runner_job_proxy }}"
+  http_proxy: "{{ forgejo_runner_job_proxy }}"
+  https_proxy: "{{ forgejo_runner_job_proxy }}"
+  NO_PROXY: "{{ ansible_facts.default_ipv4.address }},localhost,127.0.0.1"
+  no_proxy: "{{ ansible_facts.default_ipv4.address }},localhost,127.0.0.1"
+
+# What jobs (and the daemon, fetching `uses:` actions) may reach, by name,
+# through the egress proxy. Built from what CI on the forge was observed
+# fetching; the README says how to observe before adding to it.
+forgejo_runner_egress_enforce: true
+forgejo_runner_egress_allowlist:
+  - "{{ forgejo_runner_forge_host }}"
+  # Actions, mirrored from upstream (DEFAULT_ACTIONS_URL)
+  - data.forgejo.org
+  # mise: installer, versions index, and the sigstore root it verifies with
+  - mise.run
+  - mise.jdx.dev
+  - mise-versions.jdx.dev
+  - tuf-repo-cdn.sigstore.dev
+  # Toolchain releases mise installs from (python-build-standalone, uv)
+  - github.com
+  - release-assets.githubusercontent.com
+  - nodejs.org
+  # Package registries
+  - files.pythonhosted.org
+  - registry.npmjs.org

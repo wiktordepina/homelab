@@ -85,8 +85,8 @@
   notify: Restart forgejo-runner service
 
 - name: Install forgejo-runner systemd unit
-  ansible.builtin.copy:
-    src: forgejo-runner.service
+  ansible.builtin.template:
+    src: forgejo-runner.service.j2
     dest: /etc/systemd/system/forgejo-runner.service
     owner: root
     group: root

@@ -1,0 +1,25 @@
+---
+# Every runner is fenced, so the fence comes with the role rather than from
+# each container's YAML: a runner added without it would be the one machine
+# a bot's branch push could use to reach anywhere.
+dependencies:
+  - role: egress_proxy
+    vars:
+      egress_proxy_enforce: "{{ forgejo_runner_egress_enforce }}"
+      egress_proxy_allowlist: "{{ forgejo_runner_egress_allowlist }}"
+      egress_proxy_client_interfaces:
+        - docker0
+        - br-*
+      # ACTIONS_CACHE_URL points jobs at the runner's cache proxy.
+      egress_proxy_client_ports:
+        - "{{ forgejo_runner_cache_proxy_port }}"
+      # Forgejo, polled by the daemon and reached by jobs (through squid) on
+      # its own address. Jobs are handed the daemon's connection URL for
+      # checkout and API calls, so neither ever goes through the reverse
+      # proxy that fronts every other service.
+      egress_proxy_extra_ports:
+        - "{{ forgejo_runner_forge_port }}"
+      egress_proxy_direct_destinations:
+        - daddr: "{{ forgejo_runner_forge_ip }}"
+          port: "{{ forgejo_runner_forge_port }}"
+          comment: Forgejo, for the runner daemon and for squid on the jobs' behalf.

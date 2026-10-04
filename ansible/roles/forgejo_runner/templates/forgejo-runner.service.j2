@@ -1,0 +1,24 @@
+[Unit]
+Description=Forgejo Actions Runner
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=runner
+Group=runner
+WorkingDirectory=/var/lib/forgejo-runner
+ExecStart=/usr/local/bin/forgejo-runner daemon --config /etc/forgejo-runner/config.yml
+Environment=HOME=/var/lib/forgejo-runner
+# The daemon fetches `uses:` actions itself, before any job container
+# exists, so it goes through the egress proxy like the jobs do. Forgejo is
+# polled directly, and the host's own address is exempt because the cache
+# proxy reaches the cache server on it.
+Environment=HTTPS_PROXY=http://127.0.0.1:3128
+Environment=HTTP_PROXY=http://127.0.0.1:3128
+Environment=NO_PROXY={{ forgejo_runner_forge_host }},{{ ansible_facts.default_ipv4.address }},localhost,127.0.0.1
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

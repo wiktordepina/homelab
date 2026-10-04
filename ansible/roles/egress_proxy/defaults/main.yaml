@@ -1,0 +1,51 @@
+---
+# False is the observation mode: squid allows any name and the firewall's
+# default verdict is accept, but both still record what they would have
+# refused (squid's access log, the nftables `observed_*` sets). A new host
+# starts here so its allowlist can be built from what it actually does.
+egress_proxy_enforce: false
+
+egress_proxy_port: 3128
+
+# Names squid will CONNECT to (or fetch over plain HTTP). A leading dot
+# matches the name and every subdomain, as in squid's dstdomain.
+egress_proxy_allowlist: []
+
+# Ports beyond 80/443 that squid will forward to, for an internal service
+# on its own port. Squid's own egress is still bounded by the firewall, so
+# this only works towards a destination listed below as well.
+egress_proxy_extra_ports: []
+
+# Interfaces whose traffic is a *client* of this host rather than the host
+# itself — Docker bridges on a CI runner. Their forwarded traffic is dropped
+# outright; they may only talk to the proxy and to egress_proxy_client_ports
+# on this host. Trailing `*` is an nftables interface wildcard.
+egress_proxy_client_interfaces: []
+egress_proxy_client_ports: []
+
+# Users whose outbound 80/443 may bypass squid. root because a root process
+# in this container can rewrite these rules anyway, so fencing it buys
+# nothing; _apt because apt drops to it for downloads, and an apt that
+# cannot fetch makes every converge fail.
+egress_proxy_direct_users:
+  - root
+  - _apt
+
+# Extra direct destinations from the host itself, for traffic that must not
+# go through squid (a plain-HTTP internal service, say).
+#   - { daddr: 10.20.1.216, port: 3000, comment: "..." }
+egress_proxy_direct_destinations: []
+
+egress_proxy_resolver: 10.20.0.1
+
+# Never reachable from this host, even in observation mode. The PVE
+# management address: nothing a guest legitimately does goes there.
+egress_proxy_blocked_destinations:
+  - 192.168.200.100
+
+egress_proxy_lan_ranges:
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+
+egress_proxy_nft_file: /etc/nftables.d/egress.nft
