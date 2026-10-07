@@ -433,7 +433,7 @@ Before the first converge, because the role refuses to run without it. The token
 | ./run/pve-ssh 'read -r t && printf "export MATABOT_FORGE_TOKEN=%s\n" "$t" > /zpool/secrets/claude_workstation.sh && chmod 0644 /zpool/secrets/claude_workstation.sh'
 
 ./run/pve-ssh 'wc -c /zpool/secrets/claude_workstation.sh'
-# 61 /zpool/secrets/claude_workstation.sh
+# 68 /zpool/secrets/claude_workstation.sh
 ```
 
 `read:user` is for `fj whoami` and nothing else. Mode `0644` is required, not careless: the runner is unprivileged and cannot read a `0600` secret.
@@ -466,6 +466,7 @@ Still in that session, confirm the managed settings are in force:
 - `/status` lists **Enterprise managed settings (file)** among the setting sources.
 - `/mcp` shows no claude.ai connectors (no Gmail, Drive or Calendar).
 - `/permissions` shows the managed allow and deny lists and no way to add a rule.
+- Shift+Tab cycles through the permission modes without ever offering auto mode.
 
 Then, from the agent's shell:
 

@@ -154,13 +154,16 @@
     HOME: "{{ claude_workstation_home }}"
     PATH: "{{ claude_workstation_bin_dir }}:/usr/local/bin:/usr/bin:/bin"
 
-- name: Put the agent's tools on PATH and activate mise
+# At the top of .bashrc, above Debian's early return for non-interactive
+# shells, which is the kind Claude Code's Bash tool runs. mise's shims resolve
+# each repository's pinned tools without `mise activate`, which needs a prompt.
+- name: Put the agent's tools and mise shims on PATH
   ansible.builtin.blockinfile:
     path: "{{ claude_workstation_home }}/.bashrc"
     marker: "# {mark} claude_workstation"
+    insertbefore: BOF
     block: |
-      export PATH="{{ claude_workstation_bin_dir }}:$PATH"
-      eval "$({{ claude_workstation_bin_dir }}/mise activate bash)"
+      export PATH="{{ claude_workstation_bin_dir }}:{{ claude_workstation_home }}/.local/share/mise/shims:$PATH"
     owner: "{{ claude_workstation_user }}"
     group: "{{ claude_workstation_user }}"
     mode: '0644'

@@ -16,7 +16,7 @@ claude_workstation_mise_installer_url: https://mise.run
 # Install-time pin. mait-code's bootstrap clones this ref and is not re-run once
 # installed; upgrading is a deliberate re-run (see the README).
 claude_workstation_mait_code_ref: v0.78.0
-claude_workstation_mait_code_bootstrap_url: https://raw.githubusercontent.com/wiktordepina/mait-code/main/scripts/bootstrap.sh
+claude_workstation_mait_code_bootstrap_url: "https://raw.githubusercontent.com/wiktordepina/mait-code/{{ claude_workstation_mait_code_ref }}/scripts/bootstrap.sh"
 
 claude_workstation_fj_version: "0.6.0"
 claude_workstation_fj_sha256: ea559da5449b6dd7e0dd9f7ea51c906b575696f782edd606b52adcf773602742
@@ -34,6 +34,9 @@ claude_workstation_bot_token: "{{ lookup('ansible.builtin.env', 'MATABOT_FORGE_T
 # allowManagedPermissionRulesOnly these are the only rules in force: a session's
 # "always allow" is not saved, and rules written into a repository's
 # .claude/settings.json are ignored. Anything not allowed prompts.
+#
+# The allow list is convenience, not containment: several entries run code or
+# read files by design (see the README), and no pattern list closes that.
 claude_workstation_permissions_allow:
   - "Edit(/{{ claude_workstation_work_dir }}/**)"
   - "Bash(git status)"
@@ -81,11 +84,6 @@ claude_workstation_permissions_allow:
   - "Bash(jq *)"
   - "Bash(yq *)"
   - "Bash(pwd)"
-claude_workstation_permissions_ask:
-  - "Bash(git push --force*)"
-  - "Bash(git push -f*)"
-  - "Bash(git push * --force*)"
-  - "Bash(git push * -f*)"
 claude_workstation_permissions_deny:
   - "Read(~/.ssh/**)"
   - "Read(~/.git-credentials)"
@@ -93,10 +91,6 @@ claude_workstation_permissions_deny:
   - "Read(~/.claude/.credentials.json)"
   - "Read(//**/.env)"
   - "Read(//**/*.env)"
-  # git runs .git/hooks on commit, and a repository's .git/config can point
-  # core.hooksPath anywhere, so an allowed `git commit` would otherwise execute
-  # whatever the session had written there.
-  - "Edit(/{{ claude_workstation_work_dir }}/**/.git/**)"
 
 claude_workstation_managed_settings:
   disableClaudeAiConnectors: true
@@ -106,7 +100,6 @@ claude_workstation_managed_settings:
   permissions:
     disableBypassPermissionsMode: disable
     allow: "{{ claude_workstation_permissions_allow }}"
-    ask: "{{ claude_workstation_permissions_ask }}"
     deny: "{{ claude_workstation_permissions_deny }}"
   hooks:
     PreToolUse:
@@ -114,18 +107,24 @@ claude_workstation_managed_settings:
         hooks:
           - type: command
             command: "/usr/bin/jq -c '{session_id, cwd, command: .tool_input.command}' | /usr/bin/logger -t claude-code-audit"
-    # mait-code installs these into the user settings, where
-    # allowManagedHooksOnly ignores them. Re-check against `mait-code install`
-    # when the pinned ref moves.
+    # mait-code declares these in its config/settings.json, which `mait-code
+    # install` merges into the user settings, where allowManagedHooksOnly ignores
+    # them. Keep commands, timeouts and async in step with that file at the
+    # pinned ref.
     SessionStart:
       - hooks:
           - type: command
             command: "{{ claude_workstation_bin_dir }}/mc-hook-session-start"
+            timeout: 10
     PreCompact:
       - hooks:
           - type: command
             command: "{{ claude_workstation_bin_dir }}/mc-hook-observe --trigger precompact"
+            timeout: 60
+            async: true
     SessionEnd:
       - hooks:
           - type: command
             command: "{{ claude_workstation_bin_dir }}/mc-hook-observe --trigger session-end"
+            timeout: 60
+            async: true

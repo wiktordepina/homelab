@@ -30,17 +30,27 @@ It reaches the forge over HTTPS as `matabot`, with one token in `~/.git-credenti
 | `allowManagedHooksOnly: true` | The agent writes freely under `~/work`, and that includes each repository's `.claude/settings.json`. A hook declared there would run commands with no prompt in the next session. Only the hooks below run. |
 | `allowManagedPermissionRulesOnly: true` | The same path, for allow rules: a repository could otherwise widen the agent's own permissions. A session's "always allow" is therefore not saved. Everything not on the allow list prompts. |
 
-The **hooks** are an audit hook and mait-code's own three, which `mait-code install` writes into the user settings, where the lock above ignores them. The audit hook sends every Bash command, with its session and working directory, to the journal before it runs:
+The **hooks** are an audit hook and mait-code's own three, which `mait-code install` writes into the user settings, where the lock above ignores them. They are copied with mait-code's timeouts and with `async` on the observe hooks, so compaction and session exit do not wait for them. The audit hook sends every Bash command, with its session and working directory, to the journal before it runs:
 
 ```bash
 journalctl -t claude-code-audit
 ```
 
-The agent can also write to the journal under that tag, so treat the log as a record that cannot be erased, not as one that cannot be forged. When the pinned mait-code ref moves, compare its hooks with the three declared in `defaults/main.yaml`.
+The agent can also write to the journal under that tag, so treat the log as a record that cannot be erased, not as one that cannot be forged. When the pinned mait-code ref moves, compare `config/settings.json` at that ref with the three hooks declared in `defaults/main.yaml`.
 
-The **allow list** is routine work that should not need a phone tap: reading and committing with git, `fj`, syncing and testing, mait-code's tools and read-only shell utilities. Allowing something that runs project code is allowing code execution, because the agent writes that code. `uv run pytest` runs `conftest.py`, and `git commit` runs `.git/hooks`. The second is closed by denying the Edit tool inside `.git/` in work repositories; the first is accepted. **The prompt is not the security boundary.** The VM and the credentials the host does not hold are. Force-pushes always ask.
+The **allow list** is routine work that should not need a phone tap: reading and committing with git, `fj`, syncing and testing, mait-code's tools and read-only shell utilities. It is convenience and visibility, **not containment**, and no list of patterns could make it containment:
 
-The **read denials** cover the forge token, SSH keys, Claude Code's own credentials and `.env` files. They stop the Read tool and shell file commands such as `cat`. They do not stop a program the agent writes from opening the file, so they are a speed bump, not a wall.
+- Several entries run code the agent can write. `uv run pytest` runs `conftest.py`, `git commit` runs `.git/hooks`, and `git fetch --upload-pack=<command>` runs a command outright.
+- Several read files the deny rules below name. `git diff --no-index /dev/null ~/.git-credentials` prints the forge token without a prompt.
+- `git push *` includes rewriting history (`+refspec`, `--mirror`, deletes). What stops that reaching `main` is branch protection on the forge, where only `matagoth` merges and nobody pushes.
+
+So an injected session can run code and read the bot's credentials without asking. The managed settings stop it **persisting** a wider grant for later sessions (hooks, allow rules, connectors, bypass and auto mode); they do not stop what a single session can do.
+
+The **read denials** cover the forge token, SSH keys, Claude Code's own credentials and `.env` files. They stop the Read tool and plain shell reads such as `cat`. As above, they do not stop an allowed command or a program the agent writes, so they are a speed bump.
+
+## Network posture
+
+**218 has no firewall yet.** It reaches every LAN service on any port, PVE included, and the internet without restriction, with a forge write token on disk. Combined with the allow list above, the VM is a kernel boundary, not a network one. That is accepted for now and will close when the egress fence arrives. The intended shape is SSH in only from the operator's machines and the apply runner; out only to the resolver, the forge through the reverse proxy, and an allowlisted internet. Until then, treat anything the workstation can reach as reachable by the agent.
 
 The Bash sandbox is not used, so `bubblewrap` and `socat` are not installed.
 
