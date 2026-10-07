@@ -164,14 +164,32 @@ Code and pulls are what `forge-ci` uses: it opens pull requests. Releases are le
 
 What keeping `ci` to named repositories buys is containment: the token is readable by every workflow on a repository that holds it, and a leaked copy reaches the repositories in this team and no others.
 
-On a forge where the team already exists covering every repository, or with the releases unit, narrow it in place and add back the repositories that use the token:
+On a forge where the team already exists covering every repository, or with the releases unit, narrow it in place. **`permission` must be in the body.** The edit endpoint only reads `includes_all_repositories` when `permission` is also sent, and without it the call still answers `200`, applies the units and silently leaves the flag on:
 
 ```bash
 curl -X PATCH \
   -H "Authorization: token <matagoth-token>" \
   -H 'Content-Type: application/json' \
-  -d '{"name":"ci","includes_all_repositories":false,"units":["repo.code","repo.pulls"]}' \
-  https://forge.homelab.matagoth.com/api/v1/teams/<ci-team-id>
+  -d '{"name":"ci","permission":"write","includes_all_repositories":false,"units":["repo.code","repo.pulls"]}' \
+  https://forge.homelab.matagoth.com/api/v1/teams/<ci-team-id> \
+  | jq '{includes_all_repositories, units}'
+# {"includes_all_repositories": false, "units": ["repo.code", "repo.pulls"]}
+```
+
+Turning the flag off keeps every repository the team was already linked to. Remove each one that does not use the token (each call returns `204`):
+
+```bash
+curl -X DELETE \
+  -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<ci-team-id>/repos/matagoth-zaibatsu/<repo>
+```
+
+Then list what is left. It should be exactly the repositories that hold `FORGE_CI_TOKEN`:
+
+```bash
+curl -s -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<ci-team-id>/repos | jq -r '.[].full_name'
+# matagoth-zaibatsu/fin_hub
 ```
 
 **Add `forge-ci` to it, and the repositories that use its token** — today only `fin_hub` — using the team id returned above:
