@@ -39,3 +39,10 @@ forgejo_runners: []
 # not in this repository — see docs/runbooks/post-deploy-setup.md.
 forgejo_ci_user: forge-ci
 forgejo_ci_email: forge-ci@home.matagoth.com
+
+# The forge-only account Claude Code works as from the workstation. Created restricted,
+# so it sees only the repositories it has been added to. Its token is minted by hand
+# when the workstation is built. The address need not receive mail; the domain being
+# ours is what stops anyone verifying it on GitHub and claiming the bot's commits.
+forgejo_bot_user: matabot
+forgejo_bot_email: matabot@noreply.matagoth.com

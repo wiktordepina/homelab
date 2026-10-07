@@ -128,9 +128,9 @@ Forgejo runs as a native binary in LXC 216 at `10.20.1.216`, configured by the `
 
 ### 1. The organisation and the `ci` team
 
-Repositories that carry CI live in the `matagoth-zaibatsu` organisation, not under the `matagoth` user. The reason is `forge-ci` (below): it is not an admin and every repository is private, so it must be granted access explicitly. Granted per repository, that is a manual step repeated for every new repository; granted through an organisation team, it is done once and inherited.
+Repositories that carry CI live in the `matagoth-zaibatsu` organisation, not under the `matagoth` user. The reason is `forge-ci` (below): it is not an admin and every repository is private, so it must be granted access explicitly, and an organisation team is where those grants live. They are deliberately made one repository at a time rather than inherited by every repository, because a team's access is only as contained as the token that carries it.
 
-Organisations cannot be created by the `forgejo` role — the local admin CLI has no equivalent of `admin user create` for them, and the API needs a token the role does not hold. `DEFAULT_ALLOW_CREATE_ORGANIZATION` is already true in `app.ini`, so this is a manual step rather than a configuration change.
+Organisations cannot be created by the `forgejo` role — the local admin CLI has no equivalent of `admin user create` for them, and the API needs a token the role does not hold. `app.ini` stops non-admins creating organisations, but `matagoth` is an admin, so this is a manual step rather than a configuration change.
 
 **Create the organisation**, signed in as `matagoth`:
 
@@ -142,7 +142,7 @@ curl -X POST \
   https://forge.homelab.matagoth.com/api/v1/orgs
 ```
 
-**Create the `ci` team.** `includes_all_repositories` is what makes this worth doing: a repository created in the organisation later is covered without a further grant.
+**Create the `ci` team.** It covers **no** repository by default; each repository whose workflows use `FORGE_CI_TOKEN` is added to it explicitly.
 
 ```bash
 curl -X POST \
@@ -152,25 +152,118 @@ curl -X POST \
         "name":"ci",
         "description":"forge-ci: opens the pull requests the automatic job token cannot",
         "permission":"write",
-        "includes_all_repositories":true,
+        "includes_all_repositories":false,
         "can_create_org_repo":false,
-        "units":["repo.code","repo.pulls","repo.releases"]
+        "units":["repo.code","repo.pulls"]
       }' \
   https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/teams
 # note the team id in the response
 ```
 
-The three units mirror the `write:repository` token scope below — code, pulls and releases and nothing else. A team granting more than the token can use would be misleading about what `forge-ci` can actually do.
+Code and pulls are what `forge-ci` uses: it opens pull requests. Releases are left out because nothing needs them, not because leaving them out is a control. Code write on a repository with Actions enabled already includes Releases: a pushed branch can carry a workflow, and the automatic job token can create a Release (section 2). In `fin_hub`, where the Release rather than the tag is what deploys, that means **anyone with code write can create a Release for an existing tag**, including one `release-publish.yml` refused. The control for that is on the deploying side, which must verify the tag signature itself rather than trust that a Release exists. Until it does, code write on `fin_hub` is deploy access, and is granted accordingly.
 
-**Add `forge-ci` to it**, using the team id returned above:
+What keeping `ci` to named repositories buys is containment: the token is readable by every workflow on a repository that holds it, and a leaked copy reaches the repositories in this team and no others.
+
+On a forge where the team already exists covering every repository, or with the releases unit, narrow it in place and add back the repositories that use the token:
+
+```bash
+curl -X PATCH \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"ci","includes_all_repositories":false,"units":["repo.code","repo.pulls"]}' \
+  https://forge.homelab.matagoth.com/api/v1/teams/<ci-team-id>
+```
+
+**Add `forge-ci` to it, and the repositories that use its token** — today only `fin_hub` — using the team id returned above:
 
 ```bash
 curl -X PUT \
   -H "Authorization: token <matagoth-token>" \
   https://forge.homelab.matagoth.com/api/v1/teams/<team-id>/members/forge-ci
+
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<team-id>/repos/matagoth-zaibatsu/fin_hub
 ```
 
+A repository that starts using `FORGE_CI_TOKEN` needs both: the secret on the repository (section 2) and the repository in this team. Either alone fails with a `403`/`404` from the pull-request call.
+
 `forge-ci` should be the team's only member. A human added here would be granted through CI's path rather than their own, which makes an audit of either one meaningless.
+
+**Create the `agents` team** for `matabot`, the account Claude Code works as from the workstation. It is a team of its own rather than a second member of `ci`, for the same audit reason, and unlike `ci` it covers **no** repository by default: `matabot` gets only the repositories it is explicitly given.
+
+```bash
+curl -X POST \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "name":"agents",
+        "description":"matabot: Claude Code on the workstation; repositories granted one by one",
+        "permission":"write",
+        "includes_all_repositories":false,
+        "can_create_org_repo":false,
+        "units":["repo.code","repo.pulls","repo.issues"]
+      }' \
+  https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/teams
+# note the team id in the response
+
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<agents-team-id>/members/matabot
+```
+
+The `forgejo` role creates `matabot` restricted, but its CLI cannot report the flag afterwards, so confirm it through the admin API:
+
+```bash
+curl -s -H "Authorization: token <matagoth-token>" \
+  'https://forge.homelab.matagoth.com/api/v1/admin/users?limit=50' \
+  | jq '.[] | select(.login=="matabot") | {login, restricted, is_admin}'
+# {"login": "matabot", "restricted": true, "is_admin": false}
+```
+
+Grant a repository when the bot is to work on it:
+
+```bash
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<agents-team-id>/repos/matagoth-zaibatsu/<repo>
+```
+
+Before granting one, check two things, because write access on a repository with Actions enabled reaches further than the repository:
+
+- **Its Actions secrets.** A branch the bot pushes can add a workflow that prints any secret the repository receives. The repository must hold no secret the bot should not have. Today that rules out `fin_hub`, which holds `FORGE_CI_TOKEN` (section 2).
+- **Whether a Release deploys it.** The `agents` team has no releases unit, but that does not keep the bot from Releases: a branch it pushes can carry a workflow, and the automatic job token can create one. So a repository whose Releases deploy something must not be granted until the deploying side verifies the tag signature itself. Today that also rules out `fin_hub`.
+
+`matabot` has no repository of its own and cannot create one; see [Creation limits](../../ansible/roles/forgejo/README.md#creation-limits).
+
+**Protect `main` on every repository in the organisation**, not only those the bot is granted. Grants to `ci` and `agents` change over time, and a repository added to either must already be protected when the grant lands rather than after someone remembers. Protecting every `main` up front makes that ordering impossible to get wrong. Only `matagoth` merges:
+
+```bash
+curl -X POST \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "rule_name":"main",
+        "enable_push":false,
+        "enable_merge_whitelist":true,
+        "merge_whitelist_usernames":["matagoth"],
+        "block_on_rejected_reviews":true,
+        "dismiss_stale_approvals":true,
+        "apply_to_admins":true
+      }' \
+  https://forge.homelab.matagoth.com/api/v1/repos/matagoth-zaibatsu/<repo>/branch_protections
+```
+
+For a repository that already has a `main` rule, send the same body (without `rule_name`) plus `"required_approvals":0` as a `PATCH` to `.../branch_protections/main`. The `PATCH` leaves fields it is not sent untouched, so an older rule's required approvals would otherwise survive and block `matagoth`'s own pull requests (see below). A pre-existing rule with `enable_push: false` but no merge allowlist only looks protected: any account with write access can open a pull request and merge it itself.
+
+The allowlist is deliberately for **merging**, not required approvals. Forgejo does not let a pull request's author approve it, so a required approval would block `matagoth`'s own pull requests, while the merge allowlist has the intended effect: the bot proposes, and only `matagoth` lands it. Confirm the rule took:
+
+```bash
+curl -s -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/repos/matagoth-zaibatsu/<repo>/branch_protections/main \
+  | jq '{enable_push, enable_merge_whitelist, merge_whitelist_usernames, apply_to_admins}'
+# {"enable_push": false, "enable_merge_whitelist": true, "merge_whitelist_usernames": ["matagoth"], "apply_to_admins": true}
+```
 
 Repositories move in with a transfer. Transferring into an organisation you already own completes immediately — there is no pending invitation to accept — and issues, pull requests, releases, Actions history and existing collaborators all survive it:
 
@@ -229,10 +322,10 @@ su - git -c '/usr/local/bin/forgejo --config /etc/forgejo/app.ini \
 
 `write:repository` covers pulls, contents and releases, and nothing else — the token cannot read `/api/v1/user`, which is expected rather than a symptom. Add `read:user` only if something turns out to need it.
 
-**Install it as a secret.** Forgejo has no instance-level Actions secret; the admin panel offers global *variables* only, and the API exposes secrets at repository, organisation and user level. An **organisation** secret is the one copy that reaches every repository in `matagoth-zaibatsu`:
+**Install it as a secret on each repository that uses it, and on no other.** Forgejo has no instance-level Actions secret; the admin panel offers global *variables* only, and the API exposes secrets at repository, organisation and user level. Today only `fin_hub` uses the token (`release-prep.yml` opens the release pull request with it):
 
 ```
-https://forge.homelab.matagoth.com/org/matagoth-zaibatsu/settings/actions/secrets
+https://forge.homelab.matagoth.com/matagoth-zaibatsu/fin_hub/settings/actions/secrets
 ```
 
 Add a secret named `FORGE_CI_TOKEN` with the minted value. The equivalent call, signed in as `matagoth`, is:
@@ -242,22 +335,33 @@ curl -X PUT \
   -H "Authorization: token <matagoth-token>" \
   -H 'Content-Type: application/json' \
   -d '{"data":"<forge-ci-token>"}' \
-  https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/actions/secrets/FORGE_CI_TOKEN
+  https://forge.homelab.matagoth.com/api/v1/repos/matagoth-zaibatsu/fin_hub/actions/secrets/FORGE_CI_TOKEN
 ```
 
-The value is write-only afterwards. If it is ever lost, mint a new one and overwrite the secret rather than hunting for the old one — nothing else stores a copy, deliberately.
+The value is write-only afterwards. If it is ever lost, mint a new one and overwrite the secret rather than hunting for the old one — nothing else stores a copy, deliberately. A second repository that needs it gets its own copy of the same value, set the same way.
 
-The level matters more than it looks. A secret set on the `matagoth` *user* reaches only repositories that user owns, so it resolves to nothing the moment a repository is transferred into the organisation — and a workflow whose `secrets.FORGE_CI_TOKEN` is empty fails with the same `403` shape as a badly scoped token. When moving a repository in, create the organisation secret first.
+The level is the point. An **organisation** secret would be one copy reaching every repository in `matagoth-zaibatsu`, which is convenient and is how this started. But any account that can push a branch to a repository with Actions enabled can add a workflow that prints every secret that repository receives. With an organisation secret, write access on *any* organisation repository becomes `forge-ci`'s write access on every repository in the `ci` team, which is exactly the reach the `agents` team is designed to withhold from `matabot`. At repository level, the token is exposed only where it is used, and those repositories are kept out of `agents`.
 
-An older user-level copy left behind is dead weight rather than a fallback — nothing resolves it once no repository is owned by that user — so delete it once the organisation secret is proven:
+A *user* secret is no better: one set on `matagoth` reaches only repositories that user owns, so it resolves to nothing once a repository is in the organisation, and a workflow whose `secrets.FORGE_CI_TOKEN` is empty fails with the same `403` shape as a badly scoped token.
+
+Copies left at either level are a leak, not a fallback. Confirm the organisation and the `matagoth` user hold none:
+
+```bash
+curl -s -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/actions/secrets | jq -r '.[].name'
+# (no output)
+```
+
+There is no API to *list* user-level secrets — `GET /api/v1/user/actions/secrets` is a 404, unlike its organisation equivalent — so check `https://forge.homelab.matagoth.com/user/settings/actions/secrets` by eye. Delete a stray copy with:
 
 ```bash
 curl -X DELETE \
   -H "Authorization: token <matagoth-token>" \
-  https://forge.homelab.matagoth.com/api/v1/user/actions/secrets/FORGE_CI_TOKEN
+  https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/actions/secrets/FORGE_CI_TOKEN
+# or, for a user-level copy:  .../api/v1/user/actions/secrets/FORGE_CI_TOKEN
 ```
 
-There is no API to *list* user-level secrets — `GET /api/v1/user/actions/secrets` is a 404, unlike its organisation equivalent — so confirm what is there at `https://forge.homelab.matagoth.com/user/settings/actions/secrets` rather than by query.
+Moving the token from organisation to repository level means minting a new one: the organisation secret is write-only, so its value cannot be copied across. Set the new value on each repository first, prove a workflow still opens its pull request (section 3), then delete the organisation copy.
 
 Deleting the secret does not revoke the token it held, and **a superseded `forge-ci` token cannot be revoked without more work than it sounds**. The admin CLI generates tokens but neither lists nor deletes them, and `DELETE /api/v1/users/forge-ci/tokens/<name>` authenticates with basic auth *as `forge-ci`* — an account whose password is random and discarded at creation, so nobody holds it. Revoking one means setting a password on the account first, deleting the token with it, and letting the next converge clear the must-change-password flag that `admin user change-password` re-arms.
 
@@ -265,7 +369,7 @@ The consequence is worth stating rather than discovering: **minting a replacemen
 
 ### 3. Confirm it
 
-The token's scope bounds what `forge-ci` *may* do; the team grant is what gives it access to anything. Both have to be right, and the check that matters is the one that fails with the automatic token. From a workflow on a repository in the organisation:
+The token's scope bounds what `forge-ci` *may* do; the team grant is what gives it access to anything. Both have to be right, and the check that matters is the one that fails with the automatic token. From a workflow on a repository that holds the secret:
 
 ```yaml
 - name: Open a pull request with the CI token
@@ -284,6 +388,8 @@ A 2xx and a pull request authored by `forge-ci` is the whole proof. Forgejo expo
 ### On the blast radius
 
 The runners in 501 and 502 are instance-level and shared by every repository on the forge, and jobs get no Docker socket and no bind mounts, so this token is only as isolated as those machines. The codeowner accepts that: the forge is LAN-only and every repository on it is theirs, so the blast radius is their own repositories and reaching it already requires commit access to one of them.
+
+That last clause stopped being only the codeowner once `matabot` exists, because the bot has commit access by design. It is why the token lives on the repositories that use it rather than on the organisation, why both teams name their repositories one by one, and why every `main` admits only `matagoth`'s merges: holding the bot's access, or anything a workflow on its repositories can read, should reach no further than those repositories. It cannot be made to exclude Releases on those repositories, because code write includes them through the job token, which is why a repository whose Releases deploy is not granted to the bot until the deploying side verifies signatures.
 
 LAN-only is not the whole of the answer, though, because the risk that survives it is egress rather than ingress. Workflows pull third-party actions from the Forgejo mirror, and a compromised mirrored action in any repository's workflow could read this secret. The runners' egress allowlist (see the [`forgejo_runner` role README](../../ansible/roles/forgejo_runner/README.md#what-the-runner-can-and-cannot-reach)) narrows where it could send it, to the handful of names CI needs. But some of those names, `github.com` among them, accept uploads, so the path is narrowed, not closed. It is still the one to watch.
 
