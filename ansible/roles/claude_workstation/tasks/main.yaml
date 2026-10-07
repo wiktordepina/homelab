@@ -190,6 +190,10 @@
 
 # Only when fj holds no key yet: fj keeps its own store, and rotating the token
 # means deleting that file and converging again (see the README).
+#
+# fj 0.6.0 renamed add-key to add-token and dropped its USER argument; given
+# one, it stores the username as the token and every call answers "access
+# token does not exist".
 - name: Give fj the forge token
   ansible.builtin.command:
     argv:
@@ -197,8 +201,7 @@
       - "-H"
       - "{{ claude_workstation_forge_host }}"
       - auth
-      - add-key
-      - "{{ claude_workstation_bot_user }}"
+      - add-token
     stdin: "{{ claude_workstation_bot_token }}"
     stdin_add_newline: false
     creates: "{{ claude_workstation_home }}/.local/share/forgejo-cli/keys.json"
