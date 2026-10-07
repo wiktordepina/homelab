@@ -81,3 +81,10 @@ resource "dns_a_record_set" "hermes" {
   addresses = ["10.20.1.217"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "workstation" {
+  zone      = "home.matagoth.com."
+  name      = "workstation"
+  addresses = ["10.20.1.218"]
+  ttl       = 500
+}

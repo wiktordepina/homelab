@@ -61,6 +61,7 @@ jobs:
         vmid:
           - 214   # vm-01 (general-purpose, currently switchbot BLE bridge)
           - 217   # Hermes Agent
+          - 218   # Claude Code workstation
     uses: ./.github/workflows/_vm.yml
     secrets: inherit
     with:
