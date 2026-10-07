@@ -1,0 +1,24 @@
+---
+# Claude Code workstation. A VM rather than an LXC because the agent runs
+# arbitrary code, so it gets a kernel boundary of its own, as Hermes (217)
+# does. Claude Code runs as the unprivileged `agent` user with no sudo, under
+# root-owned managed settings; it works on forge repositories granted to the
+# `matabot` account and nothing on GitHub. See the claude_workstation role
+# README.
+#
+# No extra mounts: the agent's checkouts under ~/work are on the rootfs and are
+# lost on a rebuild, but everything there is pushed to the forge.
+terraform:
+  vmid: 218
+  hostname: workstation
+  ip_address: 10.20.1.218/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 4
+  memory: 8192
+  start_on_boot: true
+  rootfs_size: 100G
+
+ansible:
+  roles:
+    - base
+    - claude_workstation

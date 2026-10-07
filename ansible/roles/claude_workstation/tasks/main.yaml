@@ -1,0 +1,274 @@
+---
+# Checked before anything changes, so a converge without the secret fails at
+# the top rather than half-way, with the agent user built but unable to reach
+# the forge.
+- name: Require the bot's forge token
+  ansible.builtin.assert:
+    that:
+      - claude_workstation_bot_token is match('^[0-9a-f]{40}$')
+    fail_msg: >-
+      MATABOT_FORGE_TOKEN must be exported from /pve/secrets/claude_workstation.sh
+      on the apply runner as 40 hexadecimal characters. See post-deploy-setup for
+      how it is minted.
+    quiet: true
+
+- name: Install host packages
+  # bubblewrap and socat are deliberately absent: the Claude Code Bash sandbox
+  # is not used on this host.
+  ansible.builtin.apt:
+    name:
+      - git
+      - tmux
+      - curl
+      - ca-certificates
+      - jq
+      - ripgrep
+      - python3
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# Debian's `yq` package is the Python jq wrapper, not mikefarah's yq, which is
+# what the repositories here script against.
+- name: Install yq
+  ansible.builtin.get_url:
+    url: "https://github.com/mikefarah/yq/releases/download/v{{ claude_workstation_yq_version }}/yq_linux_amd64"
+    dest: /usr/local/bin/yq
+    checksum: "sha256:{{ claude_workstation_yq_sha256 }}"
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Fetch the forgejo-cli release
+  ansible.builtin.get_url:
+    url: "https://codeberg.org/forgejo-contrib/forgejo-cli/releases/download/v{{ claude_workstation_fj_version }}/forgejo-cli-x86_64-linux.tar.gz"
+    dest: "/usr/local/src/forgejo-cli-{{ claude_workstation_fj_version }}.tar.gz"
+    checksum: "sha256:{{ claude_workstation_fj_sha256 }}"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install fj
+  ansible.builtin.unarchive:
+    src: "/usr/local/src/forgejo-cli-{{ claude_workstation_fj_version }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    include:
+      - fj
+    owner: root
+    group: root
+    mode: '0755'
+
+# No sudo and no privileged groups: everything the agent can do as root is a
+# way round the managed settings below, which are only binding because the
+# agent cannot write /etc.
+- name: Create the agent user
+  ansible.builtin.user:
+    name: "{{ claude_workstation_user }}"
+    home: "{{ claude_workstation_home }}"
+    shell: /bin/bash
+    create_home: true
+
+- name: Restrict the agent's home
+  ansible.builtin.file:
+    path: "{{ claude_workstation_home }}"
+    state: directory
+    owner: "{{ claude_workstation_user }}"
+    group: "{{ claude_workstation_user }}"
+    mode: '0750'
+
+- name: Create the work directory
+  ansible.builtin.file:
+    path: "{{ claude_workstation_work_dir }}"
+    state: directory
+    owner: "{{ claude_workstation_user }}"
+    group: "{{ claude_workstation_user }}"
+    mode: '0750'
+
+# The control service's own account. How it reads the agent's data is decided
+# with the service itself; until then it has no access to the agent's home.
+- name: Create the control service user
+  ansible.builtin.user:
+    name: "{{ claude_workstation_service_user }}"
+    home: "{{ claude_workstation_service_home }}"
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: true
+
+- name: Restrict the control service's home
+  ansible.builtin.file:
+    path: "{{ claude_workstation_service_home }}"
+    state: directory
+    owner: "{{ claude_workstation_service_user }}"
+    group: "{{ claude_workstation_service_user }}"
+    mode: '0700'
+
+- name: Fetch the user-level installers
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "/usr/local/src/{{ item.name }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - { name: claude-install.sh, url: "{{ claude_workstation_installer_url }}" }
+    - { name: uv-install.sh, url: "{{ claude_workstation_uv_installer_url }}" }
+    - { name: mise-install.sh, url: "{{ claude_workstation_mise_installer_url }}" }
+    - { name: mait-code-bootstrap.sh, url: "{{ claude_workstation_mait_code_bootstrap_url }}" }
+  loop_control:
+    label: "{{ item.name }}"
+
+# Install-time only, and as the agent, so each tool can update itself in place:
+# Claude Code's native install keeps auto-updating from here. The installers are
+# kept from editing shell rc files; PATH is set once below.
+- name: Install Claude Code, uv and mise for the agent
+  ansible.builtin.command:
+    argv: ["/bin/bash", "/usr/local/src/{{ item.script }}"]
+    creates: "{{ claude_workstation_bin_dir }}/{{ item.creates }}"
+  loop:
+    - { script: claude-install.sh, creates: claude }
+    - { script: uv-install.sh, creates: uv }
+    - { script: mise-install.sh, creates: mise }
+  loop_control:
+    label: "{{ item.creates }}"
+  become: true
+  become_user: "{{ claude_workstation_user }}"
+  environment:
+    HOME: "{{ claude_workstation_home }}"
+    UV_NO_MODIFY_PATH: "1"
+    MISE_INSTALL_PATH: "{{ claude_workstation_bin_dir }}/mise"
+
+# After Claude Code, because `mait-code install` wires itself into ~/.claude.
+# Not re-run once installed: moving the pinned ref is a deliberate upgrade.
+- name: Install mait-code for the agent
+  ansible.builtin.command:
+    argv:
+      - /bin/bash
+      - /usr/local/src/mait-code-bootstrap.sh
+      - --ref
+      - "{{ claude_workstation_mait_code_ref }}"
+    creates: "{{ claude_workstation_bin_dir }}/mait-code"
+  become: true
+  become_user: "{{ claude_workstation_user }}"
+  environment:
+    HOME: "{{ claude_workstation_home }}"
+    PATH: "{{ claude_workstation_bin_dir }}:/usr/local/bin:/usr/bin:/bin"
+
+- name: Put the agent's tools on PATH and activate mise
+  ansible.builtin.blockinfile:
+    path: "{{ claude_workstation_home }}/.bashrc"
+    marker: "# {mark} claude_workstation"
+    block: |
+      export PATH="{{ claude_workstation_bin_dir }}:$PATH"
+      eval "$({{ claude_workstation_bin_dir }}/mise activate bash)"
+    owner: "{{ claude_workstation_user }}"
+    group: "{{ claude_workstation_user }}"
+    mode: '0644'
+    create: true
+
+- name: Template the agent's git config
+  ansible.builtin.template:
+    src: gitconfig.j2
+    dest: "{{ claude_workstation_home }}/.gitconfig"
+    owner: "{{ claude_workstation_user }}"
+    group: "{{ claude_workstation_user }}"
+    mode: '0644'
+
+# HTTPS with the token rather than SSH to the forge, so git and fj share one
+# credential and one revocation.
+- name: Install the forge credential for git
+  ansible.builtin.copy:
+    content: "https://{{ claude_workstation_bot_user }}:{{ claude_workstation_bot_token }}@{{ claude_workstation_forge_host }}\n"
+    dest: "{{ claude_workstation_home }}/.git-credentials"
+    owner: "{{ claude_workstation_user }}"
+    group: "{{ claude_workstation_user }}"
+    mode: '0600'
+  no_log: true
+
+# Only when fj holds no key yet: fj keeps its own store, and rotating the token
+# means deleting that file and converging again (see the README).
+- name: Give fj the forge token
+  ansible.builtin.command:
+    argv:
+      - "/usr/local/bin/fj"
+      - "-H"
+      - "{{ claude_workstation_forge_host }}"
+      - auth
+      - add-key
+      - "{{ claude_workstation_bot_user }}"
+    stdin: "{{ claude_workstation_bot_token }}"
+    stdin_add_newline: false
+    creates: "{{ claude_workstation_home }}/.local/share/forgejo-cli/keys.json"
+  become: true
+  become_user: "{{ claude_workstation_user }}"
+  environment:
+    HOME: "{{ claude_workstation_home }}"
+  no_log: true
+
+- name: Create the agent's SSH directory
+  ansible.builtin.file:
+    path: "{{ claude_workstation_home }}/.ssh"
+    state: directory
+    owner: "{{ claude_workstation_user }}"
+    group: "{{ claude_workstation_user }}"
+    mode: '0700'
+
+# The key the workstation will use to read guests as their observer user. It
+# goes nowhere yet; distributing it is a separate change.
+- name: Generate the agent's SSH key
+  ansible.builtin.command:
+    argv:
+      - ssh-keygen
+      - -t
+      - ed25519
+      - -N
+      - ""
+      - -C
+      - "{{ claude_workstation_user }}@{{ inventory_hostname }}"
+      - -f
+      - "{{ claude_workstation_home }}/.ssh/id_ed25519"
+    creates: "{{ claude_workstation_home }}/.ssh/id_ed25519"
+  become: true
+  become_user: "{{ claude_workstation_user }}"
+
+- name: Create the managed settings directory
+  ansible.builtin.file:
+    path: /etc/claude-code
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# Root-owned and outside the agent's reach: these settings bind only because
+# the agent cannot write them.
+- name: Template Claude Code's managed settings
+  ansible.builtin.template:
+    src: managed-settings.json.j2
+    dest: /etc/claude-code/managed-settings.json
+    owner: root
+    group: root
+    mode: '0644'
+
+# `claude remote-control` asks "Enable Remote Control? (y/n)" on its first run
+# and records the answer here; a unit with no terminal would block on it.
+# Undocumented upstream but observed in testing, so the key is merged into
+# whatever Claude Code has already written rather than replacing the file.
+- name: Pre-accept the Remote Control consent prompt
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      f="$HOME/.claude.json"
+      if [ ! -e "$f" ]; then
+        echo '{"remoteDialogSeen": true}' > "$f"
+        echo CHANGED
+      elif ! jq -e '.remoteDialogSeen == true' "$f" > /dev/null; then
+        jq '.remoteDialogSeen = true' "$f" > "$f.tmp"
+        mv "$f.tmp" "$f"
+        echo CHANGED
+      fi
+  become: true
+  become_user: "{{ claude_workstation_user }}"
+  environment:
+    HOME: "{{ claude_workstation_home }}"
+  register: claude_workstation_consent
+  changed_when: "'CHANGED' in claude_workstation_consent.stdout"

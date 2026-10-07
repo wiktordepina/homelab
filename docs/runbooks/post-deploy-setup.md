@@ -411,6 +411,84 @@ That last clause stopped being only the codeowner once `matabot` exists, because
 
 LAN-only is not the whole of the answer, though, because the risk that survives it is egress rather than ingress. Workflows pull third-party actions from the Forgejo mirror, and a compromised mirrored action in any repository's workflow could read this secret. The runners' egress allowlist (see the [`forgejo_runner` role README](../../ansible/roles/forgejo_runner/README.md#what-the-runner-can-and-cannot-reach)) narrows where it could send it, to the handful of names CI needs. But some of those names, `github.com` among them, accept uploads, so the path is narrowed, not closed. It is still the one to watch.
 
+## Claude Code workstation
+
+### What the service is
+
+A VM (218) where Claude Code runs as the unprivileged `agent` user under root-owned managed settings, configured by the `claude_workstation` role. It works on forge repositories as `matabot`. The role README covers what the settings enforce and why.
+
+Three things the role cannot do: mint `matabot`'s token, log Claude Code in, and grant the bot repositories.
+
+### 1. Mint the bot's forge token
+
+Before the first converge, because the role refuses to run without it. The token goes from Forgejo straight into the secret store and is never printed:
+
+```bash
+./run/host-ssh 216 "su - git -c '/usr/local/bin/forgejo --config /etc/forgejo/app.ini \
+  admin user generate-access-token \
+  --username matabot \
+  --token-name workstation \
+  --scopes write:repository,write:issue,read:user \
+  --raw'" \
+| ./run/pve-ssh 'read -r t && printf "export MATABOT_FORGE_TOKEN=%s\n" "$t" > /zpool/secrets/claude_workstation.sh && chmod 0644 /zpool/secrets/claude_workstation.sh'
+
+./run/pve-ssh 'wc -c /zpool/secrets/claude_workstation.sh'
+# 61 /zpool/secrets/claude_workstation.sh
+```
+
+`read:user` is for `fj whoami` and nothing else. Mode `0644` is required, not careless: the runner is unprivileged and cannot read a `0600` secret.
+
+### 2. Apply
+
+Dispatch the `_vm.yml` workflow for `218 - workstation`, then `_dns.yml` with `apply`. From a runner shell the equivalent is:
+
+```bash
+./run/execute_runner terraform_vm 218 apply
+./run/execute_runner ansible_vm 218
+./run/execute_runner terraform_dns apply
+```
+
+A freshly created VM does not trust the laptop yet; run `./run/host-key-push 218` once before using `./run/host-ssh 218`.
+
+### 3. Log Claude Code in
+
+The subscription login is interactive, so it is done once by hand, as the agent:
+
+```bash
+./run/host-ssh 218
+su - agent
+claude
+# /login → Claude account with subscription → open the URL, paste the code back
+```
+
+Still in that session, confirm the managed settings are in force:
+
+- `/status` lists **Enterprise managed settings (file)** among the setting sources.
+- `/mcp` shows no claude.ai connectors (no Gmail, Drive or Calendar).
+- `/permissions` shows the managed allow and deny lists and no way to add a rule.
+
+Then, from the agent's shell:
+
+```bash
+fj -H forge.homelab.matagoth.com whoami
+# currently signed in to matabot@forge.homelab.matagoth.com
+```
+
+And as root, after running any Bash command in a session:
+
+```bash
+journalctl -t claude-code-audit -n 5
+# ... claude-code-audit[...]: {"session_id":"…","cwd":"/home/agent/work/…","command":"git status"}
+```
+
+### 4. Grant repositories
+
+The bot sees nothing until it is granted a repository through the `agents` team. The procedure and the checks a repository must pass first are under [Forgejo](#forgejo). Clone granted repositories under `/home/agent/work` over HTTPS:
+
+```bash
+git clone https://forge.homelab.matagoth.com/matagoth-zaibatsu/<repo>.git ~/work/<repo>
+```
+
 ## NetAlertX
 
 ### What the service is

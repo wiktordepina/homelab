@@ -26,6 +26,7 @@ on:
         options:
           - 214 - vm-01
           - 217 - hermes
+          - 218 - workstation
       tf_action:
         type: choice
         required: true
