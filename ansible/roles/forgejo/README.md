@@ -67,16 +67,33 @@ That derivation is also why **two entries must never share a `secret_env`**: ide
 
 An empty `forgejo_runners` skips registration entirely, which is the right behaviour for a Forgejo that has no runners.
 
-### The CI user
+### Service accounts
 
-The role also creates `forgejo_ci_user` (`forge-ci`), the account whose token workflows use for the things the automatic per-job token cannot do — opening a pull request, chiefly. Creation is guarded on the user table, so the account is made once and left alone afterwards; its password is random and discarded, because nothing signs in as it.
+The role creates two non-human accounts:
+
+- `forgejo_ci_user` (`forge-ci`), whose token workflows use for the things the automatic per-job token cannot do — opening a pull request, chiefly. Created only when Actions is enabled.
+- `forgejo_bot_user` (`matabot`), the account Claude Code works as from the workstation. Created **restricted**, so it sees only the repositories it has been added to rather than everything a signed-in user can browse.
+
+Creation is guarded on the user table, so each account is made once and left alone afterwards; passwords are random and discarded, because nothing signs in as either. `--restricted` only takes effect at creation — the CLI can neither set nor report it later — so it is the one property the role does not re-check.
 
 Two things the role does on *every* converge rather than only at creation:
 
 - It clears the must-change-password flag. `admin user change-password` re-arms that flag as a side effect, and an account carrying it answers `403` to every API call with a message about changing the password — which reads like a token-scope problem and is not one.
-- It asserts the account is not an admin, and fails the converge if it is. Branch protection exempts admins unless a rule opts in with `apply_to_admins`, so an admin CI user would push straight through the gates its repositories rely on while the API went on reporting those gates as enforced.
+- It asserts neither account is an admin, and fails the converge if one is. Branch protection exempts admins unless a rule opts in with `apply_to_admins`, so an admin service account would push straight through the gates its repositories rely on while the API went on reporting those gates as enforced. Admins also bypass the creation limits below.
 
-The *token* is not in IaC. It is issued by Forgejo, shown once, and installed as an organisation-level Actions secret named `FORGE_CI_TOKEN`. Neither is the organisation that secret hangs off, nor the `ci` team that gives `forge-ci` its repository access — Forgejo has no admin CLI for organisations, so both are made through the API. See [post-deploy-setup](../../../docs/runbooks/post-deploy-setup.md) for all three; the access grant is a separate concern from the token, and a repository outside the organisation gets neither.
+The *tokens* are not in IaC. They are issued by Forgejo and shown once: `forge-ci`'s is installed as an Actions secret, and `matabot`'s goes to the workstation when it is built. Nor are the organisation, its teams, or branch protection — Forgejo has no admin CLI for organisations, so they are made through the API. See [post-deploy-setup](../../../docs/runbooks/post-deploy-setup.md) for all of them.
+
+### Creation limits
+
+`app.ini` stops every account except an admin from creating repositories or organisations:
+
+| Setting | Why |
+|---------|-----|
+| `[repository] MAX_CREATION_LIMIT = 0` | A repository owned by a service account would run its workflows on the shared runners with no collaborator relationship anywhere, outside every grant and every branch rule. |
+| `[repository] ALLOW_FORK_WITHOUT_MAXIMUM_LIMIT = false` | Forks are exempt from the limit by default, which would reopen the same path through a fork into the account's own namespace. |
+| `[admin] DISABLE_REGULAR_ORG_CREATION = true` | An organisation a service account created would be one it owns. Unlike `DEFAULT_ALLOW_CREATE_ORGANIZATION`, this applies to accounts that already exist. |
+
+Admins bypass all three, including when creating a repository inside an organisation or on another user's behalf, so new repositories are made by `matagoth` and service accounts are added to them. That includes `agent-bot`'s state repositories, which the post-deploy steps above already create as the admin.
 
 ## Upgrading
 

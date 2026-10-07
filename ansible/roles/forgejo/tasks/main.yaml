@@ -111,8 +111,12 @@
     state: started
     enabled: true
 
-- name: Actions CI user
-  when: forgejo_actions_enabled
+- name: Service accounts
+  vars:
+    forgejo_service_accounts: >-
+      {{ ([{'name': forgejo_ci_user, 'email': forgejo_ci_email, 'restricted': false}]
+          if forgejo_actions_enabled else [])
+         + [{'name': forgejo_bot_user, 'email': forgejo_bot_email, 'restricted': true}] }}
   block:
     # `admin user create` errors when the account already exists, so existence is
     # tested rather than the error swallowed — a create that fails for any other
@@ -130,21 +134,28 @@
       changed_when: false
       register: forgejo_users
 
-    # The password is random and discarded unread: this account authenticates with an
-    # access token and nothing should ever sign in as it. no_log is what discards it —
-    # --random-password prints the value to stdout.
-    - name: Create the Actions CI user
-      when: forgejo_users.stdout_lines | select('match', '\d+\s+' ~ forgejo_ci_user ~ '\s') | list | length == 0
+    # The password is random and discarded unread: these accounts authenticate with
+    # access tokens and nothing should ever sign in as them. no_log is what discards
+    # it — --random-password prints the value to stdout.
+    #
+    # --restricted only takes effect at creation; the CLI can neither set nor report
+    # it afterwards, so it is not asserted below.
+    - name: Create the service accounts
+      when: forgejo_users.stdout_lines | select('match', '\d+\s+' ~ item.name ~ '\s') | list | length == 0
       ansible.builtin.command:
         cmd: >-
           {{ forgejo_binary }}
           --config {{ forgejo_config_dir }}/app.ini
           admin user create
-          --username {{ forgejo_ci_user }}
-          --email {{ forgejo_ci_email }}
+          --username {{ item.name }}
+          --email {{ item.email }}
           --random-password
           --must-change-password=false
+          {{ '--restricted' if item.restricted else '' }}
         chdir: "{{ forgejo_data_dir }}"
+      loop: "{{ forgejo_service_accounts }}"
+      loop_control:
+        label: "{{ item.name }}"
       become: true
       become_method: ansible.builtin.su
       become_user: "{{ forgejo_user }}"
@@ -162,7 +173,7 @@
           {{ forgejo_binary }}
           --config {{ forgejo_config_dir }}/app.ini
           admin user must-change-password
-          --unset {{ forgejo_ci_user }}
+          --unset {{ forgejo_service_accounts | map(attribute='name') | join(' ') }}
         chdir: "{{ forgejo_data_dir }}"
       become: true
       become_method: ansible.builtin.su
@@ -183,16 +194,20 @@
       register: forgejo_admins
 
     # Branch protection exempts admins unless a rule opts in with apply_to_admins, so
-    # an admin CI user would push straight through the gates its repositories rely on
-    # while the API went on reporting those gates as enforced. The account's ordinary
-    # standing is the protection; assert it rather than trust it.
-    - name: The Actions CI user must not be an admin
+    # an admin service account would push straight through the gates its repositories
+    # rely on while the API went on reporting those gates as enforced. Admins also
+    # bypass the repository and organisation creation limits in app.ini. The account's
+    # ordinary standing is the protection; assert it rather than trust it.
+    - name: The service accounts must not be admins
       ansible.builtin.assert:
         that:
-          - forgejo_admins.stdout_lines | select('match', '\d+\s+' ~ forgejo_ci_user ~ '\s') | list | length == 0
+          - forgejo_admins.stdout_lines | select('match', '\d+\s+' ~ item.name ~ '\s') | list | length == 0
         fail_msg: >-
-          {{ forgejo_ci_user }} holds admin on this Forgejo. Remove it — admin status
-          exempts the account from the branch protection its token is meant to respect.
+          {{ item.name }} holds admin on this Forgejo. Remove it — admin status exempts
+          the account from branch protection and from the creation limits.
+      loop: "{{ forgejo_service_accounts }}"
+      loop_control:
+        label: "{{ item.name }}"
 
 - name: Actions runner registration
   when: forgejo_runners | length > 0

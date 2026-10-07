@@ -32,6 +32,19 @@ LOG_SQL = false
 ROOT = {{ forgejo_data_dir }}/data/repositories
 DEFAULT_PRIVATE = private
 DEFAULT_PUSH_CREATE_PRIVATE = true
+# No account but an admin creates repositories. A repository owned by a service account
+# would run workflows on the shared runners without anyone being a collaborator on it.
+# Admins bypass the limit, including when creating in an organisation or for another
+# user, so repositories are made by matagoth and service accounts are added to them.
+MAX_CREATION_LIMIT = 0
+# Forks are exempt from MAX_CREATION_LIMIT unless this is off, which would reopen the
+# same path through a fork into the account's own namespace.
+ALLOW_FORK_WITHOUT_MAXIMUM_LIMIT = false
+
+[admin]
+# Applies to existing accounts, unlike DEFAULT_ALLOW_CREATE_ORGANIZATION. An organisation
+# a service account created would be one it owns, outside every team grant.
+DISABLE_REGULAR_ORG_CREATION = true
 
 [security]
 INSTALL_LOCK = true
