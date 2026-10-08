@@ -54,10 +54,10 @@ table inet egress {
     chain forward {
         type filter hook forward priority filter; policy accept;
 
+        ct state established,related accept
 {% for daddr in egress_proxy_blocked_destinations %}
         ip daddr {{ daddr }} counter drop
 {% endfor %}
-        ct state established,related accept
         # Client to client on the bridges (a job and its service containers)
         # is not egress. With bridge netfilter on, it passes this hook too.
         # Separating one Docker network from another stays Docker's own
@@ -75,10 +75,13 @@ table inet egress {
     chain output {
         type filter hook output priority filter; policy accept;
 
+        # Replies are let through first so that a blocked address can still
+        # open a connection to this host (PVE pushing an SSH key, say); this
+        # host can never open one to it.
+        ct state established,related accept
 {% for daddr in egress_proxy_blocked_destinations %}
         ip daddr {{ daddr }} counter drop
 {% endfor %}
-        ct state established,related accept
         oifname "lo" accept
         ip daddr {{ egress_proxy_resolver }} meta l4proto { tcp, udp } th dport 53 accept
 {% for iface in egress_proxy_client_interfaces %}
@@ -86,8 +89,11 @@ table inet egress {
 {% endfor %}
 {% for dest in egress_proxy_direct_destinations %}
         # {{ dest.comment }}
-        ip daddr {{ dest.daddr }} tcp dport {{ dest.port }} accept
+        ip daddr {{ dest.daddr }} tcp dport {{ dest.port }}{% if dest.squid_only | default(false) %} meta skuid {{ egress_proxy_squid_uid }}{% endif %} accept
 {% endfor %}
+{% if egress_proxy_ntp_user | length > 0 %}
+        meta skuid {{ egress_proxy_ntp_uid }} udp dport 123 accept
+{% endif %}
         ip daddr @lan update @observed_output { ip daddr . meta l4proto . th dport }
         ip daddr @lan counter {{ verdict }}
         meta skuid { {{ ([egress_proxy_squid_uid] + egress_proxy_direct_uids) | join(', ') }} } tcp dport { 80, 443 } accept

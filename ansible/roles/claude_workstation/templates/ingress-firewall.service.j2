@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+
+[Unit]
+Description=Inbound allowlist (nftables table inet ingress)
+DefaultDependencies=no
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f {{ claude_workstation_ingress_nft_file }}
+ExecReload=/usr/sbin/nft -f {{ claude_workstation_ingress_nft_file }}
+ExecStop=/usr/sbin/nft delete table inet ingress
+
+[Install]
+WantedBy=multi-user.target

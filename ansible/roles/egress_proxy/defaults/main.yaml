@@ -32,14 +32,23 @@ egress_proxy_direct_users:
   - _apt
 
 # Extra direct destinations from the host itself, for traffic that must not
-# go through squid (a plain-HTTP internal service, say).
+# go through squid (a plain-HTTP internal service, say). With squid_only, only
+# squid may connect, so the destination is reachable by allowlisted name and
+# never by address: the way to put one name on a LAN host that serves many.
 #   - { daddr: 10.20.1.216, port: 3000, comment: "..." }
+#   - { daddr: 10.20.1.10, port: 443, squid_only: true, comment: "..." }
 egress_proxy_direct_destinations: []
+
+# The user whose NTP queries (UDP 123) may leave for any address. Empty for a
+# container, which takes its clock from the host; a VM's timesyncd needs it,
+# because the pool servers it uses are names that resolve anywhere.
+egress_proxy_ntp_user: ""
 
 egress_proxy_resolver: 10.20.0.1
 
-# Never reachable from this host, even in observation mode. The PVE
-# management address: nothing a guest legitimately does goes there.
+# Never reachable from this host, even in observation mode: nothing may open
+# a connection to them. Replies are still sent, so they can connect in. The
+# PVE management address: nothing a guest legitimately does goes there.
 egress_proxy_blocked_destinations:
   - 192.168.200.100
 

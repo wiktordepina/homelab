@@ -28,6 +28,32 @@
     update_cache: true
     cache_valid_time: 3600
 
+- name: Template the ingress ruleset
+  ansible.builtin.template:
+    src: ingress.nft.j2
+    dest: "{{ claude_workstation_ingress_nft_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+    validate: nft -c -f %s
+  notify: Reload ingress firewall
+
+- name: Install the ingress firewall unit
+  ansible.builtin.template:
+    src: ingress-firewall.service.j2
+    dest: /etc/systemd/system/ingress-firewall.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload ingress firewall
+
+- name: Enable and start the ingress firewall
+  ansible.builtin.systemd_service:
+    name: ingress-firewall
+    daemon_reload: true
+    state: started
+    enabled: true
+
 # Debian's `yq` package is the Python jq wrapper, not mikefarah's yq, which is
 # what the repositories here script against.
 - name: Install yq
@@ -133,10 +159,10 @@
     label: "{{ item.creates }}"
   become: true
   become_user: "{{ claude_workstation_user }}"
-  environment:
-    HOME: "{{ claude_workstation_home }}"
-    UV_NO_MODIFY_PATH: "1"
-    MISE_INSTALL_PATH: "{{ claude_workstation_bin_dir }}/mise"
+  environment: "{{ claude_workstation_proxy_env | combine({
+    'HOME': claude_workstation_home,
+    'UV_NO_MODIFY_PATH': '1',
+    'MISE_INSTALL_PATH': claude_workstation_bin_dir ~ '/mise'}) }}"
 
 # After Claude Code, because `mait-code install` wires itself into ~/.claude.
 # Not re-run once installed: moving the pinned ref is a deliberate upgrade.
@@ -150,20 +176,24 @@
     creates: "{{ claude_workstation_bin_dir }}/mait-code"
   become: true
   become_user: "{{ claude_workstation_user }}"
-  environment:
-    HOME: "{{ claude_workstation_home }}"
-    PATH: "{{ claude_workstation_bin_dir }}:/usr/local/bin:/usr/bin:/bin"
+  environment: "{{ claude_workstation_proxy_env | combine({
+    'HOME': claude_workstation_home,
+    'PATH': claude_workstation_bin_dir ~ ':/usr/local/bin:/usr/bin:/bin'}) }}"
 
 # At the top of .bashrc, above Debian's early return for non-interactive
 # shells, which is the kind Claude Code's Bash tool runs. mise's shims resolve
 # each repository's pinned tools without `mise activate`, which needs a prompt.
-- name: Put the agent's tools and mise shims on PATH
+# The proxy is the agent's only way out once the fence enforces.
+- name: Put the agent's tools and mise shims on PATH, and the proxy in its environment
   ansible.builtin.blockinfile:
     path: "{{ claude_workstation_home }}/.bashrc"
     marker: "# {mark} claude_workstation"
     insertbefore: BOF
     block: |
       export PATH="{{ claude_workstation_bin_dir }}:{{ claude_workstation_home }}/.local/share/mise/shims:$PATH"
+      export HTTP_PROXY="{{ claude_workstation_proxy_url }}" http_proxy="{{ claude_workstation_proxy_url }}"
+      export HTTPS_PROXY="{{ claude_workstation_proxy_url }}" https_proxy="{{ claude_workstation_proxy_url }}"
+      export NO_PROXY="{{ claude_workstation_proxy_env.NO_PROXY }}" no_proxy="{{ claude_workstation_proxy_env.no_proxy }}"
     owner: "{{ claude_workstation_user }}"
     group: "{{ claude_workstation_user }}"
     mode: '0644'
@@ -177,11 +207,11 @@
     group: "{{ claude_workstation_user }}"
     mode: '0644'
 
-# HTTPS with the token rather than SSH to the forge, so git and fj share one
+# The token over HTTP rather than an SSH key, so git and fj share one
 # credential and one revocation.
 - name: Install the forge credential for git
   ansible.builtin.copy:
-    content: "https://{{ claude_workstation_bot_user }}:{{ claude_workstation_bot_token }}@{{ claude_workstation_forge_host }}\n"
+    content: "http://{{ claude_workstation_bot_user }}:{{ claude_workstation_bot_token }}@{{ claude_workstation_forge_host }}:{{ claude_workstation_forge_port }}\n"
     dest: "{{ claude_workstation_home }}/.git-credentials"
     owner: "{{ claude_workstation_user }}"
     group: "{{ claude_workstation_user }}"
@@ -199,7 +229,7 @@
     argv:
       - "/usr/local/bin/fj"
       - "-H"
-      - "{{ claude_workstation_forge_host }}"
+      - "{{ claude_workstation_forge_url }}"
       - auth
       - add-token
     stdin: "{{ claude_workstation_bot_token }}"
@@ -207,8 +237,7 @@
     creates: "{{ claude_workstation_home }}/.local/share/forgejo-cli/keys.json"
   become: true
   become_user: "{{ claude_workstation_user }}"
-  environment:
-    HOME: "{{ claude_workstation_home }}"
+  environment: "{{ claude_workstation_proxy_env | combine({'HOME': claude_workstation_home}) }}"
   no_log: true
 
 - name: Create the agent's SSH directory

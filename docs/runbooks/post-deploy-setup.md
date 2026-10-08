@@ -471,8 +471,8 @@ Still in that session, confirm the managed settings are in force:
 Then, from the agent's shell:
 
 ```bash
-fj -H forge.homelab.matagoth.com whoami
-# currently signed in to matabot@forge.homelab.matagoth.com
+fj -H http://forge.home.matagoth.com:3000 whoami
+# currently signed in to matabot@forge.home.matagoth.com:3000
 ```
 
 And as root, after running any Bash command in a session:
@@ -484,10 +484,43 @@ journalctl -t claude-code-audit -n 5
 
 ### 4. Grant repositories
 
-The bot sees nothing until it is granted a repository through the `agents` team. The procedure and the checks a repository must pass first are under [Forgejo](#forgejo). Clone granted repositories under `/home/agent/work` over HTTPS:
+The bot sees nothing until it is granted a repository through the `agents` team. The procedure and the checks a repository must pass first are under [Forgejo](#forgejo). Clone granted repositories under `/home/agent/work`. The agent reaches the forge on its own address, not through the reverse proxy, but git rewrites the public URL, so the clone URL from the web UI works as it is:
 
 ```bash
 git clone https://forge.homelab.matagoth.com/matagoth-zaibatsu/<repo>.git ~/work/<repo>
+git -C ~/work/<repo> remote get-url origin
+# https://forge.homelab.matagoth.com/matagoth-zaibatsu/<repo>.git  (fetched via http://forge.home.matagoth.com:3000/)
+```
+
+### 5. Turn the egress fence on
+
+The workstation comes up in observation mode: squid allows every name and the firewall accepts everything, recording what it would refuse. Work in it for a few days, sessions and tool installs included.
+
+The installers (Claude Code, uv, mise, mait-code) run as the agent through squid only when the VM is first built, so a few days of work never records their hosts. Rebuild 218 once while still in observation mode, so the record covers a from-scratch converge as well; everything under `~/work` should be pushed first, because the rebuild discards it. Destroy and re-apply (wait for each run to finish), clear the old host keys, then push the laptop's key and log Claude Code in again (step 3):
+
+```bash
+gh workflow run _vm.yml -f vmid='218 - workstation' -f tf_action=destroy
+gh workflow run _vm.yml -f vmid='218 - workstation' -f tf_action=apply
+ssh-keygen -R 10.20.1.218
+./run/pve-ssh 'ssh-keygen -R 10.20.1.218'
+./run/host-key-push 218
+```
+
+Then read the record:
+
+```bash
+# Every name the agent asked squid for, most frequent first
+./run/host-ssh 218 'awk "{print \$4, \$6, \$7}" /var/log/squid/access.log \
+  | sed -E "s#(https?://[^/]+).*#\1#" | sort | uniq -c | sort -rn'
+
+# Traffic that went round the proxy, out and in
+./run/host-ssh 218 'nft list set inet egress observed_output; nft list set inet ingress observed_input'
+```
+
+`observed_output` should be close to empty. An entry there is a program that ignores the proxy variables and needs them set some other way. Squid refuses ports other than 80, 443 and the forge's even in observation mode, so check its log for `TCP_DENIED` lines too: they are already failing. Put the names the work needs into `claude_workstation_egress_allowlist`, set `claude_workstation_egress_enforce: true`, and dispatch `_vm.yml` for 218. Afterwards, the access log's `TCP_DENIED` lines show what is being refused:
+
+```bash
+./run/host-ssh 218 'grep TCP_DENIED /var/log/squid/access.log | tail'
 ```
 
 ## NetAlertX
