@@ -1,0 +1,18 @@
+---
+# The fence comes with the role, as it does for the runners: the agent runs
+# code nobody reviewed, with a forge token on disk.
+dependencies:
+  - role: egress_proxy
+    vars:
+      egress_proxy_enforce: "{{ claude_workstation_egress_enforce }}"
+      egress_proxy_allowlist: "{{ claude_workstation_egress_allowlist }}"
+      egress_proxy_ntp_user: systemd-timesync
+      # The forge by name through squid, on Forgejo's own port: never through
+      # nginx (see claude_workstation_forge_host).
+      egress_proxy_extra_ports:
+        - "{{ claude_workstation_forge_port }}"
+      egress_proxy_direct_destinations:
+        - daddr: "{{ claude_workstation_forge_ip }}"
+          port: "{{ claude_workstation_forge_port }}"
+          squid_only: true
+          comment: Forgejo, for squid on the agent's behalf.

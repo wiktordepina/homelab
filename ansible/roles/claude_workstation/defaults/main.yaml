@@ -23,7 +23,17 @@ claude_workstation_fj_sha256: ea559da5449b6dd7e0dd9f7ea51c906b575696f782edd606b5
 claude_workstation_yq_version: "4.53.6"
 claude_workstation_yq_sha256: c5f056448f973ae7d39b5401949648a78f2dc1947d6a8eb65be60d5c504b9385
 
-claude_workstation_forge_host: forge.homelab.matagoth.com
+# Forgejo on its own address and port, as the runners reach it, never through
+# nginx: squid only sees the name in a CONNECT, and nginx picks a site by SNI
+# and Host, so a tunnel to nginx for the forge's name reaches every site it
+# fronts. Plain HTTP inside the DMZ, as for the runners.
+claude_workstation_forge_host: forge.home.matagoth.com
+claude_workstation_forge_ip: 10.20.1.216
+claude_workstation_forge_port: 3000
+claude_workstation_forge_url: "http://{{ claude_workstation_forge_host }}:{{ claude_workstation_forge_port }}"
+# The name the forge's web UI shows in clone URLs. git rewrites it to the
+# address above, so a URL copied from the UI works as it is.
+claude_workstation_forge_public_url: https://forge.homelab.matagoth.com
 claude_workstation_bot_user: matabot
 claude_workstation_bot_email: matabot@noreply.matagoth.com
 # From /pve/secrets/claude_workstation.sh on the apply runner. Minted by hand on
@@ -93,6 +103,9 @@ claude_workstation_permissions_deny:
   - "Read(//**/*.env)"
 
 claude_workstation_managed_settings:
+  # For the Bash tool's children as much as for Claude Code itself; the .bashrc
+  # block sets the same for shells that do not come from a session.
+  env: "{{ claude_workstation_proxy_env }}"
   disableClaudeAiConnectors: true
   disableAutoMode: disable
   allowManagedPermissionRulesOnly: true
@@ -128,3 +141,28 @@ claude_workstation_managed_settings:
             command: "{{ claude_workstation_bin_dir }}/mc-hook-observe --trigger session-end"
             timeout: 60
             async: true
+
+# Observation first, as for any egress_proxy host: squid allows every name and
+# both firewalls only record what they would refuse. The allowlist is built
+# from that record before this is turned on.
+claude_workstation_egress_enforce: false
+claude_workstation_egress_allowlist:
+  - "{{ claude_workstation_forge_host }}"
+
+claude_workstation_proxy_url: http://127.0.0.1:3128
+claude_workstation_proxy_env:
+  HTTP_PROXY: "{{ claude_workstation_proxy_url }}"
+  HTTPS_PROXY: "{{ claude_workstation_proxy_url }}"
+  http_proxy: "{{ claude_workstation_proxy_url }}"
+  https_proxy: "{{ claude_workstation_proxy_url }}"
+  NO_PROXY: localhost,127.0.0.1
+  no_proxy: localhost,127.0.0.1
+
+# Who may open SSH to the workstation. Everything else inbound is refused.
+claude_workstation_ssh_sources:
+  - { addr: 10.10.10.40, comment: laptop }
+  - { addr: 10.100.10.10, comment: desktop }
+  - { addr: 10.20.6.0/24, comment: apply runners (600-699) }
+  # run/host-key-push installs keys from PVE
+  - { addr: 192.168.200.100, comment: PVE }
+claude_workstation_ingress_nft_file: /etc/nftables.d/ingress.nft
