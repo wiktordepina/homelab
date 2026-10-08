@@ -20,6 +20,11 @@
     egress_proxy_squid_uid: "{{ ansible_facts.getent_passwd['proxy'][1] }}"
     egress_proxy_direct_uids: "{{ egress_proxy_direct_users | map('extract', ansible_facts.getent_passwd) | map(attribute='1') | list }}"
 
+- name: Resolve the NTP user to a uid
+  ansible.builtin.set_fact:
+    egress_proxy_ntp_uid: "{{ ansible_facts.getent_passwd[egress_proxy_ntp_user][1] }}"
+  when: egress_proxy_ntp_user | length > 0
+
 - name: Template the squid allowlist
   ansible.builtin.copy:
     content: |
