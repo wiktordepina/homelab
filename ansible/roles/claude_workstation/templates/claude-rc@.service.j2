@@ -1,0 +1,26 @@
+[Unit]
+Description=Claude Code Remote Control for %i
+Wants=network-online.target
+After=network-online.target squid.service egress-firewall.service
+# remote-control exits cleanly when the login has expired, so every exit is
+# restarted; a run of them ends in "failed", which is what gets noticed.
+StartLimitIntervalSec=15min
+StartLimitBurst=5
+
+[Service]
+# One tmux server per project: a shared one would live in whichever unit
+# started it, and stopping that unit would end every project's session.
+Type=forking
+WorkingDirectory={{ claude_workstation_work_dir }}/%i
+ExecStartPre=/usr/local/libexec/claude-trust %i
+ExecStart=/usr/bin/tmux -L %i new-session -d -s %i -x 200 -y 50 'exec claude remote-control --name %i --spawn same-dir --capacity {{ claude_workstation_rc_capacity }}'
+# The server is already gone when claude exited on its own.
+ExecStop=-/usr/bin/tmux -L %i kill-server
+Restart=always
+RestartSec=60
+MemoryMax={{ claude_workstation_unit_memory_max }}
+{% include 'unit-hardening.j2' %}
+
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Snapshot of the Claude Code Remote Control pane for %i
+# maitre-d may poll; a snapshot is cheap, so no start rate limit.
+StartLimitIntervalSec=0
+
+# maitre-d gets the pane's text, never the tmux socket, which would also let
+# it type into the session.
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/tmux -L %i capture-pane -p -t %i -S -{{ claude_workstation_snap_lines }}
+StandardOutput=truncate:{{ claude_workstation_snaps_dir }}/%i.txt
+StandardError=journal
+{% include 'unit-hardening.j2' %}

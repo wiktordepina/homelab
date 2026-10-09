@@ -1,0 +1,15 @@
+#!/bin/sh
+# Runs one headless job for claude-job@.service: the prompt arrives on stdin,
+# the JSON result leaves on stdout. CLAUDE_JOB_PROJECT comes from the job's
+# environment file and names a checkout under the work directory.
+set -eu
+
+case "${CLAUDE_JOB_PROJECT:-}" in
+  "" | */* | .*)
+    echo "claude-job: CLAUDE_JOB_PROJECT must name a checkout under {{ claude_workstation_work_dir }}" >&2
+    exit 64
+    ;;
+esac
+
+cd "{{ claude_workstation_work_dir }}/${CLAUDE_JOB_PROJECT}"
+exec claude -p --output-format json

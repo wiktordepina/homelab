@@ -1,0 +1,17 @@
+// maitre-d may start, stop and restart the Claude Code units, and clear their
+// failed state, and nothing else: not enable or disable them, and no other
+// unit on the host.
+polkit.addRule(function(action, subject) {
+  if (action.id != "org.freedesktop.systemd1.manage-units" ||
+      subject.user != "{{ claude_workstation_service_user }}") {
+    return polkit.Result.NOT_HANDLED;
+  }
+  var unit = action.lookup("unit");
+  var verb = action.lookup("verb");
+  if (/^claude-(rc|job|snap)@[A-Za-z0-9_.-]+\.service$/.test(unit) &&
+      (verb == "start" || verb == "stop" || verb == "restart" ||
+       verb == "reset-failed")) {
+    return polkit.Result.YES;
+  }
+  return polkit.Result.NOT_HANDLED;
+});
