@@ -38,10 +38,15 @@
   notify:
     - Restart bind9
 
+# The key lets its holder rewrite any record in the zones it signs for, so only
+# root and named (which rereads it as bind on reload) may read it.
 - name: DNS Tsig Key
   ansible.builtin.template:
     src: tsig-key.key.j2
     dest: /etc/bind/tsig-key.key
+    owner: root
+    group: bind
+    mode: "0640"
   notify:
     - Restart bind9
 
