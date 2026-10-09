@@ -11,7 +11,11 @@ Turns a VM into a host where Claude Code works unattended or from the phone, as 
 | `/etc/claude-code/managed-settings.json` | Root-owned managed settings, templated from `claude_workstation_managed_settings` |
 | `/usr/local/bin/fj`, `/usr/local/bin/yq` | Root-owned, pinned by version and checksum |
 | `/etc/nftables.d/ingress.nft` | The inbound table; the outbound one is egress_proxy's |
-| `/var/lib/maitre-d` | Home of the control service's account, which is created here but not yet used |
+| `/var/lib/maitre-d` | Home of the control service's account. maitre-d itself is not installed yet; `jobs/` and `snaps/` are where the session units read and write for it |
+| `/etc/systemd/system/claude-{rc,job,snap}@.service` | The session units (see [Session units](#session-units)) |
+| `/usr/local/libexec/claude-{job,trust}` | Root-owned helpers the units run |
+| `/etc/polkit-1/rules.d/50-claude-units.rules` | What maitre-d may do to those units |
+| `/run/claude-tmux` | The agent's tmux sockets, one per Remote Control server |
 
 ## The agent
 
@@ -77,6 +81,44 @@ Squid refuses ports other than 80 and 443 (and the forge's) in observation mode 
 - The forge token crosses the DMZ in plain HTTP, as the runners' does.
 
 The Bash sandbox is not used, so `bubblewrap` and `socat` are not installed.
+
+## Session units
+
+Three system template units with `User=agent`. They are system units rather than the agent's own, so the agent needs no linger and no user manager, and the unit files are not the agent's to change. The instance name is a checkout under `~/work` or a job id.
+
+| Unit | What it runs |
+|------|--------------|
+| `claude-rc@<project>` | `claude remote-control --name <project> --spawn same-dir --capacity 2` in `~/work/<project>`, inside a tmux server of its own (`tmux -L <project>`). One shared tmux server would live in whichever unit started it first, and stopping that unit would end every project's session. |
+| `claude-job@<id>` | One headless `claude -p --output-format json` run, for maitre-d's scheduler. |
+| `claude-snap@<project>` | A one-shot `tmux capture-pane` of the project's Remote Control pane. maitre-d reads the text, but never gets the tmux socket, which would also let it type into the session. |
+
+**Remote Control** servers listed in `claude_workstation_rc_projects` start at boot. Any other checkout can be started on demand. `remote-control` exits cleanly when the login has expired, so every exit is restarted after a minute; five within fifteen minutes leave the unit **failed**, which is the state to alert on. Taking a project off the list does not disable its unit; `systemctl disable claude-rc@<project>` does. A changed unit template reaches a running server only when it is restarted.
+
+**Every checkout under `~/work` is trusted.** Remote Control stops at `Trust this folder? [y/N]` the first time it runs anywhere, so `claude-trust` marks the unit's own checkout as trusted in `~/.claude.json` before each start. Running Claude Code processes rewrite that file without the script's lock, so a write racing the start can in principle drop the flag. The server then sits at the prompt with the unit **active**, which a snapshot shows. Trust lets a repository's project settings take effect. The managed settings already ignore its hooks and permission rules. What trust still allows is the rest of the project settings, such as helper commands and `.mcp.json` servers. Since the agent can write those files itself, the boundary is what reaches `~/work` in the first place: repositories granted to `matabot`.
+
+**Jobs** read their configuration from `/var/lib/maitre-d/jobs/<id>/`, a directory only maitre-d can open:
+
+| File | Written by | Contents |
+|------|------------|----------|
+| `job.env` | maitre-d | `CLAUDE_JOB_PROJECT=<checkout>` |
+| `prompt` | maitre-d | The prompt, sent on stdin |
+| `result.json` | systemd, as root | Claude Code's JSON result, from stdout |
+
+systemd reads the environment file and opens both stdio files as root before it drops to the agent. So the agent can neither read nor change its prompt on disk, nor rewrite its result afterwards. A job is limited by `RuntimeMaxSec` (2 hours), `MemoryMax` and `CPUQuota`; stopping the unit kills its whole cgroup. A run that hit a permission prompt still reports `"subtype": "success"`, with the refusal only in `permission_denials`, so maitre-d must treat any denial as needing attention.
+
+**Snapshots** go to `/var/lib/maitre-d/snaps/<project>.txt`, written by systemd as root, so the agent cannot change a file once written. What goes into it is a different matter: the pane belongs to the agent, and any session can type into any project's tmux server, since they all run as the same user. Treat a snapshot as what the agent shows, not as evidence of what it did.
+
+**maitre-d** may `start`, `stop`, `restart` and `reset-failed` units matching `claude-(rc|job|snap)@<name>.service`, and nothing else. `reset-failed` lets it clear a finished job once it has read the result, and recover a Remote Control server that hit its restart limit. It cannot enable or disable them, or touch any other unit. The polkit rule is the only thing it is delegated.
+
+All three units run in `claude.slice`, which caps them together at 6G on top of each unit's 3G, and share one hardening block: `ProtectSystem=strict` with only the agent's home and the tmux directory writable, other homes hidden, a private `/tmp` and `/dev`, no capabilities and `NoNewPrivileges`. `systemd-analyze security` rates a job unit at 3.3 ("OK").
+
+From the laptop, a Remote Control server's pane is one attach away. `TMUX_TMPDIR` is set in the agent's `.bashrc`:
+
+```bash
+./run/host-ssh 218
+su - agent
+tmux -L <project> attach
+```
 
 ## Remote Control consent
 

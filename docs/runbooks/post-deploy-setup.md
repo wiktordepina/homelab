@@ -523,6 +523,29 @@ Then read the record:
 ./run/host-ssh 218 'grep TCP_DENIED /var/log/squid/access.log | tail'
 ```
 
+### 6. Run a Remote Control server
+
+A project gets a Remote Control server when its `claude-rc@` unit runs. Projects listed in `claude_workstation_rc_projects` start at boot. Until maitre-d's UI exists, start any other one as root:
+
+```bash
+./run/host-ssh 218 'systemctl start claude-rc@<project>; sleep 10; systemctl is-active claude-rc@<project>'
+# active
+```
+
+It then appears in the Claude app and at claude.ai/code under the project's name. The first start in a folder marks it trusted, so there is no prompt to answer. To see what the server is showing, or to use the session by hand:
+
+```bash
+./run/host-ssh 218
+su - agent
+tmux -L <project> attach      # Ctrl-b d to leave it running
+```
+
+Stop it with `systemctl stop claude-rc@<project>`, which ends every session it started. A unit that is **failed** has restarted five times in fifteen minutes. The usual cause is an expired login (step 3):
+
+```bash
+./run/host-ssh 218 'systemctl status claude-rc@<project> --no-pager; journalctl -u claude-rc@<project> -n 20 --no-pager'
+```
+
 ## NetAlertX
 
 ### What the service is

@@ -1,0 +1,7 @@
+[Unit]
+Description=Claude Code sessions and jobs
+
+# Each unit has its own MemoryMax; this caps them together, so a busy day of
+# sessions and jobs cannot take the whole VM.
+[Slice]
+MemoryMax={{ claude_workstation_slice_memory_max }}

@@ -1,0 +1,28 @@
+Slice=claude.slice
+User={{ claude_workstation_user }}
+Group={{ claude_workstation_user }}
+Environment=PATH={{ claude_workstation_bin_dir }}:{{ claude_workstation_home }}/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+Environment=TMUX_TMPDIR={{ claude_workstation_tmux_dir }}
+{% for k, v in claude_workstation_proxy_env.items() %}
+Environment={{ k }}={{ v }}
+{% endfor %}
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=tmpfs
+BindPaths={{ claude_workstation_home }}
+ReadWritePaths={{ claude_workstation_home }} {{ claude_workstation_tmux_dir }}
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native

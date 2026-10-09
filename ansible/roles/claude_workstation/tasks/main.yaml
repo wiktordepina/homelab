@@ -24,6 +24,7 @@
       - jq
       - ripgrep
       - python3
+      - polkitd
     state: present
     update_cache: true
     cache_valid_time: 3600
@@ -194,6 +195,7 @@
       export HTTP_PROXY="{{ claude_workstation_proxy_url }}" http_proxy="{{ claude_workstation_proxy_url }}"
       export HTTPS_PROXY="{{ claude_workstation_proxy_url }}" https_proxy="{{ claude_workstation_proxy_url }}"
       export NO_PROXY="{{ claude_workstation_proxy_env.NO_PROXY }}" no_proxy="{{ claude_workstation_proxy_env.no_proxy }}"
+      export TMUX_TMPDIR="{{ claude_workstation_tmux_dir }}"
     owner: "{{ claude_workstation_user }}"
     group: "{{ claude_workstation_user }}"
     mode: '0644'
@@ -307,3 +309,74 @@
     HOME: "{{ claude_workstation_home }}"
   register: claude_workstation_consent
   changed_when: "'CHANGED' in claude_workstation_consent.stdout"
+
+# Session units. The units are system units with User=agent rather than the
+# agent's own, so there is no linger and no user manager; maitre-d drives them
+# through the polkit rule below.
+- name: Keep the tmux socket directory across boots
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/claude-tmux.conf
+    content: |
+      d {{ claude_workstation_tmux_dir }} 0700 {{ claude_workstation_user }} {{ claude_workstation_user }} -
+    owner: root
+    group: root
+    mode: '0644'
+  register: claude_workstation_tmpfiles
+
+- name: Create the tmux socket directory
+  ansible.builtin.command: systemd-tmpfiles --create /etc/tmpfiles.d/claude-tmux.conf
+  when: claude_workstation_tmpfiles.changed
+
+- name: Create maitre-d's job and snapshot directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ claude_workstation_service_user }}"
+    group: "{{ claude_workstation_service_user }}"
+    mode: '0700'
+  loop:
+    - "{{ claude_workstation_jobs_dir }}"
+    - "{{ claude_workstation_snaps_dir }}"
+
+- name: Install the job runner and the folder-trust step
+  ansible.builtin.template:
+    src: "{{ item }}.sh.j2"
+    dest: "/usr/local/libexec/{{ item }}"
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - claude-job
+    - claude-trust
+
+- name: Install the session units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - claude.slice
+    - claude-rc@.service
+    - claude-job@.service
+    - claude-snap@.service
+  notify: Reload systemd
+
+- name: Let maitre-d start and stop the session units
+  ansible.builtin.template:
+    src: claude-units.rules.j2
+    dest: /etc/polkit-1/rules.d/50-claude-units.rules
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Load the session units
+  ansible.builtin.meta: flush_handlers
+
+- name: Run the always-on Remote Control servers
+  ansible.builtin.systemd_service:
+    name: "claude-rc@{{ item }}.service"
+    enabled: true
+    state: started
+  loop: "{{ claude_workstation_rc_projects }}"

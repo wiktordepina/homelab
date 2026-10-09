@@ -166,3 +166,19 @@ claude_workstation_ssh_sources:
   # run/host-key-push installs keys from PVE
   - { addr: 192.168.200.100, comment: PVE }
 claude_workstation_ingress_nft_file: /etc/nftables.d/ingress.nft
+
+# The session units (claude-rc@, claude-job@, claude-snap@). Projects listed
+# here get a Remote Control server at boot; any other checkout under the work
+# directory can be started on demand.
+claude_workstation_rc_projects: []
+claude_workstation_rc_capacity: 2
+claude_workstation_unit_memory_max: 3G
+claude_workstation_slice_memory_max: 6G
+claude_workstation_job_runtime_max: 2h
+claude_workstation_job_cpu_quota: 200%
+claude_workstation_snap_lines: 200
+# Outside /tmp, which every unit gets a private copy of, so a snapshot unit and
+# an SSH shell find the same tmux sockets as the server unit.
+claude_workstation_tmux_dir: /run/claude-tmux
+claude_workstation_jobs_dir: "{{ claude_workstation_service_home }}/jobs"
+claude_workstation_snaps_dir: "{{ claude_workstation_service_home }}/snaps"

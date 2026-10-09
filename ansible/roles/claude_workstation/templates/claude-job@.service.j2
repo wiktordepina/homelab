@@ -1,0 +1,19 @@
+[Unit]
+Description=Claude Code headless job %i
+Wants=network-online.target
+After=network-online.target squid.service egress-firewall.service
+
+# The job directory is maitre-d's alone. systemd reads the environment file and
+# opens the prompt and the result as root before dropping to the agent, so the
+# agent can neither change its own prompt nor rewrite its result afterwards.
+[Service]
+Type=exec
+EnvironmentFile={{ claude_workstation_jobs_dir }}/%i/job.env
+StandardInput=file:{{ claude_workstation_jobs_dir }}/%i/prompt
+StandardOutput=truncate:{{ claude_workstation_jobs_dir }}/%i/result.json
+StandardError=journal
+ExecStart=/usr/local/libexec/claude-job
+RuntimeMaxSec={{ claude_workstation_job_runtime_max }}
+MemoryMax={{ claude_workstation_unit_memory_max }}
+CPUQuota={{ claude_workstation_job_cpu_quota }}
+{% include 'unit-hardening.j2' %}

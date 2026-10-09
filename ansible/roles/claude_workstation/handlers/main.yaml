@@ -4,3 +4,7 @@
     name: ingress-firewall
     daemon_reload: true
     state: reloaded
+
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true

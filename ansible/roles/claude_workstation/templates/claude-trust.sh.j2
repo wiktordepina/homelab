@@ -1,0 +1,26 @@
+#!/bin/sh
+# Marks one checkout under the work directory as trusted in ~/.claude.json, so
+# claude-rc@.service does not stop at "Trust this folder? [y/N]" with no one to
+# answer it. Every checkout there is trusted: see the role README.
+set -eu
+
+case "${1:-}" in
+  "" | */* | .*)
+    echo "claude-trust: usage: claude-trust <checkout under {{ claude_workstation_work_dir }}>" >&2
+    exit 64
+    ;;
+esac
+dir="{{ claude_workstation_work_dir }}/$1"
+[ -d "$dir" ] || { echo "claude-trust: no checkout at $dir" >&2; exit 66; }
+
+f="$HOME/.claude.json"
+# Units starting together would otherwise race on the file. Claude Code writes
+# it without this lock, hence the atomic replace rather than an edit in place.
+exec 9> "$HOME/.claude-trust.lock"
+flock 9
+if jq -e --arg d "$dir" '.projects[$d].hasTrustDialogAccepted == true' "$f" > /dev/null; then
+  exit 0
+fi
+tmp="$(mktemp "$f.XXXXXX")"
+jq --arg d "$dir" '.projects[$d].hasTrustDialogAccepted = true' "$f" > "$tmp"
+mv "$tmp" "$f"
