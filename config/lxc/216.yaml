@@ -9,16 +9,6 @@ terraform:
   swap: 512
   start_on_boot: true
   rootfs_size: 10G
-  extra_networks:
-    - bridge: vmbr2
-      tag: 1
-      ip: 192.168.250.216/16
-    - bridge: vmbr2
-      tag: 10
-      ip: 10.10.250.216/16
-    - bridge: vmbr2
-      tag: 50
-      ip: 10.50.250.216/16
 
 pve_extra:
   - mp0: /zpool/forgejo,mp=/mnt/forgejo,backup=0
