@@ -59,10 +59,15 @@
   notify:
     - Restart Ntfy
 
+# Holds the admin and bridge password hashes and the bridge token in plain
+# text.
 - name: Config file
   ansible.builtin.template:
     src: server.yml.j2
     dest: /etc/ntfy/server.yml
+    owner: root
+    group: ntfy
+    mode: "0640"
   notify:
     - Restart Ntfy
 
