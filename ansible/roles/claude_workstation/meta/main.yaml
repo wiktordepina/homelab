@@ -7,6 +7,9 @@ dependencies:
       egress_proxy_enforce: "{{ claude_workstation_egress_enforce }}"
       egress_proxy_allowlist: "{{ claude_workstation_egress_allowlist }}"
       egress_proxy_ntp_user: systemd-timesync
+      # The apply runners: 218 is a VM, with no conntrack until the table loads.
+      egress_proxy_ssh_peers:
+        - 10.20.6.0/24
       # The forge by name through squid, on Forgejo's own port: never through
       # nginx (see claude_workstation_forge_host).
       egress_proxy_extra_ports:

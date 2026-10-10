@@ -12,4 +12,7 @@ case "${CLAUDE_JOB_PROJECT:-}" in
 esac
 
 cd "{{ claude_workstation_work_dir }}/${CLAUDE_JOB_PROJECT}"
-exec claude -p --output-format json
+# Explicit, because an interactive session on this account defaults to auto
+# mode. A job is unattended, so whatever is off the managed allow list must be
+# denied and reported, not judged by the classifier.
+exec claude -p --permission-mode default --output-format json

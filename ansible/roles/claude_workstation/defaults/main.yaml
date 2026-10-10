@@ -94,6 +94,10 @@ claude_workstation_permissions_allow:
   - "Bash(jq *)"
   - "Bash(yq *)"
   - "Bash(pwd)"
+  # The search runs on Anthropic's side, so it needs nothing beyond the API on
+  # the egress allowlist. Fetching pages does not get the same: any fetch can
+  # carry data out in its URL, so WebFetch stays on prompts and squid's list.
+  - "WebSearch"
 claude_workstation_permissions_deny:
   - "Read(~/.ssh/**)"
   - "Read(~/.git-credentials)"
@@ -107,7 +111,6 @@ claude_workstation_managed_settings:
   # block sets the same for shells that do not come from a session.
   env: "{{ claude_workstation_proxy_env }}"
   disableClaudeAiConnectors: true
-  disableAutoMode: disable
   allowManagedPermissionRulesOnly: true
   allowManagedHooksOnly: true
   permissions:
@@ -142,12 +145,37 @@ claude_workstation_managed_settings:
             timeout: 60
             async: true
 
-# Observation first, as for any egress_proxy host: squid allows every name and
-# both firewalls only record what they would refuse. The allowlist is built
-# from that record before this is turned on.
-claude_workstation_egress_enforce: false
+# Built from the observation record (post-deploy-setup, step 5): a few days of
+# sessions, plus the installers and a mise/uv/npm workflow run as the agent in a
+# throwaway home. Squid's access log shows what is refused from here on.
+claude_workstation_egress_enforce: true
 claude_workstation_egress_allowlist:
   - "{{ claude_workstation_forge_host }}"
+  # Claude Code: the API, the login, the installer and its self-updates
+  - api.anthropic.com
+  - platform.claude.com
+  - claude.ai
+  - downloads.claude.ai
+  # uv, and the Python packages it syncs
+  - astral.sh
+  - releases.astral.sh
+  - pypi.org
+  - files.pythonhosted.org
+  # mise, and the toolchains it installs
+  - mise.run
+  - mise.jdx.dev
+  - mise-versions.jdx.dev
+  - tuf-repo-cdn.sigstore.dev
+  - nodejs.org
+  - registry.npmjs.org
+  # mait-code's bootstrap and git source; mise's release downloads
+  - github.com
+  - raw.githubusercontent.com
+  - release-assets.githubusercontent.com
+  # mait-code's embedding model, on first use after a rebuild. The download
+  # CDN's name varies, hence the whole of hf.co.
+  - huggingface.co
+  - .hf.co
 
 claude_workstation_proxy_url: http://127.0.0.1:3128
 claude_workstation_proxy_env:

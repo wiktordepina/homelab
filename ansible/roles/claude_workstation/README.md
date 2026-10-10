@@ -30,7 +30,6 @@ It reaches the forge over HTTP on Forgejo's own port as `matabot` (see [Network 
 | Setting | Why |
 |---------|-----|
 | `disableClaudeAiConnectors: true` | The subscription login brings the account's claude.ai connectors (Gmail, Drive, Calendar) into the agent, already connected. A session that has been steered by injected text could then read and send mail as the account holder, through endpoints any egress allowlist has to permit. A user-settings override does not bring them back. |
-| `disableAutoMode: disable` | Sessions here are often half-attended from a phone. Auto mode is where Claude Code's own judgement replaces the human's, and until the egress fence enforces, nothing outside the session limits what that judgement can reach. |
 | `permissions.disableBypassPermissionsMode: disable` | Rejects `--dangerously-skip-permissions`, and a subagent's `bypassPermissions`. |
 | `allowManagedHooksOnly: true` | The agent writes freely under `~/work`, and that includes each repository's `.claude/settings.json`. A hook declared there would run commands with no prompt in the next session. Only the hooks below run. |
 | `allowManagedPermissionRulesOnly: true` | The same path, for allow rules: a repository could otherwise widen the agent's own permissions. A session's "always allow" is therefore not saved. Everything not on the allow list prompts. |
@@ -43,30 +42,32 @@ journalctl -t claude-code-audit
 
 The agent can also write to the journal under that tag, so treat the log as a record that cannot be erased, not as one that cannot be forged. When the pinned mait-code ref moves, compare `config/settings.json` at that ref with the three hooks declared in `defaults/main.yaml`.
 
-The **allow list** is routine work that should not need a phone tap: reading and committing with git, `fj`, syncing and testing, mait-code's tools and read-only shell utilities. It is convenience and visibility, **not containment**, and no list of patterns could make it containment:
+The **allow list** is routine work that should not need a phone tap: reading and committing with git, `fj`, syncing and testing, mait-code's tools, read-only shell utilities, and WebSearch, which runs on Anthropic's side and so needs no name beyond the API. WebFetch is left to prompt: its fetches leave from this host, so any site it reads has to be on squid's list too, and each one added is a deliberate choice. It is convenience and visibility, **not containment**, and no list of patterns could make it containment:
 
 - Several entries run code the agent can write. `uv run pytest` runs `conftest.py`, `git commit` runs `.git/hooks`, and `git fetch --upload-pack=<command>` runs a command outright.
 - Several read files the deny rules below name. `git diff --no-index /dev/null ~/.git-credentials` prints the forge token without a prompt.
 - `git push *` includes rewriting history (`+refspec`, `--mirror`, deletes). What stops that reaching `main` is branch protection on the forge, where only `matagoth` merges and nobody pushes.
 
-So an injected session can run code and read the bot's credentials without asking. The managed settings stop it **persisting** a wider grant for later sessions (hooks, allow rules, connectors, bypass and auto mode); they do not stop what a single session can do.
+So an injected session can run code and read the bot's credentials without asking. The managed settings stop it **persisting** a wider grant for later sessions (hooks, allow rules, connectors, bypass mode); they do not stop what a single session can do.
 
 The **read denials** cover the forge token, SSH keys, Claude Code's own credentials and `.env` files. They stop the Read tool and plain shell reads such as `cat`. As above, they do not stop an allowed command or a program the agent writes, so they are a speed bump.
+
+**Auto mode** is available, and is the default for a fresh interactive session. Prompts are not the boundary here (the allow list above already runs code), and a half-attended phone approval reviews less than auto mode's classifier, which reads every action. What auto mode waited for is the egress fence below, which contains where a session can reach: the LAN and any site off the allowlist. It does not contain what a session can read leaving through an allowlisted name that accepts uploads (GitHub, npm, Hugging Face, or the API itself under someone else's key); spotting that is left to the classifier. WebSearch results are another way injected text reaches a session without a prompt. Headless jobs run in the default mode, so anything off the allow list is denied, not judged.
 
 ## Network posture
 
 The host is fenced in both directions. The role depends on [egress_proxy](../egress_proxy/README.md), as the CI runners do, and adds an inbound table of its own.
 
-**Observation first.** `claude_workstation_egress_enforce` starts `false`: squid allows every name and both tables accept, while keeping a record of what they would refuse. Until it is turned on, only PVE's own address is closed. Through squid the agent reaches anything else, including every UI nginx fronts, PVE's among them. The allowlist is built from the record (runbook: [post-deploy-setup](../../../docs/runbooks/post-deploy-setup.md#5-turn-the-egress-fence-on)). What follows describes the fence once it enforces.
+**Enforcing.** `claude_workstation_egress_enforce` is `true`, with an allowlist built from what the workstation did in observation mode: Claude Code's API, login and updates, the uv, mise and npm toolchains and their registries, GitHub for mait-code and released binaries, and Hugging Face for mait-code's embedding model. A name off the list is refused, and the refusal shows as `TCP_DENIED` in squid's log. Widening it, and rebuilding the record for a new kind of work, are in the runbook ([post-deploy-setup](../../../docs/runbooks/post-deploy-setup.md#5-the-egress-fence)). With enforcement off, only PVE's own address is closed.
 
 **Out.** Squid on `127.0.0.1:3128` is the agent's only way out, and it decides by name. The proxy variables are set in the managed settings' `env` (for Claude Code and every command a session runs) and at the top of the agent's `.bashrc` (for SSH shells). A program that ignores them is refused rather than let round the proxy. Beyond that:
 
 - **The forge** is reached through squid as `forge.home.matagoth.com:3000`, Forgejo's own address and port, which the firewall opens to squid alone. This is the runners' path. It is never reached through nginx, because squid only sees the name in a `CONNECT`, while nginx picks a site by SNI and `Host`: a tunnel opened for the forge's name could then ask nginx for any site it fronts. The forge's public URL is rewritten by git, so a clone URL copied from the web UI works as it is.
-- **The rest of the LAN** is closed, nginx included. PVE's address is closed in observation mode too.
+- **The rest of the LAN** is closed, nginx included. PVE's address stays closed even with enforcement off.
 - **NTP** leaves directly, from the timesync user only. A VM keeps its own clock, and the pool servers are names that resolve anywhere.
 - **root and `_apt`** go out directly, so converges and apt keep working. The agent has neither.
 
-Squid refuses ports other than 80 and 443 (and the forge's) in observation mode as well, so a proxied request to any other port fails already, and shows as `TCP_DENIED` in squid's log.
+Squid refuses ports other than 80 and 443 (and the forge's) even with enforcement off.
 
 **In.** `table inet ingress` (`/etc/nftables.d/ingress.nft`, loaded by `ingress-firewall.service`) allows SSH only from the addresses in `claude_workstation_ssh_sources`: the laptop and the desktop for hands-on sessions, the apply-runner range for converges, and PVE so `run/host-key-push` works after a rebuild. ICMP is allowed; everything else inbound is refused. Refusals are recorded as for the egress table:
 
@@ -89,7 +90,7 @@ Three system template units with `User=agent`. They are system units rather than
 | Unit | What it runs |
 |------|--------------|
 | `claude-rc@<project>` | `claude remote-control --name <project> --spawn same-dir --capacity 2` in `~/work/<project>`, inside a tmux server of its own (`tmux -L <project>`). One shared tmux server would live in whichever unit started it first, and stopping that unit would end every project's session. |
-| `claude-job@<id>` | One headless `claude -p --output-format json` run, for maitre-d's scheduler. |
+| `claude-job@<id>` | One headless `claude -p --permission-mode default --output-format json` run, for maitre-d's scheduler. |
 | `claude-snap@<project>` | A one-shot `tmux capture-pane` of the project's Remote Control pane. maitre-d reads the text, but never gets the tmux socket, which would also let it type into the session. |
 
 **Remote Control** servers listed in `claude_workstation_rc_projects` start at boot. Any other checkout can be started on demand. `remote-control` exits cleanly when the login has expired, so every exit is restarted after a minute; five within fifteen minutes leave the unit **failed**, which is the state to alert on. Taking a project off the list does not disable its unit; `systemctl disable claude-rc@<project>` does. A changed unit template reaches a running server only when it is restarted.
