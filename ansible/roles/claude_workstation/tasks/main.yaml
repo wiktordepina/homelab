@@ -165,8 +165,24 @@
     'UV_NO_MODIFY_PATH': '1',
     'MISE_INSTALL_PATH': claude_workstation_bin_dir ~ '/mise'}) }}"
 
+# uv prints each tool as "<name> v<version>". Read as the agent, whose uv it is;
+# nothing here runs that uv as root.
+- name: Read the agent's installed mait-code version
+  ansible.builtin.command:
+    argv: ["{{ claude_workstation_bin_dir }}/uv", "tool", "list"]
+  become: true
+  become_user: "{{ claude_workstation_user }}"
+  environment:
+    HOME: "{{ claude_workstation_home }}"
+  register: claude_workstation_uv_tools
+  changed_when: false
+
 # After Claude Code, because `mait-code install` wires itself into ~/.claude.
-# Not re-run once installed: moving the pinned ref is a deliberate upgrade.
+# Re-run only when the installed version differs from the pin: the bootstrap
+# fetches, checks out the ref and reinstalls over an existing install, and
+# `mait-code install` keeps files the agent has edited. maitre-d imports the
+# same mait-code and refuses a database on another schema, so the two pins
+# move together.
 - name: Install mait-code for the agent
   ansible.builtin.command:
     argv:
@@ -174,7 +190,7 @@
       - /usr/local/src/mait-code-bootstrap.sh
       - --ref
       - "{{ claude_workstation_mait_code_ref }}"
-    creates: "{{ claude_workstation_bin_dir }}/mait-code"
+  when: ("mait-code " ~ claude_workstation_mait_code_ref) not in claude_workstation_uv_tools.stdout_lines
   become: true
   become_user: "{{ claude_workstation_user }}"
   environment: "{{ claude_workstation_proxy_env | combine({

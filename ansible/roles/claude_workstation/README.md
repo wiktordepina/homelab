@@ -128,7 +128,13 @@ tmux -L <project> attach
 ## Upgrading
 
 - **Claude Code** updates itself, as the agent, in the background.
-- **mait-code** is installed once at `claude_workstation_mait_code_ref`. To upgrade, bump the ref, then delete `~agent/.local/bin/mait-code` on the host and converge, which re-runs the bootstrap.
+- **mait-code** follows `claude_workstation_mait_code_ref`: a converge re-runs the bootstrap whenever the agent's installed version differs, and `mait-code install` keeps files the agent has edited. Move it together with maitre-d's pin, since both open the same databases and refuse another schema version. When a release changes the memory schema or the embedding record, run the doctor once as the agent afterwards:
+
+  ```bash
+  ./run/host-ssh 218 'runuser -u agent -- env HOME=/home/agent /home/agent/.local/bin/mait-code doctor --fix'
+  ```
+
+  When the ref moves, also compare `config/settings.json` at the new ref with the hooks in `defaults/main.yaml` (see [Managed settings](#managed-settings)).
 - **fj** and **yq**: bump the version and its `sha256` together. The checksum comes from the release artefact itself, so a version bump without a new checksum fails the download rather than installing something unverified.
 
 ## Rotating the forge token
