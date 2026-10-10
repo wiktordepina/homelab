@@ -16,10 +16,6 @@ COPY .python-version pyproject.toml uv.lock /toolbox
 
 RUN <<SETUP
   set -e
-  # dpkg syncs every file it unpacks. Under Docker's overlayfs on the runners'
-  # ZFS each sync takes over a second, which stretches one build to hours. The
-  # layers are rebuilt from scratch if anything fails, so the syncs buy nothing.
-  echo force-unsafe-io > /etc/dpkg/dpkg.cfg.d/docker-apt-speedup
   apt-get update
   # => set locales
   echo UTC > /etc/timezone
