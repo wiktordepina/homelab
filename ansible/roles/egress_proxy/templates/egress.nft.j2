@@ -82,6 +82,12 @@ table inet egress {
 {% for daddr in egress_proxy_blocked_destinations %}
         ip daddr {{ daddr }} counter drop
 {% endfor %}
+{% if egress_proxy_ssh_peers %}
+        # sshd's side of a session opened before this table first loaded,
+        # which conntrack picks up mid-stream as not established: the
+        # converge that installs the table.
+        ip daddr { {{ egress_proxy_ssh_peers | join(', ') }} } tcp sport 22 accept
+{% endif %}
         oifname "lo" accept
         ip daddr {{ egress_proxy_resolver }} meta l4proto { tcp, udp } th dport 53 accept
 {% for iface in egress_proxy_client_interfaces %}

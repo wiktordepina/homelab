@@ -46,6 +46,11 @@ egress_proxy_ntp_user: ""
 
 egress_proxy_resolver: 10.20.0.1
 
+# Where converges come from over SSH, for a host with no conntrack before this
+# table first loads: a VM. That converge's session is picked up mid-stream, not
+# as established, and would be dropped. A container's host already tracks it.
+egress_proxy_ssh_peers: []
+
 # Never reachable from this host, even in observation mode: nothing may open
 # a connection to them. Replies are still sent, so they can connect in. The
 # PVE management address: nothing a guest legitimately does goes there.
