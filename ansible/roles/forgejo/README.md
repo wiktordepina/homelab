@@ -73,6 +73,7 @@ The role creates two non-human accounts:
 
 - `forgejo_ci_user` (`forge-ci`), whose token workflows use for the things the automatic per-job token cannot do — opening a pull request, chiefly. Created only when Actions is enabled.
 - `forgejo_bot_user` (`matabot`), the account Claude Code works as from the workstation. Created **restricted**, so it sees only the repositories it has been added to rather than everything a signed-in user can browse.
+- `forgejo_deploy_user` (`forge-deploy`), the read-only account a host uses to fetch a private repository it deploys, such as maitre-d on the workstation. Created **restricted** and granted through a read-only team, so its token reads only the repositories it has been given and writes nothing.
 
 Creation is guarded on the user table, so each account is made once and left alone afterwards; passwords are random and discarded, because nothing signs in as either. `--restricted` only takes effect at creation — the CLI can neither set nor report it later — so it is the one property the role does not re-check.
 
@@ -81,7 +82,7 @@ Two things the role does on *every* converge rather than only at creation:
 - It clears the must-change-password flag. `admin user change-password` re-arms that flag as a side effect, and an account carrying it answers `403` to every API call with a message about changing the password — which reads like a token-scope problem and is not one.
 - It asserts neither account is an admin, and fails the converge if one is. Branch protection exempts admins unless a rule opts in with `apply_to_admins`, so an admin service account would push straight through the gates its repositories rely on while the API went on reporting those gates as enforced. Admins also bypass the creation limits below.
 
-The *tokens* are not in IaC. They are issued by Forgejo and shown once: `forge-ci`'s is installed as an Actions secret, and `matabot`'s goes to the workstation when it is built. Nor are the organisation, its teams, or branch protection — Forgejo has no admin CLI for organisations, so they are made through the API. See [post-deploy-setup](../../../docs/runbooks/post-deploy-setup.md) for all of them.
+The *tokens* are not in IaC. They are issued by Forgejo and shown once: `forge-ci`'s is installed as an Actions secret, and `matabot`'s goes to the workstation when it is built, and `forge-deploy`'s to the secrets store for the roles that fetch from the forge. Nor are the organisation, its teams, or branch protection — Forgejo has no admin CLI for organisations, so they are made through the API. See [post-deploy-setup](../../../docs/runbooks/post-deploy-setup.md) for all of them.
 
 ### Creation limits
 

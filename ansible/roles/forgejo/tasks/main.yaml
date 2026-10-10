@@ -116,7 +116,8 @@
     forgejo_service_accounts: >-
       {{ ([{'name': forgejo_ci_user, 'email': forgejo_ci_email, 'restricted': false}]
           if forgejo_actions_enabled else [])
-         + [{'name': forgejo_bot_user, 'email': forgejo_bot_email, 'restricted': true}] }}
+         + [{'name': forgejo_bot_user, 'email': forgejo_bot_email, 'restricted': true},
+            {'name': forgejo_deploy_user, 'email': forgejo_deploy_email, 'restricted': true}] }}
   block:
     # `admin user create` errors when the account already exists, so existence is
     # tested rather than the error swallowed — a create that fails for any other

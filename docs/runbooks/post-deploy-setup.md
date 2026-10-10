@@ -254,6 +254,63 @@ Before granting one, check two things, because write access on a repository with
 
 `matabot` has no repository of its own and cannot create one; see [Creation limits](../../ansible/roles/forgejo/README.md#creation-limits).
 
+**Create the `deploy` team** for `forge-deploy`, the read-only account hosts use to fetch private repositories they deploy (maitre-d on the workstation is the first). Read permission, the code unit only, and no repository by default:
+
+```bash
+curl -X POST \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "name":"deploy",
+        "description":"forge-deploy: hosts fetching what they deploy; read-only, repositories granted one by one",
+        "permission":"read",
+        "includes_all_repositories":false,
+        "can_create_org_repo":false,
+        "units":["repo.code"]
+      }' \
+  https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/teams
+# note the team id in the response
+
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<deploy-team-id>/members/forge-deploy
+
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<deploy-team-id>/repos/matagoth-zaibatsu/maitre-d
+```
+
+Forgejo answers `200` to a team edit it partly ignored, so read the result back from the database rather than the response:
+
+```bash
+./run/host-ssh 216 python3 - <<'EOF'
+import sqlite3
+c = sqlite3.connect('file:/mnt/forgejo/data/forgejo.db?mode=ro', uri=True)
+t = c.execute("select id, authorize, includes_all_repositories from team where lower_name = 'deploy'").fetchone()
+print('team', t)
+print('repos', c.execute('select r.name from team_repo tr join repository r on r.id = tr.repo_id where tr.team_id = ?', (t[0],)).fetchall())
+print('units', c.execute('select type, access_mode from team_unit where team_id = ?', (t[0],)).fetchall())
+EOF
+# team (<id>, 1, 0)      authorize 1 is read; 0: not every repository
+# repos [('maitre-d',)]
+# units [(1, 1)]         the code unit, read
+```
+
+Then mint its token into the secrets store, the same way as `matabot`'s. `read:repository` is the only scope:
+
+```bash
+./run/host-ssh 216 "su - git -c '/usr/local/bin/forgejo --config /etc/forgejo/app.ini \
+  admin user generate-access-token \
+  --username forge-deploy \
+  --token-name workstation-maitre-d \
+  --scopes read:repository \
+  --raw'" \
+| ./run/pve-ssh 'read -r t && printf "export MAITRE_D_FORGE_TOKEN=%s\n" "$t" > /zpool/secrets/maitre_d.sh && chmod 0644 /zpool/secrets/maitre_d.sh'
+
+./run/pve-ssh 'wc -c /zpool/secrets/maitre_d.sh'
+# 69 /zpool/secrets/maitre_d.sh
+```
+
 **Protect `main` on every repository in the organisation**, not only those the bot is granted. Grants to `ci` and `agents` change over time, and a repository added to either must already be protected when the grant lands rather than after someone remembers. Protecting every `main` up front makes that ordering impossible to get wrong. Only `matagoth` merges:
 
 ```bash
