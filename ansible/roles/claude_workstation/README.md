@@ -9,6 +9,7 @@ Turns a VM into a host where Claude Code works unattended or from the phone, as 
 | `/home/agent` | The `agent` user: Claude Code, uv, mise and mait-code under `~/.local/bin`, all installed as the agent so each can update itself |
 | `/home/agent/work` | Checkouts the agent works in. The only place it may edit without a prompt |
 | `/etc/claude-code/managed-settings.json` | Root-owned managed settings, templated from `claude_workstation_managed_settings` |
+| `/etc/claude-code/CLAUDE.md` | The agent's identity as managed memory, installed from maitre-d's release by the [maitre_d role](../maitre_d/README.md#the-agents-identity) |
 | `/usr/local/bin/fj`, `/usr/local/bin/yq` | Root-owned, pinned by version and checksum |
 | `/etc/nftables.d/ingress.nft` | The inbound table; the outbound one is egress_proxy's |
 | `/var/lib/maitre-d` | Home of the control service's account, and its data directory (see the [maitre_d role](../maitre_d/README.md)). `jobs/` and `snaps/` are where the session units read and write for it |
@@ -49,6 +50,8 @@ The **allow list** is routine work that should not need a phone tap: reading and
 - `git push *` includes rewriting history (`+refspec`, `--mirror`, deletes). What stops that reaching `main` is branch protection on the forge, where only `matagoth` merges and nobody pushes.
 
 So an injected session can run code and read the bot's credentials without asking. The managed settings stop it **persisting** a wider grant for later sessions (hooks, allow rules, connectors, bypass mode); they do not stop what a single session can do.
+
+The agent is also denied running `claude` itself: `--safe-mode` would drop the managed `CLAUDE.md` that carries its identity, and no session here needs to start another. Like the read denials below, it stops the Bash tool, not a program the agent writes.
 
 The **read denials** cover the forge token, SSH keys, Claude Code's own credentials and `.env` files. They stop the Read tool and plain shell reads such as `cat`. As above, they do not stop an allowed command or a program the agent writes, so they are a speed bump.
 

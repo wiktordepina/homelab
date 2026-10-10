@@ -19,6 +19,12 @@ maitre_d_uv: "{{ maitre_d_install_dir }}/bin/uv"
 maitre_d_config_dir: /etc/maitre-d
 maitre_d_config_file: "{{ maitre_d_config_dir }}/maitred.toml"
 
+# maitre-d's identity/, concatenated in this order into /etc/claude-code/CLAUDE.md.
+maitre_d_identity_files:
+  - soul_document
+  - user_context
+  - communication_style
+
 # A uv of the role's own, never the agent's: a binary the agent can rewrite must
 # not run as root. Bump the version and its sha256 together.
 maitre_d_uv_version: "0.12.24"
