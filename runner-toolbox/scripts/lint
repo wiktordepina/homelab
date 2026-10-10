@@ -242,6 +242,7 @@ check_workflow_dropdown() {
 # silently missing record rather than as an error, so it is caught here.
 section 'service catalogue'
 if python3 - <<'PY'
+import ipaddress
 import sys
 import yaml
 
@@ -278,6 +279,16 @@ for service in catalogue.get('services', []):
     upstream = service.get('upstream', '')
     if upstream and not upstream.startswith(('http://', 'https://')):
         errors.append(f'{name}: upstream must carry a scheme')
+    if 'allow' in service:
+        allow = service['allow']
+        if not isinstance(allow, list) or not allow:
+            errors.append(f'{name}: allow must be a non-empty list of addresses')
+        else:
+            for addr in allow:
+                try:
+                    ipaddress.ip_network(str(addr))
+                except ValueError:
+                    errors.append(f'{name}: allow entry {addr!r} is not an address or network')
 
 for error in errors:
     print(f'  {error}')
