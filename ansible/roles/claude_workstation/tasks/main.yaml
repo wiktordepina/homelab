@@ -29,32 +29,6 @@
     update_cache: true
     cache_valid_time: 3600
 
-- name: Template the ingress ruleset
-  ansible.builtin.template:
-    src: ingress.nft.j2
-    dest: "{{ claude_workstation_ingress_nft_file }}"
-    owner: root
-    group: root
-    mode: '0644'
-    validate: nft -c -f %s
-  notify: Reload ingress firewall
-
-- name: Install the ingress firewall unit
-  ansible.builtin.template:
-    src: ingress-firewall.service.j2
-    dest: /etc/systemd/system/ingress-firewall.service
-    owner: root
-    group: root
-    mode: '0644'
-  notify: Reload ingress firewall
-
-- name: Enable and start the ingress firewall
-  ansible.builtin.systemd_service:
-    name: ingress-firewall
-    daemon_reload: true
-    state: started
-    enabled: true
-
 # Debian's `yq` package is the Python jq wrapper, not mikefarah's yq, which is
 # what the repositories here script against.
 - name: Install yq
@@ -95,6 +69,43 @@
     home: "{{ claude_workstation_home }}"
     shell: /bin/bash
     create_home: true
+
+# The inbound table also refuses the agent's own connections to the control
+# service, so it is written once the agent's uid exists.
+- name: Resolve the agent's uid
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ claude_workstation_user }}"
+
+- name: Record the agent's uid
+  ansible.builtin.set_fact:
+    claude_workstation_agent_uid: "{{ ansible_facts.getent_passwd[claude_workstation_user][1] }}"
+
+- name: Template the ingress ruleset
+  ansible.builtin.template:
+    src: ingress.nft.j2
+    dest: "{{ claude_workstation_ingress_nft_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+    validate: nft -c -f %s
+  notify: Reload ingress firewall
+
+- name: Install the ingress firewall unit
+  ansible.builtin.template:
+    src: ingress-firewall.service.j2
+    dest: /etc/systemd/system/ingress-firewall.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload ingress firewall
+
+- name: Enable and start the ingress firewall
+  ansible.builtin.systemd_service:
+    name: ingress-firewall
+    daemon_reload: true
+    state: started
+    enabled: true
 
 - name: Restrict the agent's home
   ansible.builtin.file:

@@ -1,0 +1,269 @@
+---
+- name: Require the forge-deploy token
+  ansible.builtin.assert:
+    that:
+      - maitre_d_forge_token is match('^[0-9a-f]{40}$')
+    fail_msg: >-
+      MAITRE_D_FORGE_TOKEN must be exported from /pve/secrets/maitre_d.sh on the
+      apply runner as 40 hexadecimal characters. See post-deploy-setup for how
+      forge-deploy's token is minted.
+    quiet: true
+
+- name: Create the install directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: "{{ maitre_d_user }}"
+    mode: '0750'
+  loop:
+    - "{{ maitre_d_install_dir }}"
+    - "{{ maitre_d_install_dir }}/bin"
+    - "{{ maitre_d_config_dir }}"
+
+- name: Fetch uv
+  ansible.builtin.get_url:
+    url: "https://github.com/astral-sh/uv/releases/download/{{ maitre_d_uv_version }}/uv-x86_64-unknown-linux-gnu.tar.gz"
+    dest: "/usr/local/src/uv-{{ maitre_d_uv_version }}.tar.gz"
+    checksum: "sha256:{{ maitre_d_uv_sha256 }}"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install uv
+  ansible.builtin.unarchive:
+    src: "/usr/local/src/uv-{{ maitre_d_uv_version }}.tar.gz"
+    dest: "{{ maitre_d_install_dir }}/bin"
+    remote_src: true
+    extra_opts: [--strip-components=1]
+    include:
+      - uv-x86_64-unknown-linux-gnu/uv
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Read the checked-out commit
+  ansible.builtin.command:
+    argv: [git, -C, "{{ maitre_d_src_dir }}", rev-parse, HEAD]
+  register: maitre_d_head
+  changed_when: false
+  failed_when: false
+
+# A fresh shallow clone of the tag whenever the commit differs, so nothing from
+# an earlier checkout survives. The token goes in through git's environment,
+# never argv (every process's command line is readable by the agent) and never
+# the remote URL (it would be saved in .git/config).
+- name: Fetch the pinned release
+  when: maitre_d_head.stdout != maitre_d_commit
+  block:
+    - name: Remove the previous checkout
+      ansible.builtin.file:
+        path: "{{ maitre_d_src_dir }}"
+        state: absent
+
+    - name: Clone the release tag
+      ansible.builtin.command:
+        argv:
+          - git
+          - clone
+          - --quiet
+          - --depth=1
+          - "--branch=v{{ maitre_d_version }}"
+          - "{{ maitre_d_repo_url }}"
+          - "{{ maitre_d_src_dir }}"
+      environment: "{{ claude_workstation_proxy_env | combine({
+        'GIT_CONFIG_COUNT': '1',
+        'GIT_CONFIG_KEY_0': 'http.extraHeader',
+        'GIT_CONFIG_VALUE_0': 'Authorization: token ' ~ maitre_d_forge_token}) }}"
+      no_log: true
+      changed_when: true
+      notify: Restart maitre-d
+
+- name: Check the checkout is the pinned commit
+  ansible.builtin.command:
+    argv: [git, -C, "{{ maitre_d_src_dir }}", rev-parse, HEAD]
+  register: maitre_d_head_after
+  changed_when: false
+  failed_when: maitre_d_head_after.stdout != maitre_d_commit
+
+# maitre-d and the agent open the same databases, and mait-code refuses one on
+# another schema version, so the two installs must be the same release.
+- name: Read the mait-code release maitre-d is locked to
+  ansible.builtin.slurp:
+    src: "{{ maitre_d_src_dir }}/uv.lock"
+  register: maitre_d_lock
+
+- name: Check it matches the agent's mait-code
+  vars:
+    maitre_d_mait_code_ref: >-
+      {{ maitre_d_lock.content | b64decode
+         | regex_search('mait-code\?rev=(v[0-9.]+)', '\1') | first }}
+  ansible.builtin.assert:
+    that:
+      - maitre_d_mait_code_ref == claude_workstation_mait_code_ref
+    fail_msg: >-
+      maitre-d v{{ maitre_d_version }} is locked to mait-code {{ maitre_d_mait_code_ref }},
+      but the agent runs {{ claude_workstation_mait_code_ref }}. Move
+      claude_workstation_mait_code_ref and the maitre-d release together.
+    quiet: true
+
+- name: Read the installed maitred version
+  ansible.builtin.command:
+    argv: ["{{ maitre_d_venv_dir }}/bin/maitred", version]
+  register: maitre_d_installed
+  changed_when: false
+  failed_when: false
+
+# Root goes out directly, so PyPI and mait-code's GitHub source need nothing on
+# squid's list. The system Python, and no interpreter downloads.
+- name: Install maitre-d and its locked dependencies
+  when: maitre_d_installed.stdout | trim != maitre_d_version
+  ansible.builtin.command:
+    argv:
+      - "{{ maitre_d_uv }}"
+      - sync
+      - --frozen
+      - --no-dev
+      - --no-editable
+    chdir: "{{ maitre_d_src_dir }}"
+  environment:
+    UV_PROJECT_ENVIRONMENT: "{{ maitre_d_venv_dir }}"
+    UV_PYTHON: "{{ maitre_d_python }}"
+    UV_PYTHON_DOWNLOADS: never
+    UV_CACHE_DIR: /var/cache/maitre-d-uv
+  changed_when: true
+  notify: Restart maitre-d
+
+- name: Check the installed version
+  ansible.builtin.command:
+    argv: ["{{ maitre_d_venv_dir }}/bin/maitred", version]
+  register: maitre_d_installed_after
+  changed_when: false
+  failed_when: maitre_d_installed_after.stdout | trim != maitre_d_version
+
+# The agent's mait-code databases: maitre-d reads them all and writes the board.
+# The directory is setgid so files the agent creates later join the group, and
+# SQLite gives each -wal and -shm the mode and group of its database.
+- name: Create the shared data group
+  ansible.builtin.group:
+    name: "{{ maitre_d_data_group }}"
+    system: true
+
+# Both, not only maitre-d: whichever side opens a database first creates its
+# -wal and -shm, owned by that side, so the other needs the group to write. The
+# agent's sessions pick the group up when their units next start.
+- name: Put maitre-d and the agent in the shared data group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: "{{ maitre_d_data_group }}"
+    append: true
+  loop:
+    - "{{ maitre_d_user }}"
+    - "{{ claude_workstation_user }}"
+  notify: Restart maitre-d
+
+- name: Share the agent's mait-code data directory
+  ansible.builtin.file:
+    path: "{{ maitre_d_agent_data_dir }}"
+    state: directory
+    owner: "{{ claude_workstation_user }}"
+    group: "{{ maitre_d_data_group }}"
+    mode: '2775'
+
+- name: Share the agent's mait-code databases
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      cd '{{ maitre_d_agent_data_dir }}'
+      for f in *.db *.db-wal *.db-shm; do
+        [ -e "$f" ] || continue
+        if [ "$(stat -c %G:%a "$f")" != '{{ maitre_d_data_group }}:664' ]; then
+          chgrp '{{ maitre_d_data_group }}' "$f"
+          chmod 0664 "$f"
+          echo "CHANGED $f"
+        fi
+      done
+    executable: /bin/bash
+  register: maitre_d_share
+  changed_when: "'CHANGED' in maitre_d_share.stdout"
+
+- name: Template the config
+  ansible.builtin.template:
+    src: maitred.toml.j2
+    dest: "{{ maitre_d_config_file }}"
+    owner: root
+    group: "{{ maitre_d_user }}"
+    mode: '0640'
+  notify: Restart maitre-d
+
+- name: Create maitre-d's mait-code and config homes
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ maitre_d_user }}"
+    group: "{{ maitre_d_user }}"
+    mode: '0700'
+  loop:
+    - "{{ maitre_d_data_dir }}/mait-code"
+    - "{{ maitre_d_data_dir }}/xdg"
+
+# maitred loads the model before it serves; downloading it here keeps the first
+# start quick and a failed download visible in the converge. Through squid, as
+# maitre-d has no direct way out.
+- name: Download the embedding model into maitre-d's cache
+  ansible.builtin.command:
+    argv:
+      - "{{ maitre_d_venv_dir }}/bin/python"
+      - -c
+      - |
+        import sys
+        from mait_code.tools.memory.embeddings import get_provider
+        sys.exit(0 if get_provider() is not None else 1)
+    creates: "{{ maitre_d_data_dir }}/mait-code/models/models--{{ maitre_d_embedding_model | replace('/', '--') }}"
+  become: true
+  become_user: "{{ maitre_d_user }}"
+  environment: "{{ claude_workstation_proxy_env | combine(maitre_d_env) }}"
+  when: maitre_d_embedding_provider == 'local'
+
+- name: Install the service unit
+  ansible.builtin.template:
+    src: maitre-d.service.j2
+    dest: /etc/systemd/system/maitre-d.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart maitre-d
+
+- name: Enable and start maitre-d
+  ansible.builtin.systemd_service:
+    name: maitre-d
+    daemon_reload: true
+    enabled: true
+    state: started
+
+- name: Apply restarts
+  ansible.builtin.meta: flush_handlers
+
+# The model loads before maitred listens, so give it time.
+- name: Wait for /healthz
+  ansible.builtin.uri:
+    url: "http://{{ maitre_d_host }}:{{ maitre_d_port }}/healthz"
+    return_content: true
+  register: maitre_d_health
+  until: maitre_d_health.status == 200
+  retries: 30
+  delay: 5
+
+# provider-failed is the one reason the converge can cause: a model download
+# that never finished. The others (no vectors yet, say) are the agent's to fix.
+- name: Check the running version and the embedding model
+  ansible.builtin.assert:
+    that:
+      - maitre_d_health.json.version == maitre_d_version
+      - maitre_d_health.json.get('memory_search_reason') != 'provider-failed'
+    fail_msg: >-
+      /healthz reports version {{ maitre_d_health.json.version }} (expected
+      {{ maitre_d_version }}), memory search {{ maitre_d_health.json.memory_search }}
+      ({{ maitre_d_health.json.get('memory_search_reason') }}). provider-failed means the
+      model did not load: remove {{ maitre_d_data_dir }}/mait-code/models and converge.
+    quiet: true

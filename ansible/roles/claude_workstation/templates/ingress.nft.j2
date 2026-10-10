@@ -28,7 +28,20 @@ table inet ingress {
         # {{ src.comment }}
         ip saddr {{ src.addr }} tcp dport 22 accept
 {% endfor %}
+        # maitre-d's MCP server and web UI, through the reverse proxy only
+{% for src in claude_workstation_service_sources %}
+        ip saddr {{ src }} tcp dport {{ claude_workstation_service_port }} accept
+{% endfor %}
         update @observed_input { ip saddr . meta l4proto . th dport }
         counter {{ verdict }}
+    }
+
+    # The agent may not reach the control service on this host. Its traffic to
+    # the host's own address leaves through lo, which the egress table accepts;
+    # a reject in any table is final, so this holds whatever that table says.
+    chain output {
+        type filter hook output priority filter; policy accept;
+
+        fib daddr type local meta skuid {{ claude_workstation_agent_uid }} tcp dport {{ claude_workstation_service_port }} counter reject with tcp reset
     }
 }

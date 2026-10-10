@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+
+[paths]
+data_dir = "{{ maitre_d_data_dir }}"
+agent_data_dir = "{{ maitre_d_agent_data_dir }}"
+
+[server]
+host = "{{ maitre_d_host }}"
+port = {{ maitre_d_port }}
+allowed_hosts = ["{{ maitre_d_public_host }}"]
+# Only the reverse proxy's connections reach the web UI.
+ui_peers = [{% for peer in maitre_d_ui_peers %}"{{ peer }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+ui_origins = ["https://{{ maitre_d_public_host }}"]

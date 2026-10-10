@@ -614,6 +614,46 @@ Stop it with `systemctl stop claude-rc@<project>`, which ends every session it s
 ./run/host-ssh 218 'systemctl status claude-rc@<project> --no-pager; journalctl -u claude-rc@<project> -n 20 --no-pager'
 ```
 
+### 7. maitre-d
+
+The `maitre_d` role installs the control service from the pinned release, fetched with `forge-deploy`'s read-only token (see [Forgejo](#forgejo) for the `deploy` team and minting it into `/zpool/secrets/maitre_d.sh`). Two things it cannot do: set the web UI's password, and mint the MCP clients' tokens. Both run as the `maitre-d` user and read secrets from stdin or print them once, never from the command line, because the agent can read every process's arguments.
+
+**Set the web UI password.** Until it is set, every login fails. Setting it again ends every session:
+
+```bash
+./run/host-ssh 218
+runuser -u maitre-d -- /opt/maitre-d/venv/bin/maitred password set --config /etc/maitre-d/maitred.toml
+# prompts twice
+```
+
+Then sign in at `https://maitre-d.homelab.matagoth.com` from the laptop or the desktop. Every other address gets a `403` from the proxy.
+
+**Mint a token per MCP client.** The client name is what the board records as the author of cards that client creates or refines, so give each machine or agent its own. The proxy lets only the laptop and the desktop through, `/mcp` included, so another client (Hermes, say) also needs its address in the catalogue entry's `allow`:
+
+```bash
+./run/host-ssh 218 'runuser -u maitre-d -- /opt/maitre-d/venv/bin/maitred token mint laptop -s card:create -s card:refine --config /etc/maitre-d/maitred.toml'
+# prints the token once
+```
+
+On the laptop:
+
+```bash
+claude mcp add --transport http maitre-d https://maitre-d.homelab.matagoth.com/mcp --header "Authorization: Bearer <token>"
+```
+
+List and revoke with `maitred token list` and `maitred token revoke <id>`, as the same user. A revocation takes effect on the next request.
+
+**Check it.** `/healthz` is unauthenticated. `memory_search` should be `hybrid`; anything else comes with `memory_search_reason` (maitre-d's README lists them):
+
+```bash
+curl -s https://maitre-d.homelab.matagoth.com/healthz
+# {"status":"ok","version":"0.3.0","memory_search":"hybrid","memory_search_reason":null}
+
+# The agent is refused the port outright, and the proxy is its only way in
+./run/host-ssh 218 'runuser -u agent -- curl -s --max-time 5 http://10.20.1.218:8790/healthz; echo exit=$?'
+# exit=7
+```
+
 ## NetAlertX
 
 ### What the service is

@@ -258,6 +258,18 @@ services:
     description: Workflow interface for the Hermes agent
     icon: mdi-sitemap
 
+  - name: maitre-d
+    title: maitre-d
+    category: ai
+    subcategory: agents
+    upstream: http://10.20.1.218:8790/
+    description: The workstation's board, sessions and scheduler
+    icon: mdi-room-service-outline
+    # Its login guards the agent's sessions: the laptop and the desktop only.
+    allow:
+      - 10.10.10.40
+      - 10.100.10.10
+
   - name: mait
     title: mait Gateway
     category: ai

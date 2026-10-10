@@ -11,7 +11,7 @@ Turns a VM into a host where Claude Code works unattended or from the phone, as 
 | `/etc/claude-code/managed-settings.json` | Root-owned managed settings, templated from `claude_workstation_managed_settings` |
 | `/usr/local/bin/fj`, `/usr/local/bin/yq` | Root-owned, pinned by version and checksum |
 | `/etc/nftables.d/ingress.nft` | The inbound table; the outbound one is egress_proxy's |
-| `/var/lib/maitre-d` | Home of the control service's account. maitre-d itself is not installed yet; `jobs/` and `snaps/` are where the session units read and write for it |
+| `/var/lib/maitre-d` | Home of the control service's account, and its data directory (see the [maitre_d role](../maitre_d/README.md)). `jobs/` and `snaps/` are where the session units read and write for it |
 | `/etc/systemd/system/claude-{rc,job,snap}@.service` | The session units (see [Session units](#session-units)) |
 | `/usr/local/libexec/claude-{job,trust}` | Root-owned helpers the units run |
 | `/etc/polkit-1/rules.d/50-claude-units.rules` | What maitre-d may do to those units |
@@ -74,6 +74,8 @@ Squid refuses ports other than 80 and 443 (and the forge's) even with enforcemen
 ```bash
 ./run/host-ssh 218 'nft list set inet ingress observed_input'
 ```
+
+**maitre-d's port** (`claude_workstation_service_port`, 8790) is open inbound to the reverse proxy alone, which lets only the laptop and the desktop through. The same table refuses the agent's own connections to it: a connection to the host's own address leaves through `lo`, which the egress table accepts, so the refusal is a reject of its own in an output chain. maitre-d's web UI only trusts the proxy as a peer, so the agent must never arrive from anywhere that looks like it.
 
 **Residuals**, beyond those the egress_proxy README lists:
 

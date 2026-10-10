@@ -1,0 +1,57 @@
+---
+# The release to run. A tag on the forge never moves, but the checkout is still
+# asserted against the commit, so a tag that did move fails the converge.
+maitre_d_version: "0.3.0"
+maitre_d_commit: d5cf126b053030decd46743c58aea14cbd1455ca
+
+# Fetched by root through squid, on the forge's own address and port as the
+# agent's git is, with the read-only forge-deploy token from
+# /pve/secrets/maitre_d.sh (minted per post-deploy-setup).
+maitre_d_repo_url: "{{ claude_workstation_forge_url }}/matagoth-zaibatsu/maitre-d.git"
+maitre_d_forge_token: "{{ lookup('ansible.builtin.env', 'MAITRE_D_FORGE_TOKEN') }}"
+
+# Root-owned, readable by the service's group and nobody else. The agent can
+# read neither the code nor the config.
+maitre_d_install_dir: /opt/maitre-d
+maitre_d_src_dir: "{{ maitre_d_install_dir }}/src"
+maitre_d_venv_dir: "{{ maitre_d_install_dir }}/venv"
+maitre_d_uv: "{{ maitre_d_install_dir }}/bin/uv"
+maitre_d_config_dir: /etc/maitre-d
+maitre_d_config_file: "{{ maitre_d_config_dir }}/maitred.toml"
+
+# A uv of the role's own, never the agent's: a binary the agent can rewrite must
+# not run as root. Bump the version and its sha256 together.
+maitre_d_uv_version: "0.12.24"
+maitre_d_uv_sha256: b4dfaef47d491a7296981f8374a4595f55dbf84e8937c8ecd2983574d8bb3da6
+maitre_d_python: /usr/bin/python3.13
+
+maitre_d_user: "{{ claude_workstation_service_user }}"
+maitre_d_data_dir: "{{ claude_workstation_service_home }}"
+maitre_d_agent_data_dir: "{{ claude_workstation_home }}/.claude/mait-code-data"
+# Owns the agent's mait-code databases alongside the agent, so maitre-d can read
+# them and write the board through mait-code's own code paths.
+maitre_d_data_group: mait-data
+
+maitre_d_host: 10.20.1.218
+maitre_d_port: "{{ claude_workstation_service_port }}"
+maitre_d_public_host: maitre-d.homelab.matagoth.com
+maitre_d_ui_peers: "{{ claude_workstation_service_sources }}"
+
+# Must match the agent's mait-code settings exactly: memory.db records the model
+# that built its vectors, and on any mismatch search goes keyword-only.
+maitre_d_embedding_provider: local
+maitre_d_embedding_model: nomic-ai/nomic-embed-text-v1.5
+
+# A password check alone takes about 128 MiB (scrypt); the local embedding model
+# about 0.5 GiB.
+maitre_d_memory_max: 2G
+
+# maitred's own mait-code setup, for memory search only: its own data dir (the
+# model cache lives there), the agent's provider and model, and an empty config
+# home so no settings.toml is read. Used by the unit and the model download.
+maitre_d_env:
+  HOME: "{{ maitre_d_data_dir }}"
+  MAIT_CODE_DATA_DIR: "{{ maitre_d_data_dir }}/mait-code"
+  MAIT_CODE_EMBEDDING_PROVIDER: "{{ maitre_d_embedding_provider }}"
+  MAIT_CODE_EMBEDDING_MODEL: "{{ maitre_d_embedding_model }}"
+  XDG_CONFIG_HOME: "{{ maitre_d_data_dir }}/xdg"
