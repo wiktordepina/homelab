@@ -86,6 +86,37 @@
   changed_when: false
   failed_when: maitre_d_head_after.stdout != maitre_d_commit
 
+# The workstation agent's identity, from the pinned release, as Claude Code's
+# managed memory: loaded first in every session, not excludable by user
+# settings, and not the agent's to write. Overwritten, never merged; the
+# repository is the only source. Concatenated rather than @-imported, because
+# the docs do not say imports work from managed memory.
+- name: Read the agent's identity
+  ansible.builtin.slurp:
+    src: "{{ maitre_d_src_dir }}/identity/{{ item }}.md"
+  loop: "{{ maitre_d_identity_files }}"
+  register: maitre_d_identity
+
+- name: Install the identity as managed memory
+  ansible.builtin.copy:
+    content: "{{ maitre_d_identity.results | map(attribute='content') | map('b64decode') | join('\n') }}"
+    dest: /etc/claude-code/CLAUDE.md
+    owner: root
+    group: root
+    mode: '0644'
+
+# mait-code's own copies, which the agent's ~/.claude/CLAUDE.md imports. mait-code
+# replaces a file only while it is byte-identical to a template it shipped, so
+# an update leaves the stubs alone.
+- name: Retire mait-code's identity copies
+  ansible.builtin.copy:
+    content: "Superseded by the managed CLAUDE.md (/etc/claude-code/CLAUDE.md).\n"
+    dest: "{{ maitre_d_agent_data_dir }}/{{ item }}.md"
+    owner: "{{ claude_workstation_user }}"
+    group: "{{ maitre_d_data_group }}"
+    mode: '0644'
+  loop: "{{ maitre_d_identity_files }}"
+
 # maitre-d and the agent open the same databases, and mait-code refuses one on
 # another schema version, so the two installs must be the same release.
 - name: Read the mait-code release maitre-d is locked to

@@ -23,6 +23,18 @@ The clone uses `forge-deploy`'s read-only token from `/pve/secrets/maitre_d.sh`,
 
 **mait-code moves in lockstep.** maitre-d imports mait-code and opens the agent's databases, and mait-code refuses a database on another schema version. The converge reads the mait-code release from maitre-d's `uv.lock` and fails unless it equals `claude_workstation_mait_code_ref`. To move to a maitre-d release that pins a newer mait-code, move both in one change.
 
+## The agent's identity
+
+The workstation agent's soul document, user context and communication style live in maitre-d's `identity/`, and the pinned release is their only source. The converge concatenates them, in that order and separated by a blank line, into Claude Code's managed memory at `/etc/claude-code/CLAUDE.md` (root, `0644`). It overwrites the file on every converge and never merges, the opposite of mait-code's installer. Managed memory loads first in every session, user settings cannot exclude it, and the agent cannot write it. The files are concatenated rather than `@`-imported because the docs do not say whether imports work from managed memory.
+
+mait-code's own copies in the agent's data directory, which its `~/.claude/CLAUDE.md` imports, become one-line stubs pointing at the managed file. mait-code replaces an identity file only while it is byte-identical to a template it shipped, so its updates leave the stubs alone. `claude --safe-mode` would drop managed memory, so the managed settings deny the agent `claude` altogether (claude_workstation).
+
+The installed file must equal the release's files:
+
+```bash
+./run/host-ssh 218 'cd /opt/maitre-d/src/identity && { cat soul_document.md; echo; cat user_context.md; echo; cat communication_style.md; } | cmp - /etc/claude-code/CLAUDE.md && echo identical'
+```
+
 ## Reading the agent's data
 
 The agent's `~/.claude/mait-code-data` and its databases belong to the `mait-data` group, which both maitre-d and the agent are in. Both, because whichever side opens a database first creates its `-wal` and `-shm` files as itself, and the other side then writes them through the group. The directory is setgid, so files the agent creates later join the group, and SQLite gives each database's `-wal` and `-shm` files the same mode and group as the database. A database the agent creates after a converge is readable but not writable by maitre-d until the next converge.

@@ -100,6 +100,10 @@ claude_workstation_permissions_allow:
   # carry data out in its URL, so WebFetch stays on prompts and squid's list.
   - "WebSearch"
 claude_workstation_permissions_deny:
+  # --safe-mode drops the managed CLAUDE.md (the agent's identity), and nothing
+  # here needs a session to start another.
+  - "Bash(claude)"
+  - "Bash(claude *)"
   - "Read(~/.ssh/**)"
   - "Read(~/.git-credentials)"
   - "Read(~/.local/share/forgejo-cli/**)"
