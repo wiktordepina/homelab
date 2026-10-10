@@ -46,3 +46,9 @@ forgejo_ci_email: forge-ci@home.matagoth.com
 # ours is what stops anyone verifying it on GitHub and claiming the bot's commits.
 forgejo_bot_user: matabot
 forgejo_bot_email: matabot@noreply.matagoth.com
+
+# Read-only account that hosts use to fetch private repositories they deploy,
+# such as maitre-d on the workstation. Restricted, and granted repositories one
+# by one through a read-only team; its tokens carry read:repository only.
+forgejo_deploy_user: forge-deploy
+forgejo_deploy_email: forge-deploy@noreply.matagoth.com
