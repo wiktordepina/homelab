@@ -466,7 +466,7 @@ Still in that session, confirm the managed settings are in force:
 - `/status` lists **Enterprise managed settings (file)** among the setting sources.
 - `/mcp` shows no claude.ai connectors (no Gmail, Drive or Calendar).
 - `/permissions` shows the managed allow and deny lists and no way to add a rule.
-- Shift+Tab cycles through the permission modes without ever offering auto mode.
+- Shift+Tab never offers bypass permissions mode.
 
 Then, from the agent's shell:
 
@@ -492,36 +492,47 @@ git -C ~/work/<repo> remote get-url origin
 # https://forge.homelab.matagoth.com/matagoth-zaibatsu/<repo>.git  (fetched via http://forge.home.matagoth.com:3000/)
 ```
 
-### 5. Turn the egress fence on
+### 5. The egress fence
 
-The workstation comes up in observation mode: squid allows every name and the firewall accepts everything, recording what it would refuse. Work in it for a few days, sessions and tool installs included.
-
-The installers (Claude Code, uv, mise, mait-code) run as the agent through squid only when the VM is first built, so a few days of work never records their hosts. Rebuild 218 once while still in observation mode, so the record covers a from-scratch converge as well; everything under `~/work` should be pushed first, because the rebuild discards it. Destroy and re-apply (wait for each run to finish), clear the old host keys, then push the laptop's key and log Claude Code in again (step 3):
+The role enforces from the first converge: squid lets the agent reach only the names in `claude_workstation_egress_allowlist`, and the firewall closes every other way out. The converge ends by checking that squid refuses a name off the list, so a green run means squid enforces. That a program going round the proxy is dropped is a separate check, a direct request as the agent that must time out:
 
 ```bash
-gh workflow run _vm.yml -f vmid='218 - workstation' -f tf_action=destroy
-gh workflow run _vm.yml -f vmid='218 - workstation' -f tf_action=apply
-ssh-keygen -R 10.20.1.218
-./run/pve-ssh 'ssh-keygen -R 10.20.1.218'
-./run/host-key-push 218
+./run/host-ssh 218 'runuser -u agent -- curl -sS --noproxy "*" --max-time 5 -o /dev/null https://1.1.1.1/ ; echo exit=$?'
+# curl: (28) Connection timed out after 5000 milliseconds
+# exit=28
 ```
 
-Then read the record:
-
-```bash
-# Every name the agent asked squid for, most frequent first
-./run/host-ssh 218 'awk "{print \$4, \$6, \$7}" /var/log/squid/access.log \
-  | sed -E "s#(https?://[^/]+).*#\1#" | sort | uniq -c | sort -rn'
-
-# Traffic that went round the proxy, out and in
-./run/host-ssh 218 'nft list set inet egress observed_output; nft list set inet ingress observed_input'
-```
-
-`observed_output` should be close to empty. An entry there is a program that ignores the proxy variables and needs them set some other way. Squid refuses ports other than 80, 443 and the forge's even in observation mode, so check its log for `TCP_DENIED` lines too: they are already failing. Put the names the work needs into `claude_workstation_egress_allowlist`, set `claude_workstation_egress_enforce: true`, and dispatch `_vm.yml` for 218. Afterwards, the access log's `TCP_DENIED` lines show what is being refused:
+What is being refused:
 
 ```bash
 ./run/host-ssh 218 'grep TCP_DENIED /var/log/squid/access.log | tail'
+
+# Traffic that tried to go round the proxy, out and in
+./run/host-ssh 218 'nft list set inet egress observed_output; nft list set inet ingress observed_input'
 ```
+
+A `TCP_TUNNEL/503 ... HIER_NONE` line is not a refusal: squid is holding a failed DNS lookup (the resolver has answered `SERVFAIL` for `astral.sh` more than once). Retry a minute later.
+
+To widen the list for a new kind of work, build it from a record rather than a guess. Set `claude_workstation_egress_enforce: false` on a branch and dispatch `_vm.yml` from it; squid then allows every name and logs it. Run the work as the agent in a throwaway home, so its tool installs start from nothing and its own home is left alone. This is how the current list was built, from Claude Code's, uv's, mise's and mait-code's installers, a mise/uv/npm project and a first memory search:
+
+```bash
+./run/host-ssh 218
+date -u +%s > /var/tmp/record-start
+install -d -o agent -g agent -m 0700 /var/tmp/record-home
+runuser -u agent -- env HOME=/var/tmp/record-home \
+  HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 \
+  http_proxy=http://127.0.0.1:3128 https_proxy=http://127.0.0.1:3128 \
+  NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 \
+  PATH=/var/tmp/record-home/.local/bin:/usr/local/bin:/usr/bin:/bin \
+  bash -l
+# ... run the installers or the workflow, then exit
+
+awk -v s="$(cat /var/tmp/record-start)" '$1 >= s {print $4, $6, $7}' /var/log/squid/access.log \
+  | sed -E 's#(https?://[^/]+).*#\1#' | sort | uniq -c | sort -rn
+rm -rf /var/tmp/record-home /var/tmp/record-start
+```
+
+Add the names the work needs to `claude_workstation_egress_allowlist`, set enforcement back on, and dispatch again. Squid keeps two days of logs, so read the record the same day.
 
 ### 6. Run a Remote Control server
 
