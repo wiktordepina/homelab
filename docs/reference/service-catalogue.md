@@ -39,6 +39,7 @@ Each entry names a service and says where it lives:
 | `icon` | ✅ | Icon slug (see below) |
 | `proxy` | | Set `false` to keep the entry out of DNS and the proxy. Defaults to true |
 | `listed` | | Set `false` to keep the entry off the dashboard. Defaults to true |
+| `allow` | | Addresses or networks the proxy lets through to this entry; everyone else gets a `403`. Defaults to everyone |
 
 The published address is derived from `name`, never written out. An entry that repeats its own URL in a second field is a bug waiting to drift; if you find yourself wanting one, the derivation is the thing to change.
 

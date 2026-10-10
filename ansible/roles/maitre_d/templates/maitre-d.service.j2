@@ -1,0 +1,48 @@
+# {{ ansible_managed }}
+
+[Unit]
+Description=maitre-d, the workstation's control service
+Wants=network-online.target
+After=network-online.target ingress-firewall.service
+
+[Service]
+Type=exec
+User={{ maitre_d_user }}
+Group={{ maitre_d_user }}
+# Its database holds token and session hashes; -wal and -shm follow the umask.
+UMask=0077
+{% for key, value in maitre_d_env.items() %}
+Environment={{ key }}={{ value }}
+{% endfor %}
+ExecStart={{ maitre_d_venv_dir }}/bin/maitred serve --config {{ maitre_d_config_file }}
+Restart=on-failure
+RestartSec=10
+MemoryMax={{ maitre_d_memory_max }}
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ReadWritePaths={{ maitre_d_data_dir }} {{ maitre_d_agent_data_dir }}
+# Every home hidden except the agent's mait-code data.
+ProtectHome=tmpfs
+BindPaths={{ maitre_d_agent_data_dir }}
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+# No PrivatePIDs= and no ProtectProc=: the board shows a card's bound sessions,
+# which mait-code checks with kill(pid, 0) on the agent's processes. In another
+# PID namespace every binding would read as dead.
+
+[Install]
+WantedBy=multi-user.target

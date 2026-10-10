@@ -1,0 +1,6 @@
+---
+- name: Restart maitre-d
+  ansible.builtin.systemd_service:
+    name: maitre-d
+    daemon_reload: true
+    state: restarted

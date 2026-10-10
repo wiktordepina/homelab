@@ -196,6 +196,13 @@ claude_workstation_ssh_sources:
   - { addr: 192.168.200.100, comment: PVE }
 claude_workstation_ingress_nft_file: /etc/nftables.d/ingress.nft
 
+# maitre-d's port (its MCP server and web UI share it). Open inbound to the
+# reverse proxy alone, which limits the UI to the laptop and the desktop; the
+# agent is refused it outright.
+claude_workstation_service_port: 8790
+claude_workstation_service_sources:
+  - 10.20.1.10
+
 # The session units (claude-rc@, claude-job@, claude-snap@). Projects listed
 # here get a Remote Control server at boot; any other checkout under the work
 # directory can be started on demand.
