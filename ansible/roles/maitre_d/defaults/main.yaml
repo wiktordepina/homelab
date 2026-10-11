@@ -1,8 +1,8 @@
 ---
 # The release to run. A tag on the forge never moves, but the checkout is still
 # asserted against the commit, so a tag that did move fails the converge.
-maitre_d_version: "0.3.0"
-maitre_d_commit: d5cf126b053030decd46743c58aea14cbd1455ca
+maitre_d_version: "0.4.0"
+maitre_d_commit: 338d005150b8121d5831fca78862c774ecd2664a
 
 # Fetched by root through squid, on the forge's own address and port as the
 # agent's git is, with the read-only forge-deploy token from
@@ -27,6 +27,15 @@ maitre_d_identity_files:
 
 # A uv of the role's own, never the agent's: a binary the agent can rewrite must
 # not run as root. Bump the version and its sha256 together.
+# The release's session-telemetry mod, copied out of the source tree because the
+# agent's sessions load it and cannot read /opt/maitre-d.
+maitre_d_mods_dir: /opt/claude-mods/maitre-d
+# One state file per session, written by the agent's sessions through the group
+# and read by maitre-d. Root owns the directory, so the agent cannot swap it for a
+# link. The mod never deletes; files idle this long go.
+maitre_d_telemetry_dir: /var/lib/claude-telemetry
+maitre_d_telemetry_max_age: 14d
+
 maitre_d_uv_version: "0.12.24"
 maitre_d_uv_sha256: b4dfaef47d491a7296981f8374a4595f55dbf84e8937c8ecd2983574d8bb3da6
 maitre_d_python: /usr/bin/python3.13

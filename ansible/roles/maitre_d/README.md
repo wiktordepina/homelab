@@ -14,6 +14,10 @@ Runs after [claude_workstation](../claude_workstation/README.md), which creates 
 | `/etc/maitre-d/maitred.toml` | root:maitre-d `0640` | The config. The agent can read neither it nor the code |
 | `/var/lib/maitre-d` | maitre-d `0700` | `maitred.db` (token and session hashes, the UI password hash), `mait-code/` (maitre-d's own mait-code setup and its model cache), `xdg/` (an empty config home) |
 | `/etc/systemd/system/maitre-d.service` | root | The unit |
+| `/opt/claude-mods/maitre-d` | root, world-readable | The release's session-telemetry mod (its `telemetry/`) |
+| `/etc/claude-code/managed-settings.d/50-session-telemetry.json` | root `0644` | Makes the mod the organisation's |
+| `/var/lib/claude-telemetry` | root:mait-data `2770` | One state file per session |
+| `/etc/systemd/system/claude-{rc,job}@.service.d/telemetry.conf` | root | Point the sessions at the state directory and let them write it |
 
 ## Installing a release
 
@@ -54,6 +58,24 @@ The aim is not to hide the checkouts from maitre-d. The agent owns them, and mai
 The same rule settles two other points. maitre-d cannot tell a checkout from a stray folder, because stat-ing `<project>/.git` would need the search permission this withholds. And maitre-d never writes in `~/work`: cloning runs as the agent in a unit of its own. If the view ever needs more than names, such as branch or dirty state, a one-shot unit running as the agent should write a summary into maitre-d's directory, as the snapshots do, rather than maitre-d reaching in.
 
 The directory is not setgid, so checkouts keep the agent's own group.
+
+## Session telemetry
+
+maitre-d's sessions view shows each session's context, cost, rate-limit windows and whether a permission prompt is waiting. A managed Claude Code mod in the pinned release (`telemetry/`, documented in its own README) writes them as one JSON file per session. This role delivers it. The format is maitre-d's.
+
+- **The mod** is copied out of the checkout to `/opt/claude-mods/maitre-d`, root-owned and world-readable, because the agent's sessions load it and `/opt/maitre-d` is closed to the agent. The converge replaces it whole whenever it differs from the release.
+- **The drop-in** in `/etc/claude-code/managed-settings.d/` names that directory as the `maitre-d` marketplace (directory source, absolute path) and enables `session-telemetry@maitre-d`. Under `allowManagedHooksOnly` only a mod delivered this way loads. Drop-ins deep-merge with `managed-settings.json`.
+- **The state directory** is `/var/lib/claude-telemetry`, `root:mait-data 2770`. The agent's sessions create files there through the group, and setgid keeps the files in it. Root owns the directory, so the agent cannot replace it with a link of its own. maitre-d also has the group, but its unit's `ProtectSystem=strict` keeps `/var/lib` read-only for it.
+- **The session units** get a drop-in each (`claude-rc@`, `claude-job@`) that sets `MAITRED_TELEMETRY_DIR` and adds the directory to `ReadWritePaths`. A session started anywhere else falls back to the mod's default under the agent's home, which maitre-d does not read. A running unit keeps its old sandbox until it next starts. The converge only reloads systemd, so restart a Remote Control server by hand to pick it up. That drops its sessions.
+- **Clean-up** is tmpfiles' job. The mod never deletes, so `systemd-tmpfiles-clean` removes files idle longer than `maitre_d_telemetry_max_age` (14 days). A live session whose file goes recreates it on its next change.
+
+The files are display only. The agent can write them, so it can forge them.
+
+**Claude Code updates are not pinned.** The native install keeps auto-updating, and the mod API is early access, so a new Claude Code can break the mod. Every hook fails open, so a break never stops a session. It only shows up as missing or stale telemetry, which maitre-d's sessions view flags. Pinning would turn every Claude Code release into a manual bump and delay its fixes, which costs more than a blank column. To see what a session is running, and when its file last changed:
+
+```bash
+./run/host-ssh 218 'ls -l --time-style=+%FT%T /var/lib/claude-telemetry; jq -r "[.claude_version, .updated_at, .kind, .unit] | @tsv" /var/lib/claude-telemetry/*.json'
+```
 
 ## Memory search
 
