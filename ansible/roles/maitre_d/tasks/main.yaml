@@ -230,6 +230,94 @@
     group: "{{ maitre_d_data_group }}"
     mode: '0740'
 
+# The release's telemetry/ as it stands, replaced whole when it differs so no
+# file from an earlier release survives. World-readable: every session loads it.
+- name: Install the session-telemetry mod
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      src='{{ maitre_d_src_dir }}/telemetry'
+      dst='{{ maitre_d_mods_dir }}'
+      if ! diff -r --no-dereference "$src" "$dst" > /dev/null 2>&1; then
+        rm -rf "$dst"
+        install -d -o root -g root -m 0755 "$(dirname "$dst")"
+        cp -r --no-preserve=all "$src" "$dst"
+        chmod -R u=rwX,go=rX "$dst"
+        echo CHANGED
+      fi
+    executable: /bin/bash
+  register: maitre_d_mod
+  changed_when: "'CHANGED' in maitre_d_mod.stdout"
+
+# Under allowManagedHooksOnly, a mod loads only from a managed marketplace with
+# a directory source at an absolute path.
+- name: Create the managed settings drop-in directory
+  ansible.builtin.file:
+    path: /etc/claude-code/managed-settings.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Make the mod the organisation's
+  ansible.builtin.copy:
+    dest: /etc/claude-code/managed-settings.d/50-session-telemetry.json
+    content: "{{ {
+      'extraKnownMarketplaces': {'maitre-d': {'source': {'source': 'directory', 'path': maitre_d_mods_dir}}},
+      'enabledPlugins': {'session-telemetry@maitre-d': true}
+      } | to_nice_json(indent=2) }}\n"
+    owner: root
+    group: root
+    mode: '0644'
+
+# tmpfiles creates the directory at boot and ages out the files. The agent's
+# sessions create them through the group; setgid keeps them in it.
+- name: Keep the telemetry directory and age out its files
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/claude-telemetry.conf
+    content: |
+      d {{ maitre_d_telemetry_dir }} 2770 root {{ maitre_d_data_group }} {{ maitre_d_telemetry_max_age }}
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Create the telemetry directory
+  ansible.builtin.file:
+    path: "{{ maitre_d_telemetry_dir }}"
+    state: directory
+    owner: root
+    group: "{{ maitre_d_data_group }}"
+    mode: '2770'
+
+# The directory in the same place as the permission to write it. A session
+# started outside these units falls back to the mod's default under $HOME.
+# Units already running keep their old sandbox until they next start.
+- name: Create the session units' drop-in directories
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - claude-rc@
+    - claude-job@
+
+- name: Let the session units write telemetry
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item }}.service.d/telemetry.conf"
+    content: |
+      [Service]
+      Environment=MAITRED_TELEMETRY_DIR={{ maitre_d_telemetry_dir }}
+      ReadWritePaths={{ maitre_d_telemetry_dir }}
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - claude-rc@
+    - claude-job@
+  notify: Reload systemd
+
 - name: Template the config
   ansible.builtin.template:
     src: maitred.toml.j2
