@@ -34,6 +34,9 @@ maitre_d_python: /usr/bin/python3.13
 maitre_d_user: "{{ claude_workstation_service_user }}"
 maitre_d_data_dir: "{{ claude_workstation_service_home }}"
 maitre_d_agent_data_dir: "{{ claude_workstation_home }}/.claude/mait-code-data"
+# Its projects are the folder names here. maitre-d gets the listing and nothing
+# under it, so it never resolves a path the agent controls.
+maitre_d_work_dir: "{{ claude_workstation_work_dir }}"
 # Owns the agent's mait-code databases alongside the agent, so maitre-d can read
 # them and write the board through mait-code's own code paths.
 maitre_d_data_group: mait-data
