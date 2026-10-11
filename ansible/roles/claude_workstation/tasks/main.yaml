@@ -115,13 +115,13 @@
     group: "{{ claude_workstation_user }}"
     mode: '0750'
 
+# Group and mode are the maitre_d role's: it lets maitre-d list the folder.
+# Setting them here too would undo that on every converge.
 - name: Create the work directory
   ansible.builtin.file:
     path: "{{ claude_workstation_work_dir }}"
     state: directory
     owner: "{{ claude_workstation_user }}"
-    group: "{{ claude_workstation_user }}"
-    mode: '0750'
 
 # The control service's own account. How it reads the agent's data is decided
 # with the service itself; until then it has no access to the agent's home.

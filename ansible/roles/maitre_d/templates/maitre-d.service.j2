@@ -23,9 +23,12 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict
 ReadWritePaths={{ maitre_d_data_dir }} {{ maitre_d_agent_data_dir }}
-# Every home hidden except the agent's mait-code data.
+# Every home hidden except the agent's mait-code data and, to list, its work
+# directory. Only a bound directory's own mode applies: the tmpfs stands in for
+# the homes above it.
 ProtectHome=tmpfs
 BindPaths={{ maitre_d_agent_data_dir }}
+BindReadOnlyPaths={{ maitre_d_work_dir }}
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes

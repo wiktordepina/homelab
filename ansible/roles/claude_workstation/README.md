@@ -7,7 +7,7 @@ Turns a VM into a host where Claude Code works unattended or from the phone, as 
 | Path | Contents |
 |------|----------|
 | `/home/agent` | The `agent` user: Claude Code, uv, mise and mait-code under `~/.local/bin`, all installed as the agent so each can update itself |
-| `/home/agent/work` | Checkouts the agent works in. The only place it may edit without a prompt |
+| `/home/agent/work` | Checkouts the agent works in. The only place it may edit without a prompt. Its group and mode are set by the [maitre_d role](../maitre_d/README.md#listing-the-agents-projects), which lets maitre-d list it |
 | `/etc/claude-code/managed-settings.json` | Root-owned managed settings, templated from `claude_workstation_managed_settings` |
 | `/etc/claude-code/CLAUDE.md` | The agent's identity as managed memory, installed from maitre-d's release by the [maitre_d role](../maitre_d/README.md#the-agents-identity) |
 | `/usr/local/bin/fj`, `/usr/local/bin/yq` | Root-owned, pinned by version and checksum |

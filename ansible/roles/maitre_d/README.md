@@ -41,7 +41,19 @@ The agent's `~/.claude/mait-code-data` and its databases belong to the `mait-dat
 
 That reaches further than "reads the databases and writes the board". maitre-d, which faces the network, can create, replace or delete any file in that directory, including the Markdown that the agent's sessions load. And maitre-d parses SQLite files the agent controls completely. Both follow from the design: what limits them is maitre-d's own code and its login.
 
-The unit hides every home directory behind a tmpfs and binds that one directory back in. maitre-d sees nothing else of the agent's.
+The unit hides every home directory behind a tmpfs and binds that directory back in, along with the work directory below. maitre-d sees nothing else of the agent's. Only a bound directory's own mode applies, because the tmpfs stands in for the homes above it.
+
+## Listing the agent's projects
+
+The sessions view lists projects as the folders under the agent's `~/work`, which the config passes as `work_dir`. The unit binds it read-only, and the role makes it `agent:mait-data 0740`. The group can read the directory but cannot search it.
+
+The aim is not to hide the checkouts from maitre-d. The agent owns them, and maitre-d can already start a job that reads them. The point is that **maitre-d never resolves a path the agent controls**. A process with privileges the agent lacks, acting on paths in a directory the agent writes, is a confused deputy waiting to happen: a planted `~/work/foo -> /var/lib/maitre-d/maitred.db`, followed by mistake, lands in maitre-d's own writable data, and a read-only bind does not stop that. maitre-d gets the names and each entry's type from the directory listing (`os.scandir` with `is_dir(follow_symlinks=False)`, which does not stat) and nothing else. `Path.is_dir()` fails with `EACCES` here.
+
+**The rule is enforced by maitre-d's code, not by the mode.** Without search permission the kernel resolves nothing below `~/work` for maitre-d, so as converged, a bug cannot follow a link there. But the agent owns `~/work` and its home, so it can widen the mode, or put a directory or symlink of its own choosing in `~/work`'s place, and systemd binds whatever is there on maitre-d's next start. Each converge restores the mode. Until then, the mode is hardening that the agent can undo. The agent's mait-code data directory has the same exposure, read-write, which is why maitre-d must also treat that directory's files as hostile.
+
+The same rule settles two other points. maitre-d cannot tell a checkout from a stray folder, because stat-ing `<project>/.git` would need the search permission this withholds. And maitre-d never writes in `~/work`: cloning runs as the agent in a unit of its own. If the view ever needs more than names, such as branch or dirty state, a one-shot unit running as the agent should write a summary into maitre-d's directory, as the snapshots do, rather than maitre-d reaching in.
+
+The directory is not setgid, so checkouts keep the agent's own group.
 
 ## Memory search
 

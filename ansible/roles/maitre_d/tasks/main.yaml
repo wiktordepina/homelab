@@ -218,6 +218,18 @@
   register: maitre_d_share
   changed_when: "'CHANGED' in maitre_d_share.stdout"
 
+# Read without search: maitre-d lists the names (and each entry's type) and the
+# kernel resolves no path beneath. Hardening only: the agent owns the directory
+# and can widen the mode until the next converge, so maitre-d's own code is what
+# keeps it from following links there. Not setgid: checkouts stay out of the group.
+- name: Let maitre-d list the agent's work directory
+  ansible.builtin.file:
+    path: "{{ maitre_d_work_dir }}"
+    state: directory
+    owner: "{{ claude_workstation_user }}"
+    group: "{{ maitre_d_data_group }}"
+    mode: '0740'
+
 - name: Template the config
   ansible.builtin.template:
     src: maitred.toml.j2
