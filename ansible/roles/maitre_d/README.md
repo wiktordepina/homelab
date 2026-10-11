@@ -71,6 +71,8 @@ maitre-d's sessions view shows each session's context, cost, rate-limit windows 
 
 The files are display only. The agent can write them, so it can forge them.
 
+**The agent cannot swap the mod for its own code, but it can switch it off.** Claude Code records the managed marketplace in the agent's `~/.claude/plugins/known_marketplaces.json`, which the agent can write. Tested on Claude Code 2.1.296: pointing that entry at a mod in the agent's home loaded neither copy for that session, and Claude Code rewrote the entry back to the managed path, so the next session loaded the real mod again. A session with the entry tampered with shows up as one with no telemetry.
+
 **Claude Code updates are not pinned.** The native install keeps auto-updating, and the mod API is early access, so a new Claude Code can break the mod. Every hook fails open, so a break never stops a session. It only shows up as missing or stale telemetry, which maitre-d's sessions view flags. Pinning would turn every Claude Code release into a manual bump and delay its fixes, which costs more than a blank column. To see what a session is running, and when its file last changed:
 
 ```bash
