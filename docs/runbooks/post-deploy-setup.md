@@ -630,24 +630,54 @@ Then sign in at `https://maitre-d.homelab.matagoth.com` from the laptop or the d
 
 **Mint a token per MCP client.** The client name is what the board records as the author of cards that client creates or refines, so give each machine or agent its own. The proxy lets only the laptop and the desktop through, `/mcp` included, so another client (Hermes, say) also needs its address in the catalogue entry's `allow`:
 
-```bash
-./run/host-ssh 218 'runuser -u maitre-d -- /opt/maitre-d/venv/bin/maitred token mint laptop -s card:create -s card:refine --config /etc/maitre-d/maitred.toml'
-# prints the token once
-```
-
-On the laptop:
+The token is shown once, on stdout; the token's row goes to stderr. On the laptop, send it straight into a file of its own, so it never reaches the terminal, the shell history or Claude Code's config:
 
 ```bash
-claude mcp add --transport http maitre-d https://maitre-d.homelab.matagoth.com/mcp --header "Authorization: Bearer <token>"
+umask 077 && mkdir -p ~/.config/maitre-d
+./run/host-ssh 218 'runuser -u maitre-d -- /opt/maitre-d/venv/bin/maitred token mint laptop -s card:create -s card:refine --config /etc/maitre-d/maitred.toml' \
+  > ~/.config/maitre-d/laptop.token
+#    1  laptop   read card:create card:refine   created 2026-10-13T14:50:25+00:00  last used never  live
+
+stat -c '%A %s' ~/.config/maitre-d/laptop.token
+# -rw------- 48
 ```
 
-List and revoke with `maitred token list` and `maitred token revoke <id>`, as the same user. A revocation takes effect on the next request.
+Add maitre-d at user scope, with a `headersHelper` that reads the file each time Claude Code connects. Passing the token with `--header` would leave it in the shell history and in plain text in `~/.claude.json`:
+
+```bash
+claude mcp add-json -s user maitre-d '{"type":"http","url":"https://maitre-d.homelab.matagoth.com/mcp","headersHelper":"printf '"'"'{\"Authorization\":\"Bearer %s\"}'"'"' \"$(cat ~/.config/maitre-d/laptop.token)\""}'
+
+claude mcp list | grep maitre-d
+# maitre-d: https://maitre-d.homelab.matagoth.com/mcp (HTTP) - ✔ Connected
+```
+
+A session already running does not pick the server up; start a new one. It then has the `rmc_` tools (`rmc_list_cards`, `rmc_create_card`, `rmc_refine_card` and the other reads). A card created or refined from it shows `created_by: laptop`, and the refine adds a comment by `laptop`. The remote API cannot archive or delete, so a test card is archived on 218 as the agent:
+
+```bash
+./run/host-ssh 218 'runuser -l agent -c "mc-tool-board archive <card-id>"'
+# Card #<card-id> → Archived.
+```
+
+**Rotate a client's token.** Mint a new one into the same file, reconnect, then revoke the old one by its id. Revocation takes effect on the client's next request:
+
+```bash
+./run/host-ssh 218 'runuser -u maitre-d -- /opt/maitre-d/venv/bin/maitred token mint laptop -s card:create -s card:refine --config /etc/maitre-d/maitred.toml' \
+  > ~/.config/maitre-d/laptop.token
+# in Claude Code: /mcp → maitre-d → Reconnect (or start a new session)
+
+./run/host-ssh 218 'runuser -u maitre-d -- /opt/maitre-d/venv/bin/maitred token list --config /etc/maitre-d/maitred.toml'
+#    1  laptop   read card:create card:refine   created …  last used …  live
+#    2  laptop   read card:create card:refine   created …  last used …  live
+./run/host-ssh 218 'runuser -u maitre-d -- /opt/maitre-d/venv/bin/maitred token revoke <old-id> --config /etc/maitre-d/maitred.toml'
+```
+
+If a token may have leaked, revoke it first and mint second; the client is down until the new file is in place.
 
 **Check it.** `/healthz` is unauthenticated. `memory_search` should be `hybrid`; anything else comes with `memory_search_reason` (maitre-d's README lists them):
 
 ```bash
 curl -s https://maitre-d.homelab.matagoth.com/healthz
-# {"status":"ok","version":"0.3.0","memory_search":"hybrid","memory_search_reason":null}
+# {"status":"ok","version":"0.5.0","memory_search":"hybrid","memory_search_reason":null}
 
 # The agent is refused the port outright, and the proxy is its only way in
 ./run/host-ssh 218 'runuser -u agent -- curl -s --max-time 5 http://10.20.1.218:8790/healthz; echo exit=$?'
