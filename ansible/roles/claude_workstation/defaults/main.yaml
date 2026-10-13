@@ -214,7 +214,8 @@ claude_workstation_rc_projects: []
 claude_workstation_rc_capacity: 2
 claude_workstation_unit_memory_max: 3G
 claude_workstation_slice_memory_max: 6G
-claude_workstation_job_runtime_max: 2h
+# The longest workflow's limit; maitre-d stops a job at its own workflow's.
+claude_workstation_job_runtime_max: 6h
 claude_workstation_job_cpu_quota: 200%
 claude_workstation_snap_lines: 200
 # Outside /tmp, which every unit gets a private copy of, so a snapshot unit and

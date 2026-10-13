@@ -55,7 +55,7 @@ The agent is also denied running `claude` itself: `--safe-mode` would drop the m
 
 The **read denials** cover the forge token, SSH keys, Claude Code's own credentials and `.env` files. They stop the Read tool and plain shell reads such as `cat`. As above, they do not stop an allowed command or a program the agent writes, so they are a speed bump.
 
-**Auto mode** is available, and is the default for a fresh interactive session. Prompts are not the boundary here (the allow list above already runs code), and a half-attended phone approval reviews less than auto mode's classifier, which reads every action. What auto mode waited for is the egress fence below, which contains where a session can reach: the LAN and any site off the allowlist. It does not contain what a session can read leaving through an allowlisted name that accepts uploads (GitHub, npm, Hugging Face, or the API itself under someone else's key); spotting that is left to the classifier. WebSearch results are another way injected text reaches a session without a prompt. Headless jobs run in the default mode, so anything off the allow list is denied, not judged.
+**Auto mode** is available, and is the default for a fresh interactive session. Prompts are not the boundary here (the allow list above already runs code), and a half-attended phone approval reviews less than auto mode's classifier, which reads every action. What auto mode waited for is the egress fence below, which contains where a session can reach: the LAN and any site off the allowlist. It does not contain what a session can read leaving through an allowlisted name that accepts uploads (GitHub, npm, Hugging Face, or the API itself under someone else's key); spotting that is left to the classifier. WebSearch results are another way injected text reaches a session without a prompt. Headless jobs run in auto mode too. With no one to answer a prompt, an action the classifier refuses ends in a denial, never a hang.
 
 ## Network posture
 
@@ -95,7 +95,7 @@ Three system template units with `User=agent`. They are system units rather than
 | Unit | What it runs |
 |------|--------------|
 | `claude-rc@<project>` | `claude remote-control --name <project> --spawn same-dir --capacity 2` in `~/work/<project>`, inside a tmux server of its own (`tmux -L <project>`). One shared tmux server would live in whichever unit started it first, and stopping that unit would end every project's session. |
-| `claude-job@<id>` | One headless `claude -p --permission-mode default --output-format json` run, for maitre-d's scheduler. |
+| `claude-job@<id>` | One headless `claude -p --permission-mode auto --output-format json` run, for maitre-d's scheduler. The prompt usually starts a workflow. |
 | `claude-snap@<project>` | A one-shot `tmux capture-pane` of the project's Remote Control pane. maitre-d reads the text, but never gets the tmux socket, which would also let it type into the session. |
 
 **Remote Control** servers listed in `claude_workstation_rc_projects` start at boot. Any other checkout can be started on demand. `remote-control` exits cleanly when the login has expired, so every exit is restarted after a minute; five within fifteen minutes leave the unit **failed**, which is the state to alert on. Taking a project off the list does not disable its unit; `systemctl disable claude-rc@<project>` does. A changed unit template reaches a running server only when it is restarted.
@@ -110,7 +110,7 @@ Three system template units with `User=agent`. They are system units rather than
 | `prompt` | maitre-d | The prompt, sent on stdin |
 | `result.json` | systemd, as root | Claude Code's JSON result, from stdout |
 
-systemd reads the environment file and opens both stdio files as root before it drops to the agent. So the agent can neither read nor change its prompt on disk, nor rewrite its result afterwards. A job is limited by `RuntimeMaxSec` (2 hours), `MemoryMax` and `CPUQuota`; stopping the unit kills its whole cgroup. A run that hit a permission prompt still reports `"subtype": "success"`, with the refusal only in `permission_denials`, so maitre-d must treat any denial as needing attention.
+systemd reads the environment file and opens both stdio files as root before it drops to the agent. So the agent can neither read nor change its prompt on disk, nor rewrite its result afterwards. A job is limited by `RuntimeMaxSec` (6 hours, the longest workflow's limit), `MemoryMax` and `CPUQuota`; stopping the unit kills its whole cgroup. `-p` normally stops waiting for background work, a running workflow included, after ten idle minutes and still reports success, so the job sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` and waits as long as the workflow runs. A run that hit a permission refusal still reports `"subtype": "success"`, with the refusal only in `permission_denials`, so maitre-d must treat any denial as needing attention.
 
 **Snapshots** go to `/var/lib/maitre-d/snaps/<project>.txt`, written by systemd as root, so the agent cannot change a file once written. What goes into it is a different matter: the pane belongs to the agent, and any session can type into any project's tmux server, since they all run as the same user. Treat a snapshot as what the agent shows, not as evidence of what it did.
 

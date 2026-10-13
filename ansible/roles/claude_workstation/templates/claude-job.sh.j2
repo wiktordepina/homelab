@@ -12,7 +12,9 @@ case "${CLAUDE_JOB_PROJECT:-}" in
 esac
 
 cd "{{ claude_workstation_work_dir }}/${CLAUDE_JOB_PROJECT}"
-# Explicit, because an interactive session on this account defaults to auto
-# mode. A job is unattended, so whatever is off the managed allow list must be
-# denied and reported, not judged by the classifier.
-exec claude -p --permission-mode default --output-format json
+# Auto mode, as interactive sessions: the egress fence is the boundary, and in
+# -p a refusal ends in a denial, never a hang. A job's prompt starts a workflow,
+# and -p stops waiting for one after an idle ceiling (10 min by default) yet
+# still reports success, so the ceiling is off: RuntimeMaxSec and maitre-d's
+# own per-workflow limit end a job instead.
+CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 exec claude -p --permission-mode auto --output-format json
