@@ -80,6 +80,8 @@ Squid refuses ports other than 80 and 443 (and the forge's) even with enforcemen
 
 **maitre-d's port** (`claude_workstation_service_port`, 8790) is open inbound to the reverse proxy alone, which lets only the laptop and the desktop through. The same table refuses the agent's own connections to it: a connection to the host's own address leaves through `lo`, which the egress table accepts, so the refusal is a reject of its own in an output chain. maitre-d's web UI only trusts the proxy as a peer, so the agent must never arrive from anywhere that looks like it.
 
+**node_exporter** (`claude_workstation_metrics_port`, 9100) is open inbound to Prometheus (`claude_workstation_metrics_sources`) alone. The host lists the [node_exporter](../node_exporter/README.md) role in `config/vm/218.yaml`, with the systemd collector on and limited to the `claude-*` units and `maitre-d`. The agent can read the exporter over `lo`. Nothing is lost by that, because it could read the same counters from `/proc` and `systemctl` anyway. The *Workstation (218)* dashboard in Grafana reads from it, and it takes the VM's uptime from PVE's metric feed so that a stopped VM can be told apart from a dead exporter.
+
 **Residuals**, beyond those the egress_proxy README lists:
 
 - The agent can resolve any name, so DNS queries to the resolver carry data out a few bytes at a time.

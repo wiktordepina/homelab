@@ -1,0 +1,984 @@
+{
+  "uid": "workstation-218",
+  "title": "Workstation (218)",
+  "tags": [
+    "workstation",
+    "vm"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "VM uptime (from PVE)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "proxmox_qemu_uptime{vmid=\"218\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "From PVE's metric feed, outside the guest. Zero means the VM is stopped."
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Exporter",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "up{job=\"workstation\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "down"
+                },
+                "1": {
+                  "text": "up"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Whether Prometheus can scrape node_exporter. Down while uptime is non-zero means the exporter or the network, not the VM."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "maitre-d",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 7,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "node_systemd_unit_state{job=\"workstation\",name=\"maitre-d.service\",state=\"active\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "not active"
+                },
+                "1": {
+                  "text": "active"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Active claude-job@",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "count(node_systemd_unit_state{job=\"workstation\",name=~\"claude-job@.+\",state=\"active\"} == 1) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Active claude-rc@",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 13,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "count(node_systemd_unit_state{job=\"workstation\",name=~\"claude-rc@.+\",state=\"active\"} == 1) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "OOM kills (24h)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "increase(node_vmstat_oom_kill{job=\"workstation\"}[24h])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Rootfs used",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "1 - node_filesystem_avail_bytes{job=\"workstation\",mountpoint=\"/\"} / node_filesystem_size_bytes{job=\"workstation\",mountpoint=\"/\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Holds the agent's checkouts under ~/work."
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "CPU by mode",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "sum by (mode) (rate(node_cpu_seconds_total{job=\"workstation\",mode!=\"idle\"}[$__rate_interval]))",
+          "legendFormat": "{{mode}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 30,
+            "lineWidth": 1
+          },
+          "min": 0,
+          "max": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Cores in use, out of 4. claude.slice units are capped at 2 cores each (CPUQuota=200%). Steal is time the host gave to other guests."
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Memory",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "node_memory_MemTotal_bytes{job=\"workstation\"} - node_memory_MemAvailable_bytes{job=\"workstation\"}",
+          "legendFormat": "used"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "B",
+          "expr": "node_memory_MemAvailable_bytes{job=\"workstation\"}",
+          "legendFormat": "available"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "C",
+          "expr": "node_memory_SwapTotal_bytes{job=\"workstation\"} - node_memory_SwapFree_bytes{job=\"workstation\"}",
+          "legendFormat": "swap used"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Used is total minus MemAvailable, so page cache the kernel can reclaim does not count. claude.slice is capped at 6 GiB."
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Pressure (PSI)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "rate(node_pressure_cpu_waiting_seconds_total{job=\"workstation\"}[$__rate_interval])",
+          "legendFormat": "cpu some"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "B",
+          "expr": "rate(node_pressure_memory_waiting_seconds_total{job=\"workstation\"}[$__rate_interval])",
+          "legendFormat": "memory some"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "C",
+          "expr": "rate(node_pressure_memory_stalled_seconds_total{job=\"workstation\"}[$__rate_interval])",
+          "legendFormat": "memory full"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "D",
+          "expr": "rate(node_pressure_io_waiting_seconds_total{job=\"workstation\"}[$__rate_interval])",
+          "legendFormat": "io some"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "E",
+          "expr": "rate(node_pressure_io_stalled_seconds_total{job=\"workstation\"}[$__rate_interval])",
+          "legendFormat": "io full"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Share of wall-clock time tasks were stalled on each resource. 'some': at least one task waited; 'full': every non-idle task did. Sustained memory pressure means the VM is too small for the load."
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "OOM kills",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "increase(node_vmstat_oom_kill{job=\"workstation\"}[$__rate_interval])",
+          "legendFormat": "oom kills"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Kernel OOM kills, including a unit hitting its own MemoryMax. maitre-d records which job it was."
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Active session units",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "count(node_systemd_unit_state{job=\"workstation\",name=~\"claude-job@.+\",state=\"active\"} == 1) or vector(0)",
+          "legendFormat": "claude-job@"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "B",
+          "expr": "count(node_systemd_unit_state{job=\"workstation\",name=~\"claude-rc@.+\",state=\"active\"} == 1) or vector(0)",
+          "legendFormat": "claude-rc@"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "C",
+          "expr": "count(node_systemd_unit_state{job=\"workstation\",name=~\"claude-snap@.+\",state=\"active\"} == 1) or vector(0)",
+          "legendFormat": "claude-snap@"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "lineInterpolation": "stepAfter"
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Unit states",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "node_systemd_unit_state{job=\"workstation\"} == 1",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "sortBy": [
+          {
+            "displayName": "name",
+            "desc": false
+          }
+        ]
+      },
+      "description": "Every claude-* unit and maitre-d that systemd currently has loaded.",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "name": true,
+              "state": true
+            },
+            "indexByName": {
+              "name": 0,
+              "state": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Rootfs",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "node_filesystem_size_bytes{job=\"workstation\",mountpoint=\"/\"} - node_filesystem_avail_bytes{job=\"workstation\",mountpoint=\"/\"}",
+          "legendFormat": "used"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "B",
+          "expr": "node_filesystem_size_bytes{job=\"workstation\",mountpoint=\"/\"}",
+          "legendFormat": "size"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Disk I/O",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "sum(rate(node_disk_read_bytes_total{job=\"workstation\",device!~\"dm-.*|loop.*|sr.*\"}[$__rate_interval]))",
+          "legendFormat": "read"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "B",
+          "expr": "sum(rate(node_disk_written_bytes_total{job=\"workstation\",device!~\"dm-.*|loop.*|sr.*\"}[$__rate_interval]))",
+          "legendFormat": "write"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Network",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "sum(rate(node_network_receive_bytes_total{job=\"workstation\",device!=\"lo\"}[$__rate_interval]))",
+          "legendFormat": "in"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "B",
+          "expr": "sum(rate(node_network_transmit_bytes_total{job=\"workstation\",device!=\"lo\"}[$__rate_interval]))",
+          "legendFormat": "out"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

@@ -32,6 +32,10 @@ table inet ingress {
 {% for src in claude_workstation_service_sources %}
         ip saddr {{ src }} tcp dport {{ claude_workstation_service_port }} accept
 {% endfor %}
+        # node_exporter, for Prometheus
+{% for src in claude_workstation_metrics_sources %}
+        ip saddr {{ src }} tcp dport {{ claude_workstation_metrics_port }} accept
+{% endfor %}
         update @observed_input { ip saddr . meta l4proto . th dport }
         counter {{ verdict }}
     }

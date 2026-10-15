@@ -23,3 +23,10 @@ ansible:
     - base
     - claude_workstation
     - maitre_d
+    - role: node_exporter
+      vars:
+        # Pressure (PSI) is on by default; systemd is not. The unit filter
+        # keeps the series to the session units and the control service.
+        node_exporter_flags:
+          - --collector.systemd
+          - --collector.systemd.unit-include=(claude-.+|maitre-d)[.]service
