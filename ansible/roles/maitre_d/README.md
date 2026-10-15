@@ -11,6 +11,7 @@ Runs after [claude_workstation](../claude_workstation/README.md), which creates 
 | `/opt/maitre-d/src` | root, under a `0750` root:maitre-d directory | The pinned release, a shallow clone |
 | `/opt/maitre-d/venv` | root, as above | maitre-d and its locked dependencies |
 | `/opt/maitre-d/bin/uv` | root | The role's own uv, pinned by version and checksum |
+| `/opt/maitre-d-runner/venv` | root, nothing writable by anyone else | The workflow runner, its contract and `claude-agent-sdk` with its bundled Claude Code. The agent runs it in `claude-job@` and cannot change it |
 | `/etc/maitre-d/maitred.toml` | root:maitre-d `0640` | The config. The agent can read neither it nor the code |
 | `/var/lib/maitre-d` | maitre-d `0700` | `maitred.db` (token and session hashes, the UI password hash), `mait-code/` (maitre-d's own mait-code setup and its model cache), `xdg/` (an empty config home) |
 | `/etc/systemd/system/maitre-d.service` | root | The unit |
@@ -26,6 +27,16 @@ Runs after [claude_workstation](../claude_workstation/README.md), which creates 
 The clone uses `forge-deploy`'s read-only token from `/pve/secrets/maitre_d.sh`, through squid to the forge's own address. The token reaches git through its environment, never its arguments (the agent can read every process's command line) and never the remote URL (it would be saved in `.git/config`). Everything else the install fetches (PyPI, and mait-code's source on GitHub) goes out directly as root.
 
 **mait-code moves in lockstep.** maitre-d imports mait-code and opens the agent's databases, and mait-code refuses a database on another schema version. The converge reads the mait-code release from maitre-d's `uv.lock` and fails unless it equals `claude_workstation_mait_code_ref`. To move to a maitre-d release that pins a newer mait-code, move both in one change.
+
+## The workflow runner
+
+`claude-job@` runs `maitre-d-runner`, the release's workflow engine: it reads a run input on stdin, runs the card as a workflow of Agent SDK stages in the checkout, and writes one outcome on stdout. What it does, and the outcome contract, are in maitre-d's `runner/README.md`.
+
+It comes from the same tag as maitred and is installed beside it, not in it: the agent runs it, and cannot read `/opt/maitre-d`. The converge runs `uv sync --frozen --no-dev --no-editable --package maitre-d-runner` from the checkout into `/opt/maitre-d-runner/venv`, which installs the runner, `maitre-d-contract` and `claude-agent-sdk`, and nothing of maitred's. It reinstalls when the runner's installed version differs from `maitre_d_version` or the SDK does not import, compiling the bytecode up front because the agent cannot write it there, then checks the version again, and fails if anything under `/opt/maitre-d-runner` is not root's or is writable by anyone else.
+
+**The release pins the jobs' Claude Code.** `claude-agent-sdk` is pinned exactly in the release's lock, and the SDK runs the CLI it bundles in preference to the agent's own `claude`. So jobs run that CLI, whatever version the agent's native install has auto-updated to, and change only when a new maitre-d release is deployed. Interactive sessions and Remote Control are unaffected. To move the jobs' CLI, maitre-d bumps the SDK and releases (`runner/README.md`, *Bumping the SDK*); here, bump `maitre_d_version` and `maitre_d_commit` and converge, as for any release. The release notes say which CLI the SDK bundles.
+
+A job already running keeps the files it opened, so a converge mid-job does not disturb it. The next job starts on the new release.
 
 ## The agent's identity
 
@@ -73,7 +84,7 @@ The files are display only. The agent can write them, so it can forge them.
 
 **The agent cannot swap the mod for its own code, but it can switch it off.** Claude Code records the managed marketplace in the agent's `~/.claude/plugins/known_marketplaces.json`, which the agent can write. Tested on Claude Code 2.1.296: pointing that entry at a mod in the agent's home loaded neither copy for that session, and Claude Code rewrote the entry back to the managed path, so the next session loaded the real mod again. A session with the entry tampered with shows up as one with no telemetry.
 
-**Claude Code updates are not pinned.** The native install keeps auto-updating, and the mod API is early access, so a new Claude Code can break the mod. Every hook fails open, so a break never stops a session. It only shows up as missing or stale telemetry, which maitre-d's sessions view flags. Pinning would turn every Claude Code release into a manual bump and delay its fixes, which costs more than a blank column. To see what a session is running, and when its file last changed:
+**The sessions' Claude Code is not pinned.** The native install keeps auto-updating, and the mod API is early access, so a new Claude Code can break the mod. Jobs are the exception: they run the CLI the runner's SDK bundles (see [The workflow runner](#the-workflow-runner)), so the mod has to work on both. Every hook fails open, so a break never stops a session. It only shows up as missing or stale telemetry, which maitre-d's sessions view flags. Pinning would turn every Claude Code release into a manual bump and delay its fixes, which costs more than a blank column. To see what a session is running, and when its file last changed:
 
 ```bash
 ./run/host-ssh 218 'ls -l --time-style=+%FT%T /var/lib/claude-telemetry; jq -r "[.claude_version, .updated_at, .kind, .unit] | @tsv" /var/lib/claude-telemetry/*.json'

@@ -1,15 +1,15 @@
 [Unit]
-Description=Claude Code headless job %i
+Description=Claude Code workflow job %i
 Wants=network-online.target
 After=network-online.target squid.service egress-firewall.service
 
 # The job directory is maitre-d's alone. systemd reads the environment file and
-# opens the prompt and the result as root before dropping to the agent, so the
-# agent can neither change its own prompt nor rewrite its result afterwards.
+# opens the run input and the result as root before dropping to the agent, so
+# the agent can neither change its own input nor rewrite its result afterwards.
 [Service]
 Type=exec
 EnvironmentFile={{ claude_workstation_jobs_dir }}/%i/job.env
-StandardInput=file:{{ claude_workstation_jobs_dir }}/%i/prompt
+StandardInput=file:{{ claude_workstation_jobs_dir }}/%i/input.json
 StandardOutput=truncate:{{ claude_workstation_jobs_dir }}/%i/result.json
 StandardError=journal
 ExecStart=/usr/local/libexec/claude-job

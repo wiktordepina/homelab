@@ -227,4 +227,7 @@ claude_workstation_snap_lines: 200
 # an SSH shell find the same tmux sockets as the server unit.
 claude_workstation_tmux_dir: /run/claude-tmux
 claude_workstation_jobs_dir: "{{ claude_workstation_service_home }}/jobs"
+# maitre-d's workflow runner, which claude-job@ runs. Installed by the maitre_d
+# role from its pinned release.
+claude_workstation_job_runner_dir: /opt/maitre-d-runner
 claude_workstation_snaps_dir: "{{ claude_workstation_service_home }}/snaps"
