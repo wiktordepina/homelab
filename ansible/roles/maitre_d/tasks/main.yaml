@@ -446,6 +446,19 @@
     enabled: true
     state: started
 
+# A converge that failed after an install loses its queued restart, and the next
+# one finds nothing to install, so the old release would keep serving. Asked of
+# the service itself: one not listening yet has only just started.
+- name: Read the running version
+  ansible.builtin.uri:
+    url: "http://{{ maitre_d_host }}:{{ maitre_d_port }}/healthz"
+  register: maitre_d_running
+  failed_when: false
+  changed_when:
+    - maitre_d_running.status == 200
+    - maitre_d_running.json.version != maitre_d_version
+  notify: Restart maitre-d
+
 - name: Apply restarts
   ansible.builtin.meta: flush_handlers
 
