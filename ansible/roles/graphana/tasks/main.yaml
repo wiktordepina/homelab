@@ -37,7 +37,7 @@
     dest: /etc/graphana/conf/config.ini
     mode: '0644'
   notify:
-    - Restart prometheus service
+    - Restart graphana service
 
 - name: Set folder permissions
   ansible.builtin.file:
