@@ -1,0 +1,778 @@
+{
+  "panels": [
+    {
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "OFFLINE"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "ONLINE"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_zpool_state{zpool=\"zpool\"}",
+          "legendFormat": "{{state}}"
+        }
+      ],
+      "title": "Pool State",
+      "type": "stat"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_hits / (node_zfs_arc_hits + node_zfs_arc_misses) * 100",
+          "legendFormat": "Hit Rate"
+        }
+      ],
+      "title": "ARC Hit Rate",
+      "type": "gauge"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "id": 3,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_size",
+          "legendFormat": "Current"
+        }
+      ],
+      "title": "ARC Size",
+      "type": "stat"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "id": 4,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_c",
+          "legendFormat": "Target"
+        }
+      ],
+      "title": "ARC Target Size",
+      "type": "stat"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "id": 5,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_c_max",
+          "legendFormat": "Max"
+        }
+      ],
+      "title": "ARC Max Size",
+      "type": "stat"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1.5
+              }
+            ]
+          },
+          "unit": "x"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 6,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_uncompressed_size / node_zfs_arc_compressed_size",
+          "legendFormat": "Ratio"
+        }
+      ],
+      "title": "Compression Ratio",
+      "type": "stat"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 7,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_size",
+          "legendFormat": "ARC Size"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_c",
+          "legendFormat": "Target Size (c)"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_c_min",
+          "legendFormat": "Min Size"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_c_max",
+          "legendFormat": "Max Size"
+        }
+      ],
+      "title": "ARC Size Over Time",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 8,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_hits[5m])",
+          "legendFormat": "Hits/s"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_misses[5m])",
+          "legendFormat": "Misses/s"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_iohits[5m])",
+          "legendFormat": "IO Hits/s"
+        }
+      ],
+      "title": "ARC Hit/Miss Rate",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 9,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_zpool_dataset_nread{zpool=\"zpool\", dataset!=\"zpool\"}[5m])",
+          "legendFormat": "{{dataset}}"
+        }
+      ],
+      "title": "Dataset Read Throughput",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 10,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_zpool_dataset_nwritten{zpool=\"zpool\", dataset!=\"zpool\"}[5m])",
+          "legendFormat": "{{dataset}}"
+        }
+      ],
+      "title": "Dataset Write Throughput",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "iops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 11,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_zpool_dataset_reads{zpool=\"zpool\", dataset!=\"zpool\"}[5m])",
+          "legendFormat": "{{dataset}}"
+        }
+      ],
+      "title": "Dataset Read IOPS",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "iops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 12,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_zpool_dataset_writes{zpool=\"zpool\", dataset!=\"zpool\"}[5m])",
+          "legendFormat": "{{dataset}}"
+        }
+      ],
+      "title": "Dataset Write IOPS",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "id": 13,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_zpool_dataset_zil_commit_count{zpool=\"zpool\", dataset!=\"zpool\"}[5m])",
+          "legendFormat": "{{dataset}}"
+        }
+      ],
+      "title": "ZIL Commit Rate",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.01
+              }
+            ]
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 14,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_zpool_dataset_zil_commit_error_count{zpool=\"zpool\"}[5m])",
+          "legendFormat": "{{dataset}}"
+        }
+      ],
+      "title": "ZIL Commit Errors",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 15,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_mru_size",
+          "legendFormat": "MRU"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_mfu_size",
+          "legendFormat": "MFU"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_anon_size",
+          "legendFormat": "Anon"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_hdr_size",
+          "legendFormat": "Headers"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_bonus_size",
+          "legendFormat": "Bonus"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_dnode_size",
+          "legendFormat": "Dnode"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "node_zfs_arc_dbuf_size",
+          "legendFormat": "Dbuf"
+        }
+      ],
+      "title": "ARC Memory Breakdown",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "id": 16,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_evict_skip[5m])",
+          "legendFormat": "Evict Skip"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_evict_not_enough[5m])",
+          "legendFormat": "Evict Not Enough"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_evict_l2_cached[5m])",
+          "legendFormat": "Evict L2 Cached"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_evict_l2_eligible[5m])",
+          "legendFormat": "Evict L2 Eligible"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_evict_l2_ineligible[5m])",
+          "legendFormat": "Evict L2 Ineligible"
+        }
+      ],
+      "title": "ARC Eviction Activity",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "id": 17,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_demand_data_hits[5m])",
+          "legendFormat": "Demand Data Hits"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_demand_metadata_hits[5m])",
+          "legendFormat": "Demand Metadata Hits"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_prefetch_data_hits[5m])",
+          "legendFormat": "Prefetch Data Hits"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_prefetch_metadata_hits[5m])",
+          "legendFormat": "Prefetch Metadata Hits"
+        }
+      ],
+      "title": "Demand vs Prefetch Hits",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "id": 18,
+      "targets": [
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_demand_data_misses[5m])",
+          "legendFormat": "Demand Data Misses"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_demand_metadata_misses[5m])",
+          "legendFormat": "Demand Metadata Misses"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_prefetch_data_misses[5m])",
+          "legendFormat": "Prefetch Data Misses"
+        },
+        {
+          "datasource": {
+            "uid": "bewhi3wyusoaoc"
+          },
+          "expr": "rate(node_zfs_arc_prefetch_metadata_misses[5m])",
+          "legendFormat": "Prefetch Metadata Misses"
+        }
+      ],
+      "title": "Demand vs Prefetch Misses",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "zfs",
+    "storage",
+    "pve"
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "title": "ZFS Pool Overview",
+  "uid": "7ee47c4f-ec0d-409f-a1cb-cdb31201a477",
+  "version": 1
+}
