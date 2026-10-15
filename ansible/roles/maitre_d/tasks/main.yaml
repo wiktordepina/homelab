@@ -227,6 +227,16 @@
   changed_when: false
   failed_when: maitre_d_runner_installed_after.stdout | trim != maitre_d_version
 
+# uv makes its lock world-writable so other users can take it. Nobody but root
+# syncs this venv, and an agent holding the lock would stall the next converge.
+- name: Close the venv's lock to the agent
+  ansible.builtin.file:
+    path: "{{ maitre_d_runner_venv_dir }}/.lock"
+    state: file
+    owner: root
+    group: root
+    mode: '0644'
+
 # The agent runs the runner and the CLI it drives, so neither may be the
 # agent's to change: anything not root's, or writable beyond root, fails.
 - name: Check the agent cannot change the runner
