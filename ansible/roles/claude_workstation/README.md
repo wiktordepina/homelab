@@ -97,7 +97,7 @@ Three system template units with `User=agent`. They are system units rather than
 | Unit | What it runs |
 |------|--------------|
 | `claude-rc@<project>` | `claude remote-control --name <project> --spawn same-dir --capacity 2` in `~/work/<project>`, inside a tmux server of its own (`tmux -L <project>`). One shared tmux server would live in whichever unit started it first, and stopping that unit would end every project's session. |
-| `claude-job@<id>` | One headless `claude -p --permission-mode auto --output-format json` run, for maitre-d's scheduler. The prompt usually starts a workflow. |
+| `claude-job@<id>` | One run of maitre-d's workflow runner (`maitre-d-runner`) on one card, for maitre-d's scheduler. The runner is installed by the [maitre_d role](../maitre_d/README.md#the-workflow-runner). |
 | `claude-snap@<project>` | A one-shot `tmux capture-pane` of the project's Remote Control pane. maitre-d reads the text, but never gets the tmux socket, which would also let it type into the session. |
 
 **Remote Control** servers listed in `claude_workstation_rc_projects` start at boot. Any other checkout can be started on demand. `remote-control` exits cleanly when the login has expired, so every exit is restarted after a minute; five within fifteen minutes leave the unit **failed**, which is the state to alert on. Taking a project off the list does not disable its unit; `systemctl disable claude-rc@<project>` does. A changed unit template reaches a running server only when it is restarted.
@@ -109,10 +109,10 @@ Three system template units with `User=agent`. They are system units rather than
 | File | Written by | Contents |
 |------|------------|----------|
 | `job.env` | maitre-d | `CLAUDE_JOB_PROJECT=<checkout>` |
-| `prompt` | maitre-d | The prompt, sent on stdin |
-| `result.json` | systemd, as root | Claude Code's JSON result, from stdout |
+| `input.json` | maitre-d | The run input (workflow, card snapshot, what to do on a usage limit), sent on stdin |
+| `result.json` | systemd, as root | The runner's outcome, from stdout |
 
-systemd reads the environment file and opens both stdio files as root before it drops to the agent. So the agent can neither read nor change its prompt on disk, nor rewrite its result afterwards. A job is limited by `RuntimeMaxSec` (6 hours, the longest workflow's limit), `MemoryMax` and `CPUQuota`; stopping the unit kills its whole cgroup. `-p` normally stops waiting for background work, a running workflow included, after ten idle minutes and still reports success, so the job sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` and waits as long as the workflow runs. A run that hit a permission refusal still reports `"subtype": "success"`, with the refusal only in `permission_denials`, so maitre-d must treat any denial as needing attention.
+systemd reads the environment file and opens both stdio files as root before it drops to the agent. So the agent can neither read nor change its input on disk, nor rewrite its result afterwards. The runner runs in the checkout `job.env` names, drives each stage of the workflow as one Agent SDK query in auto mode, and waits on each itself. A job is limited by `RuntimeMaxSec` (6 hours, the longest workflow's limit), `MemoryMax` and `CPUQuota`; stopping the unit sends the runner `SIGTERM`; once it has read its input it writes a `failed` outcome at once (before that, the result stays empty), and the whole cgroup goes. The outcome is agent-authored, since the runner runs as the agent, so maitre-d treats it as a claim, and any `denials` entry as needing attention. The outcome contract and the workflows are in maitre-d's `runner/README.md`.
 
 **Snapshots** go to `/var/lib/maitre-d/snaps/<project>.txt`, written by systemd as root, so the agent cannot change a file once written. What goes into it is a different matter: the pane belongs to the agent, and any session can type into any project's tmux server, since they all run as the same user. Treat a snapshot as what the agent shows, not as evidence of what it did.
 

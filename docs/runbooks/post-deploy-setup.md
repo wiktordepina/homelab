@@ -684,6 +684,76 @@ curl -s https://maitre-d.homelab.matagoth.com/healthz
 # exit=7
 ```
 
+### 8. Run a test job
+
+`claude-job@` runs maitre-d's workflow runner, installed by the `maitre_d` role into `/opt/maitre-d-runner` from the pinned release. Until maitre-d's scheduler writes jobs itself, a job is started by hand: write its directory as `maitre-d`, then start the unit. Do this after the first converge and after every maitre-d bump, since a bump can move the Claude Code that jobs run.
+
+Check the install first. Nothing under the runner's directory may be the agent's to change, and the bundled CLI is the one the release notes name:
+
+```bash
+./run/host-ssh 218 'find /opt/maitre-d-runner ! -type l \( ! -user root -o -perm /022 \) -print | wc -l'
+# 0
+./run/host-ssh 218 'cd / && runuser -u agent -- /opt/maitre-d-runner/venv/lib/python3*/site-packages/claude_agent_sdk/_bundled/claude --version'
+# 2.1.300 (Claude Code)
+```
+
+Pick a forge-native checkout under `~agent/work` with a clean tree and an `origin`, then make a test card in it as the agent. The `default` workflow does the card, commits on a `card/<id>-<slug>` branch, pushes the branch (no PR) and completes the card:
+
+```bash
+./run/host-ssh 218
+project=<project>
+card=$(runuser -l agent -c "cd ~/work/$project && mc-tool-board add 'Job smoke: add GREETING.md' --project $project --json" | jq .id)
+runuser -l agent -c "cd ~/work/$project && mc-tool-board refine $card --description 'Add a file named GREETING.md at the repository root that says hello.' --acceptance '- [ ] GREETING.md exists at the repository root and contains the word hello.'"
+```
+
+Write the job's directory as `maitre-d`. `input.json` is a `RunInput` from maitre-d's contract, built from the card as the board holds it:
+
+```bash
+job=smoke-$card
+install -d -o maitre-d -g maitre-d -m 0700 /var/lib/maitre-d/jobs/$job
+printf 'CLAUDE_JOB_PROJECT=%s\n' "$project" \
+  | runuser -u maitre-d -- tee /var/lib/maitre-d/jobs/$job/job.env > /dev/null
+runuser -l agent -c "cd ~/work/$project && mc-tool-board show $card --json" \
+  | jq -c '{workflow: "default", on_limit: "fail",
+            card: {id, project, title, description: (.description // ""), acceptance_criteria: (.acceptance_criteria // "")}}' \
+  | runuser -u maitre-d -- tee /var/lib/maitre-d/jobs/$job/input.json > /dev/null
+
+systemctl start claude-job@$job
+journalctl -fu claude-job@$job
+# INFO maitre_d_runner: card #<card>: default workflow
+# …
+# INFO maitre_d_runner: card #<card>: done
+```
+
+Read the outcome. It must parse as the contract, and say `done` with no denials. Each stage is a session of its own, and the telemetry mod records each one as `kind: job` against the unit:
+
+```bash
+/opt/maitre-d-runner/venv/bin/python -c 'import sys; from maitre_d_contract import parse_outcome; o = parse_outcome(open(sys.argv[1], "rb").read()); print(o.outcome, len(o.stages), "steps", len(o.denials), "denials")' \
+  /var/lib/maitre-d/jobs/$job/result.json
+# done <n> steps 0 denials
+jq -r '.stages[] | [.name, .status, (.cost_usd // "")] | @tsv' /var/lib/maitre-d/jobs/$job/result.json
+
+jq -r "select(.unit == \"claude-job@$job.service\") | [.kind, .claude_version, .updated_at] | @tsv" /var/lib/claude-telemetry/*.json
+# job  2.1.300  …   (one line per model stage)
+
+runuser -l agent -c "cd ~/work/$project && mc-tool-board show $card | head -2"
+# #<card> (medium) Job smoke: add GREETING.md
+#   project: <project>   status: Done
+```
+
+`parse_outcome` failing, or a `result.json` that is empty, means the runner wrote nothing usable: the journal has why. Exit status 2 with an empty result is an invalid `input.json`.
+
+Clean up: delete the pushed branch, put the checkout back on its default branch, archive the card, and clear and remove the job:
+
+```bash
+runuser -l agent -c "cd ~/work/$project && b=\$(git branch --show-current) && git switch -q - && git push -q origin --delete \$b && git branch -q -D \$b"
+runuser -l agent -c "mc-tool-board archive $card"
+systemctl reset-failed claude-job@$job 2> /dev/null || true
+rm -r /var/lib/maitre-d/jobs/$job
+```
+
+**Bumping maitre-d.** A release pins both maitred and the runner, and through `claude-agent-sdk` the Claude Code that jobs run. Set `maitre_d_version` and `maitre_d_commit` in `ansible/roles/maitre_d/defaults/main.yaml` to the new tag and its commit, check the release notes for a new mait-code pin (move `claude_workstation_mait_code_ref` in the same change) or a new bundled CLI, and converge 218: dispatch `_vm.yml` for `218 - workstation`, or `./run/execute_runner ansible_vm 218` from a runner shell. The converge reinstalls whichever of maitred and the runner reports another version. Then run the checks in [Check it](#7-maitre-d) and this test job again.
+
 ## NetAlertX
 
 ### What the service is

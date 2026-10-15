@@ -172,6 +172,70 @@
   changed_when: false
   failed_when: maitre_d_installed_after.stdout | trim != maitre_d_version
 
+- name: Create the runner's directory
+  ansible.builtin.file:
+    path: "{{ maitre_d_runner_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# The SDK's import as well as the version, so an install that died part-way is
+# redone rather than taken as current.
+- name: Read the installed runner version
+  ansible.builtin.command:
+    argv:
+      - "{{ maitre_d_runner_venv_dir }}/bin/python"
+      - -c
+      - "import importlib.metadata as m, claude_agent_sdk; print(m.version('maitre-d-runner'))"
+  register: maitre_d_runner_installed
+  changed_when: false
+  failed_when: false
+
+# Only the runner's package and what it locks: the contract and the SDK with its
+# bundled CLI, nothing of maitred's. A job already running keeps the files it
+# opened; the next one starts on the new release.
+- name: Install the workflow runner
+  when: maitre_d_runner_installed.stdout | trim != maitre_d_version
+  ansible.builtin.command:
+    argv:
+      - "{{ maitre_d_uv }}"
+      - sync
+      - --frozen
+      - --no-dev
+      - --no-editable
+      - --package
+      - maitre-d-runner
+    chdir: "{{ maitre_d_src_dir }}"
+  environment:
+    UV_PROJECT_ENVIRONMENT: "{{ maitre_d_runner_venv_dir }}"
+    # The agent cannot write __pycache__ here, so without this every job compiles
+    # the lot again in memory.
+    UV_COMPILE_BYTECODE: "1"
+    UV_PYTHON: "{{ maitre_d_python }}"
+    UV_PYTHON_DOWNLOADS: never
+    UV_CACHE_DIR: /var/cache/maitre-d-uv
+  changed_when: true
+
+- name: Check the installed runner version
+  ansible.builtin.command:
+    argv:
+      - "{{ maitre_d_runner_venv_dir }}/bin/python"
+      - -c
+      - "import importlib.metadata as m, claude_agent_sdk; print(m.version('maitre-d-runner'))"
+  register: maitre_d_runner_installed_after
+  changed_when: false
+  failed_when: maitre_d_runner_installed_after.stdout | trim != maitre_d_version
+
+# The agent runs the runner and the CLI it drives, so neither may be the
+# agent's to change: anything not root's, or writable beyond root, fails.
+- name: Check the agent cannot change the runner
+  ansible.builtin.command:
+    argv: [find, "{{ maitre_d_runner_dir }}", "!", -type, l, "(", "!", -user, root, -o, -perm, /022, ")", -print]
+  register: maitre_d_runner_writable
+  changed_when: false
+  failed_when: maitre_d_runner_writable.stdout | length > 0
+
 # The agent's mait-code databases: maitre-d reads them all and writes the board.
 # The directory is setgid so files the agent creates later join the group, and
 # SQLite gives each -wal and -shm the mode and group of its database.

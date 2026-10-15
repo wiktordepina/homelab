@@ -1,8 +1,8 @@
 ---
 # The release to run. A tag on the forge never moves, but the checkout is still
 # asserted against the commit, so a tag that did move fails the converge.
-maitre_d_version: "0.8.0"
-maitre_d_commit: 8d72a04e7c4739b805ce3f5e68bc5ff35b3b2b5e
+maitre_d_version: "0.9.0"
+maitre_d_commit: d354d88c1970407ad7d5791ed224b7da7a643cde
 
 # Fetched by root through squid, on the forge's own address and port as the
 # agent's git is, with the read-only forge-deploy token from
@@ -18,6 +18,13 @@ maitre_d_venv_dir: "{{ maitre_d_install_dir }}/venv"
 maitre_d_uv: "{{ maitre_d_install_dir }}/bin/uv"
 maitre_d_config_dir: /etc/maitre-d
 maitre_d_config_file: "{{ maitre_d_config_dir }}/maitred.toml"
+
+# The workflow runner, from the same release: the agent runs it in claude-job@,
+# so it sits outside /opt/maitre-d, root-owned. It
+# carries the Claude Code CLI that claude-agent-sdk bundles, which makes the
+# release the job CLI's pin.
+maitre_d_runner_dir: "{{ claude_workstation_job_runner_dir }}"
+maitre_d_runner_venv_dir: "{{ maitre_d_runner_dir }}/venv"
 
 # maitre-d's identity/, concatenated in this order into /etc/claude-code/CLAUDE.md.
 maitre_d_identity_files:

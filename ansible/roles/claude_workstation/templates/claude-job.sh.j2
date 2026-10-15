@@ -1,7 +1,7 @@
 #!/bin/sh
-# Runs one headless job for claude-job@.service: the prompt arrives on stdin,
-# the JSON result leaves on stdout. CLAUDE_JOB_PROJECT comes from the job's
-# environment file and names a checkout under the work directory.
+# Runs one workflow for claude-job@.service: maitre-d's run input arrives on
+# stdin, the runner's outcome leaves on stdout. CLAUDE_JOB_PROJECT comes from
+# the job's environment file and names a checkout under the work directory.
 set -eu
 
 case "${CLAUDE_JOB_PROJECT:-}" in
@@ -12,9 +12,8 @@ case "${CLAUDE_JOB_PROJECT:-}" in
 esac
 
 cd "{{ claude_workstation_work_dir }}/${CLAUDE_JOB_PROJECT}"
-# Auto mode, as interactive sessions: the egress fence is the boundary, and in
-# -p a refusal ends in a denial, never a hang. A job's prompt starts a workflow,
-# and -p stops waiting for one after an idle ceiling (10 min by default) yet
-# still reports success, so the ceiling is off: RuntimeMaxSec and maitre-d's
-# own per-workflow limit end a job instead.
-CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 exec claude -p --permission-mode auto --output-format json
+# Each stage runs the CLI bundled with the runner's SDK, in auto mode, and the
+# runner waits on each query itself. The CLI inherits this environment, so the
+# idle ceiling stays off in case a stage's background work is still subject to
+# it: RuntimeMaxSec and the runner's stage timeout end a job instead.
+CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 exec "{{ claude_workstation_job_runner_dir }}/venv/bin/maitre-d-runner"
