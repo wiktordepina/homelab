@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+[Unit]
+Description=node_exporter
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+User={{ node_exporter_user }}
+Group={{ node_exporter_user }}
+WorkingDirectory=/etc/node_exporter
+ExecStart=/etc/node_exporter/node_exporter{% for flag in node_exporter_flags %} \
+    {{ flag }}{% endfor %}
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

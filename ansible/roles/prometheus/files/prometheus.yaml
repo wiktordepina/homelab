@@ -53,3 +53,10 @@ scrape_configs:
       - targets: ["10.20.1.216:3000"]
         labels:
           app: forgejo
+  - job_name: workstation
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["10.20.1.218:9100"]
+        labels:
+          app: workstation

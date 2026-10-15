@@ -207,6 +207,11 @@ claude_workstation_service_port: 8790
 claude_workstation_service_sources:
   - 10.20.1.10
 
+# node_exporter, open to Prometheus alone.
+claude_workstation_metrics_port: 9100
+claude_workstation_metrics_sources:
+  - 10.20.1.210
+
 # The session units (claude-rc@, claude-job@, claude-snap@). Projects listed
 # here get a Remote Control server at boot; any other checkout under the work
 # directory can be started on demand.
