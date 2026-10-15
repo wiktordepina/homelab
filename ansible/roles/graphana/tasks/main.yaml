@@ -37,7 +37,23 @@
     dest: /etc/graphana/conf/config.ini
     mode: '0644'
   notify:
-    - Restart prometheus service
+    - Restart graphana service
+
+# Datasources are read only at start-up; dashboards are re-read from their
+# directory every few seconds, so they need no restart.
+- name: Copy provisioning config
+  ansible.builtin.copy:
+    src: provisioning/
+    dest: /etc/graphana/conf/provisioning/
+    mode: '0644'
+  notify:
+    - Restart graphana service
+
+- name: Copy dashboards
+  ansible.builtin.copy:
+    src: dashboards/
+    dest: /etc/graphana/dashboards/
+    mode: '0644'
 
 - name: Set folder permissions
   ansible.builtin.file:
