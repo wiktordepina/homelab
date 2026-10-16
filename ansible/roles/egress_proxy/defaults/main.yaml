@@ -10,6 +10,24 @@ egress_proxy_port: 3128
 # Names squid will CONNECT to (or fetch over plain HTTP). A leading dot
 # matches the name and every subdomain, as in squid's dstdomain.
 egress_proxy_allowlist: []
+# With enforcement on, also allow any other name whose address is public: the
+# open web for reading, while the LAN stays closed. Squid allows the allowlist
+# first, then refuses egress_proxy_private_destinations (by a name's addresses
+# or an IP literal), then allows the rest. So a LAN service is reached only
+# through an allowlisted name, as before; the firewall is unchanged.
+egress_proxy_open_web: false
+egress_proxy_private_destinations:
+  - 0.0.0.0/8
+  - 10.0.0.0/8
+  - 100.64.0.0/10
+  - 127.0.0.0/8
+  - 169.254.0.0/16
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+  - ::/128
+  - ::1
+  - fc00::/7
+  - fe80::/10
 
 # Ports beyond 80/443 that squid will forward to, for an internal service
 # on its own port. Squid's own egress is still bounded by the firewall, so
