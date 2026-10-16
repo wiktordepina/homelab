@@ -93,15 +93,18 @@
 
 # The fence is only as good as the config squid has actually loaded, so test
 # what it does rather than what the file says. squid refuses an off-list name
-# before resolving it.
-- name: Check that squid refuses a name off the allowlist
+# before resolving it. With the open web allowed, an off-list name passes, so
+# the probe is a private address instead, which must still be refused.
+- name: Check that squid refuses what the fence closes
   ansible.builtin.shell:
     cmd: |
       set -eu
       exec 3<>/dev/tcp/127.0.0.1/{{ egress_proxy_port }}
-      printf 'CONNECT egress-probe.invalid:443 HTTP/1.1\r\nHost: egress-probe.invalid:443\r\n\r\n' >&3
+      printf 'CONNECT {{ egress_proxy_probe_target }} HTTP/1.1\r\nHost: {{ egress_proxy_probe_target }}\r\n\r\n' >&3
       timeout 5 head -n 1 <&3
     executable: /bin/bash
+  vars:
+    egress_proxy_probe_target: "{{ '10.255.255.254:443' if egress_proxy_open_web | bool else 'egress-probe.invalid:443' }}"
   register: egress_proxy_probe
   changed_when: false
   failed_when: "' 403 ' not in egress_proxy_probe.stdout"

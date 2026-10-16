@@ -23,6 +23,13 @@ http_access deny !Safe_ports
 http_access deny CONNECT !SSL_ports
 {% if egress_proxy_enforce %}
 http_access allow allowlist
+{% if egress_proxy_open_web | bool %}
+# Any other public name. `dst` checks every address a name resolves to, so a
+# public name pointed at a LAN address is refused too, as is an IP literal.
+acl private_dst dst {{ egress_proxy_private_destinations | join(' ') }}
+http_access deny private_dst
+http_access allow all
+{% endif %}
 {% else %}
 # Observation mode: everything is allowed and logged.
 http_access allow all

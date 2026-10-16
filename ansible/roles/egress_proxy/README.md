@@ -41,9 +41,19 @@ nftables `log` statements produce nothing inside a container's network namespace
 
 A host starts in observation mode and its allowlist is built from that record, not from anyone's guess. Once the workload has run cleanly through the proxy, set enforcement on. The same commands then show what is being refused.
 
-Every converge that enforces ends by asking squid to `CONNECT` to a name that cannot be on the allowlist, and fails unless squid answers 403. The files on disk are not the proof: a converge that fails after writing them drops the pending reload, the next converge finds nothing changed, and squid keeps running the config it started with. For a fresh install that is Debian's, which allows anything from localhost. The role applies its changes straight after writing them to close that window, and the probe catches whatever else leaves squid behind the file.
+Every converge that enforces ends by asking squid to `CONNECT` to a name that cannot be on the allowlist, and fails unless squid answers 403. With the open web allowed (below) it asks for a private address instead. The files on disk are not the proof: a converge that fails after writing them drops the pending reload, the next converge finds nothing changed, and squid keeps running the config it started with. For a fresh install that is Debian's, which allows anything from localhost. The role applies its changes straight after writing them to close that window, and the probe catches whatever else leaves squid behind the file.
 
 Squid caches a failed DNS lookup for a while. A name the resolver once answered with `SERVFAIL` keeps coming back as `TCP_TUNNEL/503 ... HIER_NONE` with no connection attempt until the entry expires; it is not a refusal, and retrying a minute later is the fix.
+
+## The open web
+
+`egress_proxy_open_web: true`, with enforcement on, is for a host whose work is reading the web, where no allowlist built in advance keeps up. Squid allows the allowlist first, then refuses any destination in `egress_proxy_private_destinations` (the private, loopback, link-local and CGNAT ranges), then allows everything else. The firewall is unchanged.
+
+- `dst` checks every address a name resolves to, so a public name pointed at a LAN address is refused, and so is an IP literal.
+- A LAN service is still reached only through an allowlisted name. That matters for a `squid_only` direct destination: without the refusal, any name resolving to the reverse proxy would reach every site it fronts.
+- Squid's own connections were already confined by the firewall. Besides the direct destinations, they can reach 80 and 443 off the LAN, and nothing else. The firewall's LAN set is IPv4 only, so on a host with an IPv6 route, a LAN host's global IPv6 address would rest on squid's check alone.
+
+What it gives up is containment by destination. Any site can now receive what the workload read, in a URL or a request body, so the fence becomes a record of where traffic went rather than a limit on it. Turn it on only where what the workload can read is worth little off the LAN.
 
 ## Accepted residuals
 
@@ -51,4 +61,6 @@ This raises the bar; it does not seal anything.
 
 - **Allowed names can carry data out.** An allowlisted destination that accepts uploads with credentials of the uploader's choosing is still an exfiltration route. `github.com` is the plainest example: allowed because toolchains are released there, and also able to receive a push to someone else's repository.
 - **Names are matched, contents are not.** With no TLS interception, a client that `CONNECT`s to an allowed name can send a different TLS server name inside the tunnel. Behind a CDN that routes by that name (domain fronting), this reaches other sites on the same CDN.
+- **The open web is open.** With `egress_proxy_open_web`, every public name is an allowed destination, so the first residual covers the whole internet.
+- **A name's addresses are checked once.** Squid resolves a name for the `dst` check and connects to what it resolved. A name whose answer changes in between (DNS rebinding) is still bounded by the firewall, which leaves only the direct destinations open to squid on the LAN.
 - **Root is not contained.** Anything running as root on the host can change the table. The fence contains the workload (job containers, unprivileged users), not a compromised host.
