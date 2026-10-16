@@ -1,0 +1,61 @@
+---
+# The release to run. A tag on the forge never moves, but the checkout is still
+# asserted against the commit, so a tag that did move fails the converge.
+ariel_version: "0.2.0"
+ariel_commit: a6cd9b779c847b27fe5486679e51be3263282eaa
+
+# Fetched on the apply runner, not on this host: ariel's host reads the open
+# web and never holds a token that can read private repositories. The token is
+# forge-deploy's, minted for this role into /pve/secrets/ariel.sh.
+ariel_repo_url: http://forge.home.matagoth.com:3000/matagoth-zaibatsu/ariel.git
+ariel_forge_token: "{{ lookup('ansible.builtin.env', 'ARIEL_FORGE_TOKEN') }}"
+ariel_litellm_key: "{{ lookup('ansible.builtin.env', 'ARIEL_LITELLM_KEY') }}"
+ariel_searxng_secret: "{{ lookup('ansible.builtin.env', 'ARIEL_SEARXNG_SECRET') }}"
+
+ariel_install_dir: /opt/ariel
+ariel_src_dir: "{{ ariel_install_dir }}/src"
+ariel_image: "ariel:{{ ariel_version }}"
+ariel_searxng_image: searxng/searxng:2026.10.16-8252c0bf6
+
+ariel_mcp_port: 8792
+ariel_metrics_port: 9102
+# Names 218 may use in the Host header (ariel refuses any other).
+ariel_allowed_hosts:
+  - ariel.home.matagoth.com
+  - "{{ ansible_facts.default_ipv4.address }}"
+
+# A LiteLLM model name, restricted to this host's key: the model behind it is
+# changed in LiteLLM, not here.
+ariel_quarantine_model: ariel-quarantine
+# LiteLLM on its own address and port, never through nginx: squid only sees the
+# name in a CONNECT, and nginx picks a site by SNI and Host, so a tunnel to
+# nginx for LiteLLM's name reaches every site it fronts. Plain HTTP inside the
+# DMZ, as the forge is reached from the runners and the workstation.
+ariel_litellm_host: localai.home.matagoth.com
+ariel_litellm_ip: 10.20.1.207
+ariel_litellm_port: 4000
+ariel_litellm_url: "http://{{ ariel_litellm_host }}:{{ ariel_litellm_port }}"
+
+# The containers' only way out, ariel's page fetches and LiteLLM calls as much
+# as SearXNG's searches. Docker bridge traffic to the host's own address
+# arrives on the bridge, which egress_proxy lets reach squid alone.
+ariel_proxy_url: "http://{{ ansible_facts.default_ipv4.address }}:3128"
+ariel_container_interfaces:
+  - docker0
+  - br-*
+
+# Inbound. Docker's published ports are DNATed in prerouting and pass the
+# forward hook, never input, so both chains of the ingress table fence them.
+ariel_ingress_enforce: true
+ariel_mcp_sources:
+  - 10.20.1.218   # the workstation
+ariel_metrics_sources:
+  - 10.20.1.210   # Prometheus
+ariel_node_exporter_port: 9100
+ariel_ssh_sources:
+  - { addr: 10.10.10.40, comment: laptop }
+  - { addr: 10.100.10.10, comment: desktop }
+  - { addr: 10.20.6.0/24, comment: apply runners (600-699) }
+  # run/host-key-push installs keys from PVE
+  - { addr: 192.168.200.100, comment: PVE }
+ariel_ingress_nft_file: /etc/nftables.d/ingress.nft

@@ -1,0 +1,47 @@
+# {{ ansible_managed }}
+#
+# The secrets come from .env beside this file (root only). Published on IPv4
+# only: the ingress table's forward chain is what fences these ports, and
+# Docker would serve IPv6 through its userland proxy instead.
+
+services:
+  ariel:
+    image: {{ ariel_image }}
+    command: ["serve", "--config", "/etc/ariel/ariel.toml"]
+    restart: unless-stopped
+    environment:
+      ARIEL_LITELLM_KEY: ${ARIEL_LITELLM_KEY:?}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ./ariel.toml:/etc/ariel/ariel.toml:ro
+      - ariel-data:/data
+    tmpfs:
+      - /tmp
+    ports:
+      - "0.0.0.0:{{ ariel_mcp_port }}:{{ ariel_mcp_port }}"
+      - "0.0.0.0:{{ ariel_metrics_port }}:{{ ariel_metrics_port }}"
+    depends_on:
+      - searxng
+
+  searxng:
+    image: {{ ariel_searxng_image }}
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?}
+    # The image's own user, which it ships but does not switch to: without
+    # this, SearXNG runs as root.
+    user: "977:977"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    tmpfs:
+      - /tmp
+      - /var/cache/searxng:uid=977,gid=977
+    # Not published: only ariel reaches it, on the compose network.
+
+volumes:
+  ariel-data:

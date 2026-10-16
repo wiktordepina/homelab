@@ -1,0 +1,23 @@
+---
+# ariel: the workstation agents' way to read the web (search and fetch by id,
+# page content answered by a quarantine model, never handed over raw). Reads
+# hostile pages, so the host has the open web through squid and nothing on the
+# LAN but LiteLLM, and holds no secret beyond its capped LiteLLM key. See the
+# ariel role README.
+terraform:
+  vmid: 219
+  hostname: ariel
+  ip_address: 10.20.1.219/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 2
+  memory: 2048
+  swap: 512
+  start_on_boot: true
+  rootfs_size: 20G
+
+ansible:
+  roles:
+    - base
+    - docker
+    - ariel
+    - node_exporter

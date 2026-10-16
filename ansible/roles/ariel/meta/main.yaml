@@ -1,0 +1,18 @@
+---
+# The fence comes with the role: ariel reads hostile pages, so its host gets
+# the open web for reading and nothing on the LAN but LiteLLM.
+dependencies:
+  - role: egress_proxy
+    vars:
+      egress_proxy_enforce: true
+      egress_proxy_open_web: true
+      egress_proxy_allowlist:
+        - "{{ ariel_litellm_host }}"
+      egress_proxy_extra_ports:
+        - "{{ ariel_litellm_port }}"
+      egress_proxy_client_interfaces: "{{ ariel_container_interfaces }}"
+      egress_proxy_direct_destinations:
+        - daddr: "{{ ariel_litellm_ip }}"
+          port: "{{ ariel_litellm_port }}"
+          squid_only: true
+          comment: LiteLLM, for squid on ariel's behalf.

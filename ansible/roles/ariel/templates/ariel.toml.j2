@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+#
+# Only what differs from ariel's defaults (see config/ariel.example.toml in the
+# release). The LiteLLM key comes from $ARIEL_LITELLM_KEY.
+
+data_dir = "/data"
+# All interfaces inside the container; the ingress table fences the host.
+listen_host = "0.0.0.0"
+listen_port = {{ ariel_mcp_port }}
+metrics_port = {{ ariel_metrics_port }}
+allowed_hosts = {{ ariel_allowed_hosts | to_json }}
+
+searxng_url = "http://searxng:8080"
+proxy_url = "{{ ariel_proxy_url }}"
+
+litellm_url = "{{ ariel_litellm_url }}"
+quarantine_model = "{{ ariel_quarantine_model }}"
