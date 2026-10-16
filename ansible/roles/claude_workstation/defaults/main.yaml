@@ -35,6 +35,21 @@ claude_workstation_forge_url: "http://{{ claude_workstation_forge_host }}:{{ cla
 # The name the forge's web UI shows in clone URLs. git rewrites it to the
 # address above, so a URL copied from the UI works as it is.
 claude_workstation_forge_public_url: https://forge.homelab.matagoth.com
+
+# ariel (LXC 219): the agent's only way to read web pages. Reached through
+# squid on its own address and port, like the forge; Claude Code's MCP client
+# honours the proxy variables, plain HTTP included.
+claude_workstation_ariel_host: ariel.home.matagoth.com
+claude_workstation_ariel_ip: 10.20.1.219
+claude_workstation_ariel_port: 8792
+# /etc/claude-code/managed-mcp.json takes exclusive control: sessions get these
+# servers and no others, and cannot add, change or remove one.
+claude_workstation_managed_mcp:
+  mcpServers:
+    ariel:
+      type: http
+      url: "http://{{ claude_workstation_ariel_host }}:{{ claude_workstation_ariel_port }}/mcp"
+
 claude_workstation_bot_user: matabot
 claude_workstation_bot_email: matabot@noreply.matagoth.com
 # From /pve/secrets/claude_workstation.sh on the apply runner. Minted by hand on
@@ -96,9 +111,10 @@ claude_workstation_permissions_allow:
   - "Bash(yq *)"
   - "Bash(pwd)"
   # The search runs on Anthropic's side, so it needs nothing beyond the API on
-  # the egress allowlist. Fetching pages does not get the same: any fetch can
-  # carry data out in its URL, so WebFetch stays on prompts and squid's list.
+  # the egress allowlist.
   - "WebSearch"
+  # Pages are read through ariel, by id, never by URL.
+  - "mcp__ariel"
 claude_workstation_permissions_deny:
   # --safe-mode drops the managed CLAUDE.md (the agent's identity), and nothing
   # here needs a session to start another.
@@ -110,6 +126,8 @@ claude_workstation_permissions_deny:
   - "Read(~/.claude/.credentials.json)"
   - "Read(//**/.env)"
   - "Read(//**/*.env)"
+  # Any fetch can carry data out in its URL. ariel is the way to read pages.
+  - "WebFetch"
 
 claude_workstation_managed_settings:
   # For the Bash tool's children as much as for Claude Code itself; the .bashrc
@@ -156,6 +174,7 @@ claude_workstation_managed_settings:
 claude_workstation_egress_enforce: true
 claude_workstation_egress_allowlist:
   - "{{ claude_workstation_forge_host }}"
+  - "{{ claude_workstation_ariel_host }}"
   # Claude Code: the API, the login, the installer and its self-updates
   - api.anthropic.com
   - platform.claude.com

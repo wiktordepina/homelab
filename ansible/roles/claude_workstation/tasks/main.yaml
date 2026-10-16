@@ -313,6 +313,14 @@
     group: root
     mode: '0644'
 
+- name: Write Claude Code's managed MCP servers
+  ansible.builtin.copy:
+    content: "{{ claude_workstation_managed_mcp | to_nice_json(indent=2) }}\n"
+    dest: /etc/claude-code/managed-mcp.json
+    owner: root
+    group: root
+    mode: '0644'
+
 # `claude remote-control` asks "Enable Remote Control? (y/n)" on its first run
 # and records the answer here; a unit with no terminal would block on it.
 # Undocumented upstream but observed in testing, so the key is merged into

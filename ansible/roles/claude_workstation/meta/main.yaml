@@ -14,8 +14,13 @@ dependencies:
       # nginx (see claude_workstation_forge_host).
       egress_proxy_extra_ports:
         - "{{ claude_workstation_forge_port }}"
+        - "{{ claude_workstation_ariel_port }}"
       egress_proxy_direct_destinations:
         - daddr: "{{ claude_workstation_forge_ip }}"
           port: "{{ claude_workstation_forge_port }}"
           squid_only: true
           comment: Forgejo, for squid on the agent's behalf.
+        - daddr: "{{ claude_workstation_ariel_ip }}"
+          port: "{{ claude_workstation_ariel_port }}"
+          squid_only: true
+          comment: ariel's MCP endpoint, for squid on the agent's behalf.
