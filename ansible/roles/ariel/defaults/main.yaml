@@ -26,12 +26,15 @@ ariel_allowed_hosts:
 
 # A LiteLLM model name, restricted to this host's key: the model behind it is
 # changed in LiteLLM, not here.
-ariel_litellm_url: https://litellm.homelab.matagoth.com
 ariel_quarantine_model: ariel-quarantine
-# LiteLLM's name resolves to the reverse proxy, which serves every *.homelab
-# name. squid may reach it on 443 and nothing else may: squid's allowlist is
-# what limits it to LiteLLM.
-ariel_litellm_proxy_ip: 10.20.1.10
+# LiteLLM on its own address and port, never through nginx: squid only sees the
+# name in a CONNECT, and nginx picks a site by SNI and Host, so a tunnel to
+# nginx for LiteLLM's name reaches every site it fronts. Plain HTTP inside the
+# DMZ, as the forge is reached from the runners and the workstation.
+ariel_litellm_host: localai.home.matagoth.com
+ariel_litellm_ip: 10.20.1.207
+ariel_litellm_port: 4000
+ariel_litellm_url: "http://{{ ariel_litellm_host }}:{{ ariel_litellm_port }}"
 
 # The containers' only way out, ariel's page fetches and LiteLLM calls as much
 # as SearXNG's searches. Docker bridge traffic to the host's own address

@@ -254,3 +254,17 @@
   until: ariel_health.status == 200 and ariel_health.json.version == ariel_version
   retries: 20
   delay: 3
+
+# Every release is a new tag; on a small rootfs the old ones add up. Removed
+# only now, once the stack has moved off them.
+- name: List ariel's images
+  ansible.builtin.command:
+    argv: [docker, image, ls, --format, '{{ "{{" }}.Repository{{ "}}" }}:{{ "{{" }}.Tag{{ "}}" }}', ariel]
+  register: ariel_images
+  changed_when: false
+
+- name: Remove superseded ariel images
+  ansible.builtin.command:
+    argv: [docker, image, rm, "{{ item }}"]
+  loop: "{{ ariel_images.stdout_lines | reject('equalto', ariel_image) | list }}"
+  changed_when: true

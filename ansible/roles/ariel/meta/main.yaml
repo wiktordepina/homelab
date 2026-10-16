@@ -7,10 +7,12 @@ dependencies:
       egress_proxy_enforce: true
       egress_proxy_open_web: true
       egress_proxy_allowlist:
-        - "{{ ariel_litellm_url | urlsplit('hostname') }}"
+        - "{{ ariel_litellm_host }}"
+      egress_proxy_extra_ports:
+        - "{{ ariel_litellm_port }}"
       egress_proxy_client_interfaces: "{{ ariel_container_interfaces }}"
       egress_proxy_direct_destinations:
-        - daddr: "{{ ariel_litellm_proxy_ip }}"
-          port: 443
+        - daddr: "{{ ariel_litellm_ip }}"
+          port: "{{ ariel_litellm_port }}"
           squid_only: true
-          comment: LiteLLM behind the reverse proxy, for squid on ariel's behalf.
+          comment: LiteLLM, for squid on ariel's behalf.

@@ -857,14 +857,16 @@ curl -sS --max-time 5 http://10.20.1.219:8792/healthz ; echo exit=$?
 
 The first of those needs 218's own fence to allow it, which is the workstation's card, not this one. Until then, check from 219 itself (`./run/host-ssh 219 'curl -sS http://127.0.0.1:8792/healthz'`).
 
-squid serves the open web and refuses the LAN, LiteLLM aside:
+squid serves the open web and refuses the LAN, LiteLLM aside. The LAN probes use 443, because squid refuses any other port before it looks at the destination, which would make a 403 prove nothing. The reverse proxy's names must be refused too, LiteLLM's public name included: a tunnel to nginx could ask for any site it fronts.
 
 ```bash
-./run/host-ssh 219 'for u in https://example.com/ http://10.20.1.216:3000/ https://litellm.homelab.matagoth.com/health/liveliness; do
+./run/host-ssh 219 'for u in https://example.com/ https://forge.homelab.matagoth.com/ https://litellm.homelab.matagoth.com/ http://localai.home.matagoth.com:4000/health/liveliness http://localai.home.matagoth.com/; do
   printf "%s: " "$u"; curl -sS -o /dev/null -w "%{http_code}\n" --proxy http://127.0.0.1:3128 --max-time 10 "$u"; done'
 # https://example.com/: 200
-# http://10.20.1.216:3000/: 403
-# https://litellm.homelab.matagoth.com/health/liveliness: 200
+# https://forge.homelab.matagoth.com/: 000      (CONNECT refused with 403; curl reports the tunnel failure)
+# https://litellm.homelab.matagoth.com/: 000    (likewise)
+# http://localai.home.matagoth.com:4000/health/liveliness: 200
+# http://localai.home.matagoth.com/: 503        (allowed by name, but the firewall opens only port 4000 to squid)
 ```
 
 What was refused inbound, by source:
