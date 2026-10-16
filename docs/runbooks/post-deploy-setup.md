@@ -844,30 +844,85 @@ The first converge builds the image, which takes a few minutes. It ends by waiti
 
 ### 5. Confirm it
 
-From the workstation, the MCP endpoint answers; from anywhere else, nothing does:
+219 has no `curl`. The checks run with Python: on the host for health, and inside the ariel container for everything else, because that is the path real traffic takes.
+
+ariel answers on the host. From anywhere but the workstation and Prometheus, its ports time out:
 
 ```bash
-./run/host-ssh 218 'curl -sS --noproxy "*" http://10.20.1.219:8792/healthz'
+./run/host-ssh 219 'python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:8792/healthz\").read().decode())"'
 # {"status":"ok","version":"0.2.0"}
 
 curl -sS --max-time 5 http://10.20.1.219:8792/healthz ; echo exit=$?
-# curl: (28) Connection timed out after 5000 milliseconds
+# curl: (28) Connection timed out after 5005 milliseconds
 # exit=28
 ```
 
-The first of those needs 218's own fence to allow it, which is the workstation's card, not this one. Until then, check from 219 itself (`./run/host-ssh 219 'curl -sS http://127.0.0.1:8792/healthz'`).
+Both containers run, SearXNG as its own user:
+
+```bash
+./run/host-ssh 219 'docker compose -f /opt/ariel/compose.yaml ps --format "{{.Service}} {{.State}}"; docker exec ariel-searxng-1 id'
+# ariel running
+# searxng running
+# uid=977(searxng) gid=977(searxng) groups=977(searxng)
+```
+
+SearXNG logs a timeout fetching the ClearURLs rule lists at start. That download ignores its proxy setting and the fence drops it; the only loss is tracking parameters left in result URLs.
 
 squid serves the open web and refuses the LAN, LiteLLM aside. The LAN probes use 443, because squid refuses any other port before it looks at the destination, which would make a 403 prove nothing. The reverse proxy's names must be refused too, LiteLLM's public name included: a tunnel to nginx could ask for any site it fronts.
 
 ```bash
-./run/host-ssh 219 'for u in https://example.com/ https://forge.homelab.matagoth.com/ https://litellm.homelab.matagoth.com/ http://localai.home.matagoth.com:4000/health/liveliness http://localai.home.matagoth.com/; do
-  printf "%s: " "$u"; curl -sS -o /dev/null -w "%{http_code}\n" --proxy http://127.0.0.1:3128 --max-time 10 "$u"; done'
-# https://example.com/: 200
-# https://forge.homelab.matagoth.com/: 000      (CONNECT refused with 403; curl reports the tunnel failure)
-# https://litellm.homelab.matagoth.com/: 000    (likewise)
-# http://localai.home.matagoth.com:4000/health/liveliness: 200
-# http://localai.home.matagoth.com/: 503        (allowed by name, but the firewall opens only port 4000 to squid)
+./run/host-ssh 219 'docker exec -i ariel-ariel-1 python -' <<'EOF'
+import urllib.request, urllib.error
+P = "http://10.20.1.219:3128"
+op = urllib.request.build_opener(urllib.request.ProxyHandler({"http": P, "https": P}))
+for u in ["https://example.com/", "https://forge.homelab.matagoth.com/", "https://litellm.homelab.matagoth.com/",
+          "http://localai.home.matagoth.com:4000/health/liveliness", "http://localai.home.matagoth.com/"]:
+    try:
+        print(u, op.open(u, timeout=15).status)
+    except urllib.error.HTTPError as e: print(u, "HTTP", e.code)
+    except Exception as e: print(u, type(e).__name__, str(e)[:70])
+try:
+    urllib.request.build_opener(urllib.request.ProxyHandler({})).open("https://example.com/", timeout=5)
+    print("direct: open")
+except Exception as e: print("direct:", type(e).__name__, str(e)[:60])
+EOF
+# https://example.com/ 200
+# https://forge.homelab.matagoth.com/ URLError <urlopen error Tunnel connection failed: 403 Forbidden>
+# https://litellm.homelab.matagoth.com/ URLError <urlopen error Tunnel connection failed: 403 Forbidden>
+# http://localai.home.matagoth.com:4000/health/liveliness 200
+# http://localai.home.matagoth.com/ TimeoutError timed out
+# direct: URLError <urlopen error [Errno 101] Network is unreachable>
 ```
+
+The `localai` name is allowed, but the firewall opens only port 4000 on it to squid, so port 80 hangs until squid gives up. Any `direct: open` means the containers can go round squid, and the fence is broken.
+
+End to end: one search, then a fetch of its first result. This spends one search and one quarantine call of the day's budgets, at a fraction of a cent, and one fetch unless the page is still in ariel's cache from an earlier run.
+
+```bash
+./run/host-ssh 219 'docker exec -i ariel-ariel-1 python -' <<'EOF'
+import asyncio, json
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
+def out(res):
+    return res.structured_content if res.structured_content is not None else {"text": res.content[0].text}
+async def main():
+    async with streamable_http_client("http://127.0.0.1:8792/mcp") as streams:
+        async with ClientSession(streams[0], streams[1]) as s:
+            await s.initialize()
+            found = out(await s.call_tool("search", {"query": "python 3.13 release notes", "max_results": 3}))
+            first = found["results"][0]
+            print("search:", first["id"], first["site"])
+            page = out(await s.call_tool("fetch", {"id": first["id"], "question": "What are two headline features of this release?"}))
+            print("fetch:", page["found"], page["answer"][:120])
+            print("budget:", out(await s.call_tool("budget", {})))
+asyncio.run(main())
+EOF
+# search: r_izdkfu42xmwqg python.org
+# fetch: yes Two headline features of Python 3.13.0 listed on the page are a new and improved interactive interpreter ...
+# budget: {'fetches': ..., 'searches': ..., 'domains': ..., 'quarantine_calls': ..., 'session_fetches': ..., 'session_searches': ...}
+```
+
+Search results come back as ids, never URLs, and the fetch returns an answer, not the page.
 
 What was refused inbound, by source:
 
@@ -875,7 +930,7 @@ What was refused inbound, by source:
 ./run/host-ssh 219 'nft list set inet ingress observed_input'
 ```
 
-Prometheus shows both targets up (`up{job=~"ariel|ariel_node"}`), and the `ariel (219)` dashboard is in Grafana.
+Prometheus shows both targets up (`up{job=~"ariel|ariel_node"}`), and the `ariel (219)` dashboard is in Grafana. Reaching ariel from the workstation also needs the workstation's fence and MCP configuration, which are set up on the workstation, not here.
 
 ## NetAlertX
 
