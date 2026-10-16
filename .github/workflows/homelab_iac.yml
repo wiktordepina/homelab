@@ -45,6 +45,7 @@ jobs:
           - 213   # NetAlertX
           - 215   # NetBox
           - 216   # Forgejo
+          - 219   # ariel (web reading for the workstation)
           - 501   # Forgejo Actions runner
           - 502   # Forgejo Actions runner (second lane)
     uses: ./.github/workflows/_lxc.yml

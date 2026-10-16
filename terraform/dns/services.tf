@@ -88,3 +88,10 @@ resource "dns_a_record_set" "workstation" {
   addresses = ["10.20.1.218"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "ariel" {
+  zone      = "home.matagoth.com."
+  name      = "ariel"
+  addresses = ["10.20.1.219"]
+  ttl       = 500
+}

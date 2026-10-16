@@ -41,6 +41,7 @@ on:
           - 213 - netalertx
           - 215 - netbox
           - 216 - forge
+          - 219 - ariel
           - 501 - forge-runner
           - 502 - forge-runner-2
       tf_action:

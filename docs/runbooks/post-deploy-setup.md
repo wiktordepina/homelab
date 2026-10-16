@@ -754,6 +754,127 @@ rm -r /var/lib/maitre-d/jobs/$job
 
 **Bumping maitre-d.** A release pins both maitred and the runner, and through `claude-agent-sdk` the Claude Code that jobs run. Set `maitre_d_version` and `maitre_d_commit` in `ansible/roles/maitre_d/defaults/main.yaml` to the new tag and its commit, check the release notes for a new mait-code pin (move `claude_workstation_mait_code_ref` in the same change) or a new bundled CLI, and converge 218: dispatch `_vm.yml` for `218 - workstation`, or `./run/execute_runner ansible_vm 218` from a runner shell. The converge reinstalls whichever of maitred and the runner reports another version. Then run the checks in [Check it](#7-maitre-d) and this test job again.
 
+## ariel
+
+### What the service is
+
+An LXC (219) running ariel and its SearXNG, configured by the `ariel` role: the workstation agents' way to read the web, by id rather than URL, with pages read by a quarantine model. The role README covers the fences and the release mechanism.
+
+Three things the role cannot do, all before the first converge, which refuses to run without them: grant `forge-deploy` the repository, set up the quarantine model and its key in LiteLLM, and write `/zpool/secrets/ariel.sh`.
+
+### 1. Grant `forge-deploy` the repository
+
+The release is cloned on the apply runner with `forge-deploy`'s token, so `ariel` must be one of the `deploy` team's repositories (see [Forgejo](#forgejo) for the team). Find the team's id, then add the repository:
+
+```bash
+./run/host-ssh 216 python3 - <<'EOF'
+import sqlite3
+c = sqlite3.connect('file:/mnt/forgejo/data/forgejo.db?mode=ro', uri=True)
+print(c.execute("select id from team where lower_name = 'deploy'").fetchone())
+EOF
+
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<deploy-team-id>/repos/matagoth-zaibatsu/ariel
+```
+
+Run the database query from the Forgejo section again to confirm: `repos` should now list `ariel` beside `maitre-d`.
+
+### 2. The quarantine model and its key in LiteLLM
+
+ariel calls the model `ariel-quarantine`, and its key may call nothing else. LiteLLM keeps both in its database, so they are set up in its UI (`https://litellm.homelab.matagoth.com`):
+
+- **Models → Add Model:** provider OpenRouter; under the LiteLLM model name, the custom option, `openrouter/anthropic/claude-haiku-5.5`; public model name `ariel-quarantine`; the existing OpenRouter credential. The key editor only offers models listed in `/v1/models`, and a model reached only through the `openrouter/*` wildcard is not listed, hence the explicit entry.
+- **Virtual Keys → Create Key:** models `ariel-quarantine` only, a max budget of `15` with a monthly reset, and LLM API routes only. Copy the key once; it is not shown again.
+
+Check the restriction with the key at hand (`read -s` keeps it out of the shell history and the screen):
+
+```bash
+read -rs -p 'LiteLLM key: ' k; echo
+for m in ariel-quarantine openrouter/anthropic/claude-opus-5.5; do
+  printf '%s: ' "$m"
+  curl -sS -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $k" -H 'Content-Type: application/json' \
+    https://litellm.homelab.matagoth.com/v1/chat/completions \
+    -d "{\"model\":\"$m\",\"max_tokens\":5,\"messages\":[{\"role\":\"user\",\"content\":\"Say ok\"}]}"
+done
+# ariel-quarantine: 200
+# openrouter/anthropic/claude-opus-5.5: 403
+```
+
+### 3. Write the secrets
+
+Three values in one file, none of them printed: `forge-deploy`'s token, minted straight from Forgejo; SearXNG's secret, generated on PVE; and the LiteLLM key from step 2, typed at the prompt (in the same shell as step 2, `$k` still holds it).
+
+```bash
+./run/host-ssh 216 "su - git -c '/usr/local/bin/forgejo --config /etc/forgejo/app.ini \
+  admin user generate-access-token \
+  --username forge-deploy \
+  --token-name runner-ariel \
+  --scopes read:repository \
+  --raw'" \
+| ./run/pve-ssh 'read -r t && printf "export ARIEL_FORGE_TOKEN=%s\n" "$t" > /zpool/secrets/ariel.sh && chmod 0644 /zpool/secrets/ariel.sh'
+
+./run/pve-ssh 'printf "export ARIEL_SEARXNG_SECRET=%s\n" "$(openssl rand -hex 32)" >> /zpool/secrets/ariel.sh'
+
+[ -n "$k" ] || read -rs -p 'LiteLLM key: ' k; echo
+printf '%s\n' "$k" | ./run/pve-ssh 'read -r k && printf "export ARIEL_LITELLM_KEY=%s\n" "$k" >> /zpool/secrets/ariel.sh'
+unset k
+
+./run/pve-ssh 'cut -d= -f1 /zpool/secrets/ariel.sh; stat -c %a /zpool/secrets/ariel.sh'
+# export ARIEL_FORGE_TOKEN
+# export ARIEL_SEARXNG_SECRET
+# export ARIEL_LITELLM_KEY
+# 644
+```
+
+Mode `0644`, as for every secret here: the runner is unprivileged. To replace the LiteLLM key alone, rewrite that line with `sed -i '/^export ARIEL_LITELLM_KEY=/d'` first, then append as above.
+
+### 4. Apply
+
+Dispatch the `_lxc.yml` workflow for `219 - ariel`, then `_dns.yml` with `apply`, then `_lxc.yml` for `210 - prometheus` (the scrape jobs and the dashboard). From a runner shell:
+
+```bash
+./run/execute_runner terraform_lxc 219 apply
+./run/execute_runner ansible_lxc 219
+./run/execute_runner terraform_dns apply
+./run/execute_runner ansible_lxc 210
+```
+
+The first converge builds the image, which takes a few minutes. It ends by waiting for `/healthz` to report the pinned version.
+
+### 5. Confirm it
+
+From the workstation, the MCP endpoint answers; from anywhere else, nothing does:
+
+```bash
+./run/host-ssh 218 'curl -sS --noproxy "*" http://10.20.1.219:8792/healthz'
+# {"status":"ok","version":"0.2.0"}
+
+curl -sS --max-time 5 http://10.20.1.219:8792/healthz ; echo exit=$?
+# curl: (28) Connection timed out after 5000 milliseconds
+# exit=28
+```
+
+The first of those needs 218's own fence to allow it, which is the workstation's card, not this one. Until then, check from 219 itself (`./run/host-ssh 219 'curl -sS http://127.0.0.1:8792/healthz'`).
+
+squid serves the open web and refuses the LAN, LiteLLM aside:
+
+```bash
+./run/host-ssh 219 'for u in https://example.com/ http://10.20.1.216:3000/ https://litellm.homelab.matagoth.com/health/liveliness; do
+  printf "%s: " "$u"; curl -sS -o /dev/null -w "%{http_code}\n" --proxy http://127.0.0.1:3128 --max-time 10 "$u"; done'
+# https://example.com/: 200
+# http://10.20.1.216:3000/: 403
+# https://litellm.homelab.matagoth.com/health/liveliness: 200
+```
+
+What was refused inbound, by source:
+
+```bash
+./run/host-ssh 219 'nft list set inet ingress observed_input'
+```
+
+Prometheus shows both targets up (`up{job=~"ariel|ariel_node"}`), and the `ariel (219)` dashboard is in Grafana.
+
 ## NetAlertX
 
 ### What the service is

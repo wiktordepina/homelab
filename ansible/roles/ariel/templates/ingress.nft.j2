@@ -1,0 +1,66 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+#
+# Inbound only; outbound is egress_proxy's table. A table of its own, so a
+# reload replaces just this one, and Docker's iptables-nft tables are untouched.
+
+table inet ingress
+delete table inet ingress
+
+{% set verdict = 'drop' if ariel_ingress_enforce else 'accept' %}
+table inet ingress {
+    # What was refused (or, in observation mode, would have been), by source.
+    set observed_input {
+        type ipv4_addr . inet_proto . inet_service
+        flags dynamic,timeout
+        timeout 7d
+        size 4096
+    }
+
+    chain input {
+        type filter hook input priority filter; policy accept;
+
+        iifname "lo" accept
+        ct state established,related accept
+        ct state invalid drop
+        meta l4proto { icmp, ipv6-icmp } accept
+        # The containers, to squid on this host's address: egress_proxy's
+        # table limits them to its port.
+{% for iface in ariel_container_interfaces %}
+        iifname "{{ iface }}" accept
+{% endfor %}
+{% for src in ariel_ssh_sources %}
+        # {{ src.comment }}
+        ip saddr {{ src.addr }} tcp dport 22 accept
+{% endfor %}
+        # node_exporter, for Prometheus
+{% for src in ariel_metrics_sources %}
+        ip saddr {{ src }} tcp dport {{ ariel_node_exporter_port }} accept
+{% endfor %}
+        update @observed_input { ip saddr . meta l4proto . th dport }
+        counter {{ verdict }}
+    }
+
+    # Connections into the containers: Docker's published ports, after DNAT,
+    # so the port is the container's (the same number as published).
+    chain forward {
+        type filter hook forward priority filter; policy accept;
+
+        ct state established,related accept
+        # From a container, out or to another container: egress_proxy's table
+        # decides.
+{% for iface in ariel_container_interfaces %}
+        iifname "{{ iface }}" accept
+{% endfor %}
+        # ariel's MCP endpoint, for the workstation
+{% for src in ariel_mcp_sources %}
+        ip saddr {{ src }} tcp dport {{ ariel_mcp_port }} accept
+{% endfor %}
+        # ariel's metrics, for Prometheus
+{% for src in ariel_metrics_sources %}
+        ip saddr {{ src }} tcp dport {{ ariel_metrics_port }} accept
+{% endfor %}
+        update @observed_input { ip saddr . meta l4proto . th dport }
+        counter {{ verdict }}
+    }
+}

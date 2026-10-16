@@ -60,3 +60,17 @@ scrape_configs:
       - targets: ["10.20.1.218:9100"]
         labels:
           app: workstation
+  - job_name: ariel
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["10.20.1.219:9102"]
+        labels:
+          app: ariel
+  - job_name: ariel_node
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["10.20.1.219:9100"]
+        labels:
+          app: ariel
