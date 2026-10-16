@@ -754,6 +754,36 @@ rm -r /var/lib/maitre-d/jobs/$job
 
 **Bumping maitre-d.** A release pins both maitred and the runner, and through `claude-agent-sdk` the Claude Code that jobs run. Set `maitre_d_version` and `maitre_d_commit` in `ansible/roles/maitre_d/defaults/main.yaml` to the new tag and its commit, check the release notes for a new mait-code pin (move `claude_workstation_mait_code_ref` in the same change) or a new bundled CLI, and converge 218: dispatch `_vm.yml` for `218 - workstation`, or `./run/execute_runner ansible_vm 218` from a runner shell. The converge reinstalls whichever of maitred and the runner reports another version. Then run the checks in [Check it](#7-maitre-d) and this test job again.
 
+### 9. Reading the web through ariel
+
+The agent reads pages only through ariel (LXC 219; see [ariel](#ariel)). The role installs `/etc/claude-code/managed-mcp.json` with ariel as the only MCP server, allows its tools, and denies WebFetch. ariel is reached through squid, because Claude Code's MCP client honours the proxy variables, plain HTTP included.
+
+Check the server connects, as the agent, through squid:
+
+```bash
+./run/host-ssh 218 'cd ~agent && runuser -u agent -- env HOME=/home/agent PATH=/home/agent/.local/bin:/usr/bin:/bin \
+  HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 http_proxy=http://127.0.0.1:3128 https_proxy=http://127.0.0.1:3128 \
+  NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 claude mcp list'
+# ariel: http://ariel.home.matagoth.com:8792/mcp (HTTP) - ✔ Connected
+
+./run/host-ssh 218 'grep "ariel.home" /var/log/squid/access.log | tail -2'
+# … TCP_MISS/200 … POST http://ariel.home.matagoth.com:8792/mcp - HIER_DIRECT/10.20.1.219 …
+```
+
+Check what a session has. Sessions get the proxy from the managed settings' `env`, so none is set here. This runs one short prompt on the subscription:
+
+```bash
+./run/host-ssh 218 'cd ~agent && runuser -u agent -- env HOME=/home/agent PATH=/home/agent/.local/bin:/usr/bin:/bin \
+  claude -p "Reply with the single word ok." --output-format stream-json --verbose < /dev/null 2> /dev/null' \
+| grep '"subtype":"init"' | jq -r '(.tools | map(select(test("Web|mcp"))) | join(", ")), (.mcp_servers | tostring)'
+# WebSearch, mcp__ariel__budget, mcp__ariel__fetch, mcp__ariel__search
+# [{"name":"ariel","status":"connected","source":"enterprise"}]
+```
+
+No `WebFetch` in the list, and ariel's `source` is `enterprise`. Jobs run the CLI bundled with the runner; run the same check with `$(ls /opt/maitre-d-runner/venv/lib/python3*/site-packages/claude_agent_sdk/_bundled/claude)` in place of `claude`, and expect the same two lines.
+
+A session that reads a page shows `mcp__ariel__search` and `mcp__ariel__fetch` calls in its transcript, and ariel's own log on 219 records each one (`docker compose -f /opt/ariel/compose.yaml logs ariel`). Budgets are shared by every session for 24 hours; the `ariel (219)` dashboard shows what is left.
+
 ## ariel
 
 ### What the service is
@@ -930,7 +960,7 @@ What was refused inbound, by source:
 ./run/host-ssh 219 'nft list set inet ingress observed_input'
 ```
 
-Prometheus shows both targets up (`up{job=~"ariel|ariel_node"}`), and the `ariel (219)` dashboard is in Grafana. Reaching ariel from the workstation also needs the workstation's fence and MCP configuration, which are set up on the workstation, not here.
+Prometheus shows both targets up (`up{job=~"ariel|ariel_node"}`), and the `ariel (219)` dashboard is in Grafana. How the workstation reaches ariel, and how to check it, is step 9 of the workstation's section ([Reading the web through ariel](#9-reading-the-web-through-ariel)).
 
 ## NetAlertX
 
