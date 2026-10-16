@@ -376,6 +376,23 @@
     - claude-job
     - claude-trust
 
+# Trixie mounts /tmp as tmpfs. The session units' private /tmp lives under it,
+# so whatever a session writes there is shmem charged to the unit's MemoryMax,
+# which nothing can reclaim without swap: a job that cloned a few repositories
+# into /tmp was OOM-killed with 2.9G of it. On disk it is page cache instead.
+- name: Keep /tmp on disk
+  ansible.builtin.systemd_service:
+    name: tmp.mount
+    masked: true
+  register: claude_workstation_tmp_mount
+
+- name: Say that /tmp moves to disk at the next boot
+  ansible.builtin.debug:
+    msg: >-
+      tmp.mount is now masked, but /tmp stays tmpfs until the host reboots.
+      Reboot 218 when no session or job is running.
+  when: claude_workstation_tmp_mount.changed
+
 - name: Install the session units
   ansible.builtin.template:
     src: "{{ item }}.j2"

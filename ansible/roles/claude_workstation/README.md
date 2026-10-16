@@ -35,7 +35,7 @@ It reaches the forge over HTTP on Forgejo's own port as `matabot` (see [Network 
 | `allowManagedHooksOnly: true` | The agent writes freely under `~/work`, and that includes each repository's `.claude/settings.json`. A hook declared there would run commands with no prompt in the next session. Only the hooks below run. |
 | `allowManagedPermissionRulesOnly: true` | The same path, for allow rules: a repository could otherwise widen the agent's own permissions. A session's "always allow" is therefore not saved. Everything not on the allow list prompts. |
 
-The **hooks** are an audit hook and mait-code's own three, which `mait-code install` writes into the user settings, where the lock above ignores them. They are copied with mait-code's timeouts and with `async` on the observe hooks, so compaction and session exit do not wait for them. The audit hook sends every Bash command, with its session and working directory, to the journal before it runs:
+The **hooks** are an audit hook and mait-code's own three, which `mait-code install` writes into the user settings, where the lock above ignores them. They are copied with mait-code's timeouts and with `async` on the observe hooks, so compaction and session exit do not wait for them. Workflow jobs set `MAIT_CODE_NESTED=1`, mait-code's own recursion guard, so the observe hooks skip every stage. A stage is one fragment of a run, and an extractor on each would produce memories about half-finished work. So for now, jobs produce no memories. One extraction over the whole run, by maitre-d's runner, is planned to replace this. The audit hook sends every Bash command, with its session and working directory, to the journal before it runs:
 
 ```bash
 journalctl -t claude-code-audit
@@ -118,7 +118,7 @@ systemd reads the environment file and opens both stdio files as root before it 
 
 **maitre-d** may `start`, `stop`, `restart` and `reset-failed` units matching `claude-(rc|job|snap)@<name>.service`, and nothing else. `reset-failed` lets it clear a finished job once it has read the result, and recover a Remote Control server that hit its restart limit. It cannot enable or disable them, or touch any other unit. The polkit rule is the only thing it is delegated.
 
-All three units run in `claude.slice`, which caps them together at 6G on top of each unit's 3G, and share one hardening block: `ProtectSystem=strict` with only the agent's home and the tmux directory writable, other homes hidden, a private `/tmp` and `/dev`, no capabilities and `NoNewPrivileges`. `systemd-analyze security` rates a job unit at 3.3 ("OK").
+All three units run in `claude.slice`, which caps them together at 6G on top of each unit's 3G, and share one hardening block: `ProtectSystem=strict` with only the agent's home and the tmux directory writable, other homes hidden, a private `/tmp` and `/dev`, no capabilities and `NoNewPrivileges`. `systemd-analyze security` rates a job unit at 3.3 ("OK"). The role masks `tmp.mount`, so `/tmp` is on disk rather than trixie's default tmpfs, and the private `/tmp` with it. On tmpfs, whatever a session writes to `/tmp` is shmem charged to its unit's `MemoryMax`, and with no swap nothing can reclaim it: a job that cloned a handful of repositories into `/tmp` was OOM-killed that way. On disk it is page cache, which the kernel reclaims under pressure. Masking takes effect at the next boot; the converge says when one is due.
 
 From the laptop, a Remote Control server's pane is one attach away. `TMUX_TMPDIR` is set in the agent's `.bashrc`:
 
