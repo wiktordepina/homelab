@@ -790,7 +790,7 @@ A session that reads a page shows `mcp__ariel__search` and `mcp__ariel__fetch` c
 
 An LXC (219) running ariel and its SearXNG, configured by the `ariel` role: the workstation agents' way to read the web, by id rather than URL, with pages read by a quarantine model. The role README covers the fences and the release mechanism.
 
-Three things the role cannot do, all before the first converge, which refuses to run without them: grant `forge-deploy` the repository, set up the quarantine model and its key in LiteLLM, and write `/zpool/secrets/ariel.sh`.
+Four things the role cannot do, all before the first converge, which refuses to run without them: grant `forge-deploy` the repository, set up the quarantine model and its key in LiteLLM, make a Brave Search API key, and write `/zpool/secrets/ariel.sh`.
 
 ### 1. Grant `forge-deploy` the repository
 
@@ -831,9 +831,17 @@ done
 # openrouter/anthropic/claude-opus-5.5: 403
 ```
 
-### 3. Write the secrets
+### 3. A Brave Search API key
 
-Three values in one file, none of them printed: `forge-deploy`'s token, minted straight from Forgejo; SearXNG's secret, generated on PVE; and the LiteLLM key from step 2, typed at the prompt (in the same shell as step 2, `$k` still holds it).
+SearXNG asks the Brave Search API, Yahoo and DuckDuckGo. Brave is the one that needs a key, and the only one that costs money, so the key gets a spending limit of its own on top of ariel's daily search budget.
+
+- **Plan:** at `https://api-dashboard.search.brave.com`, subscribe to the Search plan. It comes with a monthly credit (about 1,000 queries at the time of writing) and charges per query beyond it.
+- **Limit:** set the account's monthly usage limit to the credit, and check on the dashboard that reaching it stops requests rather than only warning. If it only warns, ariel's daily search budget is the only cap. Once Brave stops answering, Yahoo and DuckDuckGo still do.
+- **Key:** API Keys → Add API key, named `ariel`. Copy it for step 4.
+
+### 4. Write the secrets
+
+Four values in one file, none of them printed: `forge-deploy`'s token, minted straight from Forgejo; SearXNG's secret, generated on PVE; and the LiteLLM key from step 2 and the Brave key from step 3, typed at the prompt (in the same shell as step 2, `$k` still holds the LiteLLM key).
 
 ```bash
 ./run/host-ssh 216 "su - git -c '/usr/local/bin/forgejo --config /etc/forgejo/app.ini \
@@ -850,16 +858,30 @@ Three values in one file, none of them printed: `forge-deploy`'s token, minted s
 printf '%s\n' "$k" | ./run/pve-ssh 'read -r k && printf "export ARIEL_LITELLM_KEY=%s\n" "$k" >> /zpool/secrets/ariel.sh'
 unset k
 
+read -rs -p 'Brave key: ' b; echo
+printf '%s\n' "$b" | ./run/pve-ssh 'read -r b && printf "export ARIEL_BRAVE_API_KEY=%s\n" "$b" >> /zpool/secrets/ariel.sh'
+unset b
+
 ./run/pve-ssh 'cut -d= -f1 /zpool/secrets/ariel.sh; stat -c %a /zpool/secrets/ariel.sh'
 # export ARIEL_FORGE_TOKEN
 # export ARIEL_SEARXNG_SECRET
 # export ARIEL_LITELLM_KEY
+# export ARIEL_BRAVE_API_KEY
 # 644
 ```
 
 Mode `0644`, as for every secret here: the runner is unprivileged. To replace the LiteLLM key alone, rewrite that line with `sed -i '/^export ARIEL_LITELLM_KEY=/d'` first, then append as above.
 
-### 4. Apply
+To rotate the Brave key: add a new key on Brave's dashboard, swap the line, converge 219 (the changed settings restart SearXNG), check that Brave answers (step 6), then delete the old key on the dashboard:
+
+```bash
+read -rs -p 'New Brave key: ' b; echo
+printf '%s\n' "$b" | ./run/pve-ssh 'read -r b && sed -i "/^export ARIEL_BRAVE_API_KEY=/d" /zpool/secrets/ariel.sh && printf "export ARIEL_BRAVE_API_KEY=%s\n" "$b" >> /zpool/secrets/ariel.sh'
+unset b
+./run/execute_runner ansible_lxc 219
+```
+
+### 5. Apply
 
 Dispatch the `_lxc.yml` workflow for `219 - ariel`, then `_dns.yml` with `apply`, then `_lxc.yml` for `210 - prometheus` (the scrape jobs and the dashboard). From a runner shell:
 
@@ -872,7 +894,7 @@ Dispatch the `_lxc.yml` workflow for `219 - ariel`, then `_dns.yml` with `apply`
 
 The first converge builds the image, which takes a few minutes. It ends by waiting for `/healthz` to report the pinned version.
 
-### 5. Confirm it
+### 6. Confirm it
 
 219 has no `curl`. The checks run with Python: on the host for health, and inside the ariel container for everything else, because that is the path real traffic takes.
 
@@ -880,7 +902,7 @@ ariel answers on the host. From anywhere but the workstation and Prometheus, its
 
 ```bash
 ./run/host-ssh 219 'python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:8792/healthz\").read().decode())"'
-# {"status":"ok","version":"0.2.0"}
+# {"status":"ok","version":"0.3.0"}
 
 curl -sS --max-time 5 http://10.20.1.219:8792/healthz ; echo exit=$?
 # curl: (28) Connection timed out after 5005 milliseconds
@@ -895,6 +917,22 @@ Both containers run, SearXNG as its own user:
 # searxng running
 # uid=977(searxng) gid=977(searxng) groups=977(searxng)
 ```
+
+SearXNG has the Brave key and every engine answers. Asked directly, as ariel asks it, SearXNG names the engines behind each result and the ones that failed. A missing or rejected key does not fail the search: Brave is then simply absent from the first line, or listed on the second.
+
+```bash
+./run/host-ssh 219 'docker exec -i ariel-ariel-1 python -' <<'EOF'
+import json, urllib.request
+op = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+r = json.load(op.open("http://searxng:8080/search?q=python+3.13+release+notes&format=json", timeout=20))
+print("answered:", sorted({e for x in r["results"] for e in x.get("engines", [])}))
+print("unresponsive:", r["unresponsive_engines"])
+EOF
+# answered: ['braveapi', 'duckduckgo web', 'yahoo']
+# unresponsive: []
+```
+
+DuckDuckGo and Yahoo sometimes ask for a captcha and show up as unresponsive for a while; that is them, not the deployment. Over time, the *Search engines* panel on the `ariel (219)` dashboard shows the same per engine.
 
 SearXNG logs a timeout fetching the ClearURLs rule lists at start. That download ignores its proxy setting and the fence drops it; the only loss is tracking parameters left in result URLs.
 
