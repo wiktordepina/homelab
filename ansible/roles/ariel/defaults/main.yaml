@@ -1,8 +1,8 @@
 ---
 # The release to run. A tag on the forge never moves, but the checkout is still
 # asserted against the commit, so a tag that did move fails the converge.
-ariel_version: "0.2.0"
-ariel_commit: a6cd9b779c847b27fe5486679e51be3263282eaa
+ariel_version: "0.3.0"
+ariel_commit: 0f325ebfa9576196eb1aac0d3539a5fdd1062bd3
 
 # Fetched on the apply runner, not on this host: ariel's host reads the open
 # web and never holds a token that can read private repositories. The token is
@@ -11,11 +11,14 @@ ariel_repo_url: http://forge.home.matagoth.com:3000/matagoth-zaibatsu/ariel.git
 ariel_forge_token: "{{ lookup('ansible.builtin.env', 'ARIEL_FORGE_TOKEN') }}"
 ariel_litellm_key: "{{ lookup('ansible.builtin.env', 'ARIEL_LITELLM_KEY') }}"
 ariel_searxng_secret: "{{ lookup('ansible.builtin.env', 'ARIEL_SEARXNG_SECRET') }}"
+ariel_brave_api_key: "{{ lookup('ansible.builtin.env', 'ARIEL_BRAVE_API_KEY') }}"
 
 ariel_install_dir: /opt/ariel
 ariel_src_dir: "{{ ariel_install_dir }}/src"
 ariel_image: "ariel:{{ ariel_version }}"
 ariel_searxng_image: searxng/searxng:2026.10.16-8252c0bf6
+# The image's own user, which it ships but does not switch to.
+ariel_searxng_uid: 977
 
 ariel_mcp_port: 8792
 ariel_metrics_port: 9102

@@ -32,7 +32,7 @@ services:
       SEARXNG_SECRET: ${SEARXNG_SECRET:?}
     # The image's own user, which it ships but does not switch to: without
     # this, SearXNG runs as root.
-    user: "977:977"
+    user: "{{ ariel_searxng_uid }}:{{ ariel_searxng_uid }}"
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -40,7 +40,7 @@ services:
       - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
     tmpfs:
       - /tmp
-      - /var/cache/searxng:uid=977,gid=977
+      - /var/cache/searxng:uid={{ ariel_searxng_uid }},gid={{ ariel_searxng_uid }}
     # Not published: only ariel reaches it, on the compose network.
 
 volumes:

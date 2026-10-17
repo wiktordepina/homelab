@@ -5,10 +5,11 @@
       - ariel_forge_token is match('^[0-9a-f]{40}$')
       - ariel_litellm_key is match('^sk-')
       - ariel_searxng_secret | length >= 32
+      - ariel_brave_api_key is match('^[A-Za-z0-9_-]{20,}$')
     fail_msg: >-
-      ARIEL_FORGE_TOKEN, ARIEL_LITELLM_KEY and ARIEL_SEARXNG_SECRET must be
-      exported from /pve/secrets/ariel.sh on the apply runner. See
-      post-deploy-setup for how each is made.
+      ARIEL_FORGE_TOKEN, ARIEL_LITELLM_KEY, ARIEL_SEARXNG_SECRET and
+      ARIEL_BRAVE_API_KEY must be exported from /pve/secrets/ariel.sh on the
+      apply runner. See post-deploy-setup for how each is made.
     quiet: true
   no_log: true
 
@@ -193,24 +194,37 @@
     mode: '0644'
   register: ariel_config
 
-# The release's SearXNG settings, with the one thing that differs on this host:
-# every outgoing request goes through squid.
+# The release's SearXNG settings, with the two things that differ on this host:
+# every outgoing request goes through squid, and the Brave key, which SearXNG
+# reads only from this file.
 - name: Read the release's SearXNG settings
   ansible.builtin.slurp:
     src: "{{ ariel_src_dir }}/deploy/searxng/settings.yml"
   register: ariel_searxng_release_settings
 
+# A release that renamed or dropped the engine would otherwise leave the key
+# unwritten or unused, and Brave would only go quiet in the metrics.
+- name: Check the release has the Brave engine
+  vars:
+    ariel_searxng_release: "{{ ariel_searxng_release_settings.content | b64decode | from_yaml }}"
+  ansible.builtin.assert:
+    that:
+      - ariel_searxng_release.engines | selectattr('name', 'equalto', 'braveapi') | list | length == 1
+      - "'braveapi' in ariel_searxng_release.use_default_settings.engines.keep_only"
+    fail_msg: >-
+      The release's SearXNG settings must keep the braveapi engine and have
+      exactly one entry for it.
+    quiet: true
+
 - name: Write SearXNG's settings
-  ansible.builtin.copy:
-    content: >-
-      {{ ariel_searxng_release_settings.content | b64decode | from_yaml
-         | combine({'outgoing': {'proxies': {'all://': [ariel_proxy_url]}}}, recursive=true)
-         | to_nice_yaml(indent=2) }}
+  ansible.builtin.template:
+    src: searxng-settings.yml.j2
     dest: "{{ ariel_install_dir }}/searxng/settings.yml"
     owner: root
-    group: root
-    mode: '0644'
+    group: "{{ ariel_searxng_uid }}"
+    mode: '0640'
   register: ariel_searxng_config
+  no_log: true
 
 - name: Write the secrets for compose
   ansible.builtin.template:

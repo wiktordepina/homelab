@@ -1,0 +1,13 @@
+{% set settings = ariel_searxng_release_settings.content | b64decode | from_yaml %}
+{% set engines = [] %}
+{% for engine in settings.engines %}
+{%   set _ = engines.append(engine | combine({'api_key': ariel_brave_api_key}) if engine.name == 'braveapi' else engine) %}
+{% endfor %}
+# {{ ansible_managed }}
+#
+# The release's deploy/searxng/settings.yml, with squid as the proxy and the
+# Brave key written in.
+
+{{ settings
+   | combine({'engines': engines, 'outgoing': {'proxies': {'all://': [ariel_proxy_url]}}}, recursive=true)
+   | to_nice_yaml(indent=2) }}
