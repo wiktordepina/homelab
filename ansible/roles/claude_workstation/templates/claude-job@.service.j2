@@ -15,8 +15,7 @@ StandardError=journal
 ExecStart=/usr/local/libexec/claude-job
 # mait-code's recursion guard, which makes its observe hooks skip. Each workflow
 # stage is a session of its own, so the hooks would extract from fragments of a
-# run. Until maitre-d's runner extracts once over the whole run, jobs produce
-# no memories.
+# run; maitre-d's runner extracts once over the whole run instead.
 Environment=MAIT_CODE_NESTED=1
 RuntimeMaxSec={{ claude_workstation_job_runtime_max }}
 MemoryMax={{ claude_workstation_unit_memory_max }}
