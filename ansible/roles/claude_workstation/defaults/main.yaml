@@ -16,7 +16,7 @@ claude_workstation_mise_installer_url: https://mise.run
 # The agent's mait-code. A converge reinstalls when the installed version
 # differs. Moves in lockstep with maitre-d's own pin (its uv.lock), because
 # both open the same databases and refuse another schema version.
-claude_workstation_mait_code_ref: v0.88.0
+claude_workstation_mait_code_ref: v0.89.0
 claude_workstation_mait_code_bootstrap_url: "https://raw.githubusercontent.com/wiktordepina/mait-code/{{ claude_workstation_mait_code_ref }}/scripts/bootstrap.sh"
 
 claude_workstation_fj_version: "0.6.0"
