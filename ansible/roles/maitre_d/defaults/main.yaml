@@ -1,8 +1,8 @@
 ---
 # The release to run. A tag on the forge never moves, but the checkout is still
 # asserted against the commit, so a tag that did move fails the converge.
-maitre_d_version: "0.17.3"
-maitre_d_commit: b7e2662307ebc2ba517d43e3b09b566c5e109e7d
+maitre_d_version: "0.17.4"
+maitre_d_commit: 7d82a75d15afa99227ad8abb594c182404808965
 
 # Fetched by root through squid, on the forge's own address and port as the
 # agent's git is, with the read-only forge-deploy token from
