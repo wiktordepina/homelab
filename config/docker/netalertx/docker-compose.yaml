@@ -1,7 +1,7 @@
 ---
 services:
   netalertx:
-    image: ghcr.io/jokob-sk/netalertx:latest
+    image: ghcr.io/jokob-sk/netalertx:26.10.24
     container_name: netalertx
     restart: unless-stopped
     network_mode: host
@@ -12,6 +12,9 @@ services:
     environment:
       - TZ=Europe/London
       - PORT=20211
+      # Host networking puts the UI on every VLAN 213 scans, IoT and management
+      # included; only the reverse proxy needs it, on the fleet address.
+      - LISTEN_ADDR=10.20.1.213
     volumes:
       - /mnt/netalertx:/data
       - /etc/localtime:/etc/localtime:ro
