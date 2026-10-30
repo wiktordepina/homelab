@@ -8,16 +8,20 @@
     - /etc/telegraf
     - /etc/telegraf.d
     - /var/log/telegraf
+    - /tmp/telegraf-download
 
+# The tarball's first entry is "./" (0755), so extracting it straight into /tmp
+# resets /tmp to 0755 and breaks every non-root user of it (apt's _apt sandbox
+# included). Extract into a directory the role owns instead.
 - name: Download binaries
   ansible.builtin.unarchive:
     src: https://dl.influxdata.com/telegraf/releases/telegraf-1.35.0_linux_amd64.tar.gz
-    dest: /tmp
+    dest: /tmp/telegraf-download
     remote_src: true
 
 - name: Copy telegraf binaries
   ansible.builtin.copy:
-    src: /tmp/telegraf-1.35.0/usr/bin/telegraf
+    src: /tmp/telegraf-download/telegraf-1.35.0/usr/bin/telegraf
     dest: /etc/telegraf/telegraf
     remote_src: true
     mode: preserve
