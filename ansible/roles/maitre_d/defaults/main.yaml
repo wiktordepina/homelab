@@ -57,6 +57,11 @@ maitre_d_work_dir: "{{ claude_workstation_work_dir }}"
 # them and write the board through mait-code's own code paths.
 maitre_d_data_group: mait-data
 
+# Jobs running at once. Each is a claude-job@ unit capped at
+# claude_workstation_unit_memory_max inside the shared claude.slice, so two
+# jobs at their cap fill the slice; a job measured about 0.75 GB in practice.
+maitre_d_max_running_jobs: 2
+
 maitre_d_host: 10.20.1.218
 maitre_d_port: "{{ claude_workstation_service_port }}"
 maitre_d_public_host: maitre-d.homelab.matagoth.com

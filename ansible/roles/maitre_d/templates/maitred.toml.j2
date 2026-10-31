@@ -13,3 +13,6 @@ allowed_hosts = ["{{ maitre_d_public_host }}"]
 # Only the reverse proxy's connections reach the web UI.
 ui_peers = [{% for peer in maitre_d_ui_peers %}"{{ peer }}"{% if not loop.last %}, {% endif %}{% endfor %}]
 ui_origins = ["https://{{ maitre_d_public_host }}"]
+
+[jobs]
+max_running = {{ maitre_d_max_running_jobs }}
