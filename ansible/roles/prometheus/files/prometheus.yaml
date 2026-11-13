@@ -74,3 +74,17 @@ scrape_configs:
       - targets: ["10.20.1.219:9100"]
         labels:
           app: ariel
+  - job_name: moebius
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["10.20.1.220:9102"]
+        labels:
+          app: moebius
+  - job_name: moebius_node
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["10.20.1.220:9100"]
+        labels:
+          app: moebius

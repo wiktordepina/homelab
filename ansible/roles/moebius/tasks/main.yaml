@@ -1,0 +1,224 @@
+---
+- name: Require the secrets
+  ansible.builtin.assert:
+    that:
+      - moebius_forge_token is match('^[0-9a-f]{40}$')
+      - moebius_write_token is match('^[0-9a-f]{64}$')
+      - moebius_read_token is match('^[0-9a-f]{64}$')
+      - moebius_write_token != moebius_read_token
+    fail_msg: >-
+      MOEBIUS_FORGE_TOKEN, MOEBIUS_WRITE_TOKEN and MOEBIUS_READ_TOKEN must be
+      exported from /pve/secrets/moebius.sh on the apply runner, the two service
+      tokens different. See post-deploy-setup for how each is made.
+    quiet: true
+  no_log: true
+
+- name: Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+
+- name: Create the nftables include directory
+  ansible.builtin.file:
+    path: "{{ moebius_ingress_nft_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Template the ingress ruleset
+  ansible.builtin.template:
+    src: ingress.nft.j2
+    dest: "{{ moebius_ingress_nft_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+    validate: nft -c -f %s
+  notify: Reload ingress firewall
+
+- name: Install the ingress firewall unit
+  ansible.builtin.template:
+    src: ingress-firewall.service.j2
+    dest: /etc/systemd/system/ingress-firewall.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload ingress firewall
+
+# Started, and flushed now rather than at the end, so the service's ports are
+# never open unfenced.
+- name: Enable and start the ingress firewall
+  ansible.builtin.systemd_service:
+    name: ingress-firewall
+    daemon_reload: true
+    state: started
+    enabled: true
+
+- name: Apply a changed ingress ruleset
+  ansible.builtin.meta: flush_handlers
+
+- name: Create the service group
+  ansible.builtin.group:
+    name: "{{ moebius_user }}"
+    gid: "{{ moebius_uid }}"
+    system: true
+
+- name: Create the service user
+  ansible.builtin.user:
+    name: "{{ moebius_user }}"
+    uid: "{{ moebius_uid }}"
+    group: "{{ moebius_user }}"
+    system: true
+    home: "{{ moebius_data_dir }}"
+    create_home: false
+    shell: /usr/sbin/nologin
+
+# A bind mount of /zpool/moebius on PVE, owned there by the container's root,
+# so the owner set here is the service user's mapped uid.
+- name: Create the data directory
+  ansible.builtin.file:
+    path: "{{ moebius_data_dir }}"
+    state: directory
+    owner: "{{ moebius_user }}"
+    group: "{{ moebius_user }}"
+    mode: '0750'
+
+- name: Read the installed binary's checksum
+  ansible.builtin.stat:
+    path: "{{ moebius_binary }}"
+    checksum_algorithm: sha256
+  register: moebius_installed
+
+# Downloaded on the apply runner, checked there against the pinned commit and
+# sha256, and copied over: this host never reaches the forge. The token goes in
+# a header, never the URL.
+- name: Ship the pinned release
+  when: moebius_installed.stat.checksum | default('') != moebius_sha256
+  block:
+    - name: Check the tag is the pinned commit
+      ansible.builtin.uri:
+        url: "{{ moebius_forge_url }}/api/v1/repos/{{ moebius_repo }}/git/refs/tags/v{{ moebius_version }}"
+        headers:
+          Authorization: "token {{ moebius_forge_token }}"
+        return_content: true
+      delegate_to: localhost
+      become: false
+      register: moebius_tag
+      failed_when: false
+      no_log: true
+
+    # Out of the no_log above, which has to hide the token, so a wrong pin
+    # says what it found.
+    - name: Require the tag to be the pinned commit
+      ansible.builtin.assert:
+        that:
+          - moebius_tag.status == 200
+          - (moebius_tag.json | first).object.sha == moebius_commit
+        fail_msg: >-
+          v{{ moebius_version }}: HTTP {{ moebius_tag.status }}, commit
+          {{ (moebius_tag.json | default([{}], true) | first).object.sha | default('none') }},
+          pinned {{ moebius_commit }}
+        quiet: true
+
+    - name: Create a scratch directory on the runner
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: -moebius
+      delegate_to: localhost
+      become: false
+      register: moebius_scratch
+
+    - name: Download the release binary on the runner
+      ansible.builtin.get_url:
+        url: >-
+          {{ moebius_forge_url }}/{{ moebius_repo }}/releases/download/v{{ moebius_version
+          }}/moebius-{{ moebius_version }}-linux-amd64
+        headers:
+          Authorization: "token {{ moebius_forge_token }}"
+        dest: "{{ moebius_scratch.path }}/moebius"
+        mode: '0755'
+      delegate_to: localhost
+      become: false
+      no_log: true
+
+    # Checked here rather than by get_url, whose no_log would hide a mismatch.
+    - name: Read the downloaded binary's checksum
+      ansible.builtin.stat:
+        path: "{{ moebius_scratch.path }}/moebius"
+        checksum_algorithm: sha256
+      delegate_to: localhost
+      become: false
+      register: moebius_downloaded
+
+    - name: Require the pinned binary
+      ansible.builtin.assert:
+        that:
+          - moebius_downloaded.stat.checksum == moebius_sha256
+        fail_msg: >-
+          moebius-{{ moebius_version }}-linux-amd64 has sha256
+          {{ moebius_downloaded.stat.checksum }}, pinned {{ moebius_sha256 }}
+        quiet: true
+
+    - name: Install the binary
+      ansible.builtin.copy:
+        src: "{{ moebius_scratch.path }}/moebius"
+        dest: "{{ moebius_binary }}"
+        owner: root
+        group: root
+        mode: '0755'
+      notify: Restart moebius
+
+  always:
+    - name: Remove the scratch directory on the runner
+      ansible.builtin.file:
+        path: "{{ moebius_scratch.path }}"
+        state: absent
+      delegate_to: localhost
+      become: false
+      when: moebius_scratch.path is defined
+
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: "{{ moebius_env_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Write the environment file
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ moebius_env_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+  notify: Restart moebius
+
+- name: Install the unit
+  ansible.builtin.template:
+    src: moebius.service.j2
+    dest: /etc/systemd/system/moebius.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart moebius
+
+- name: Enable and start moebius
+  ansible.builtin.systemd_service:
+    name: moebius
+    daemon_reload: true
+    state: started
+    enabled: true
+
+- name: Apply a changed release or configuration
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for moebius to report the pinned version
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ moebius_api_port }}/healthz"
+    return_content: true
+  register: moebius_health
+  until: moebius_health.status == 200 and moebius_health.json.version == moebius_version
+  retries: 20
+  delay: 3

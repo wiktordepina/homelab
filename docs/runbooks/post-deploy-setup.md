@@ -254,7 +254,7 @@ Before granting one, check two things, because write access on a repository with
 
 `matabot` has no repository of its own and cannot create one; see [Creation limits](../../ansible/roles/forgejo/README.md#creation-limits).
 
-**Create the `deploy` team** for `forge-deploy`, the read-only account hosts use to fetch private repositories they deploy (maitre-d on the workstation is the first). Read permission, the code unit only, and no repository by default:
+**Create the `deploy` team** for `forge-deploy`, the read-only account hosts use to fetch private repositories they deploy (maitre-d on the workstation is the first). Read permission, the code and releases units only (releases, so a role can download a release asset, as `moebius` does), and no repository by default:
 
 ```bash
 curl -X POST \
@@ -266,7 +266,7 @@ curl -X POST \
         "permission":"read",
         "includes_all_repositories":false,
         "can_create_org_repo":false,
-        "units":["repo.code"]
+        "units":["repo.code","repo.releases"]
       }' \
   https://forge.homelab.matagoth.com/api/v1/orgs/matagoth-zaibatsu/teams
 # note the team id in the response
@@ -293,7 +293,7 @@ print('units', c.execute('select type, access_mode from team_unit where team_id 
 EOF
 # team (<id>, 1, 0)      authorize 1 is read; 0: not every repository
 # repos [('maitre-d',)]
-# units [(1, 1)]         the code unit, read
+# units [(1, 1), (4, 1)] the code and releases units, read
 ```
 
 Then mint its token into the secrets store, the same way as `matabot`'s. `read:repository` is the only scope:
@@ -999,6 +999,130 @@ What was refused inbound, by source:
 ```
 
 Prometheus shows both targets up (`up{job=~"ariel|ariel_node"}`), and the `ariel (219)` dashboard is in Grafana. How the workstation reaches ariel, and how to check it, is step 9 of the workstation's section ([Reading the web through ariel](#9-reading-the-web-through-ariel)).
+
+## moebius
+
+### What the service is
+
+An LXC (220) running moebius under systemd, configured by the `moebius` role: the receiver for the ffxiv repository's Dalamud exporter plugin. The plugin on the desktop writes snapshots with one token; readers on the laptop fetch them back with another. The role README covers the fence and the release mechanism; moebius's own README covers the API.
+
+Six things the role cannot do. The first four come before the first converge, which refuses to run without them: create the data directory on PVE, give the `deploy` team the releases unit and the repository, pin a release, and write `/zpool/secrets/moebius.sh`. The last two come after it: confirm it, and point the plugin at it.
+
+### Pre-flight: the data directory
+
+The snapshots live in `/zpool/moebius` on PVE, bind-mounted at `/var/lib/moebius`, so a rebuilt container keeps them. Create it as a dataset of its own, owned by the unprivileged container's root (uid `100000` on the host), before Terraform creates 220:
+
+```bash
+./run/pve-ssh 'zfs create zpool/moebius && chown 100000:100000 /zpool/moebius && ls -ldn /zpool/moebius'
+# drwxr-xr-x 2 100000 100000 2 ... /zpool/moebius
+```
+
+The role sets the owner to the service user from inside the container.
+
+### 1. Give `forge-deploy` the releases unit and the repository
+
+The role downloads a release asset, which the code unit alone does not allow: Forgejo serves release attachments under the releases unit. On a forge whose `deploy` team was created with the code unit only, add releases in place. `permission` must be in the body, as for the `ci` team above:
+
+```bash
+curl -X PATCH \
+  -H "Authorization: token <matagoth-token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"deploy","permission":"read","includes_all_repositories":false,"units":["repo.code","repo.releases"]}' \
+  https://forge.homelab.matagoth.com/api/v1/teams/<deploy-team-id> \
+  | jq '{permission, includes_all_repositories, units}'
+# {"permission": "read", "includes_all_repositories": false, "units": ["repo.code", "repo.releases"]}
+
+curl -X PUT \
+  -H "Authorization: token <matagoth-token>" \
+  https://forge.homelab.matagoth.com/api/v1/teams/<deploy-team-id>/repos/matagoth-zaibatsu/moebius
+```
+
+Run the database query from the Forgejo section again: `units` should read `[(1, 1), (4, 1)]`, and `repos` should list `moebius`. The team's other repositories gain read access to their Releases too, which holds nothing they cannot already rebuild from the code.
+
+### 2. Pin a release
+
+A release is a `VERSION` bump merged to moebius's `main`; its release workflow tags it and attaches the binary and its `.sha256`. Take the three pins from the forge:
+
+```bash
+v=0.1.0
+curl -s -H "Authorization: token <matagoth-token>" \
+  "https://forge.homelab.matagoth.com/api/v1/repos/matagoth-zaibatsu/moebius/git/refs/tags/v$v" \
+  | jq -r '.[0].object.sha'
+curl -s -H "Authorization: token <matagoth-token>" -L \
+  "https://forge.homelab.matagoth.com/matagoth-zaibatsu/moebius/releases/download/v$v/moebius-$v-linux-amd64.sha256"
+```
+
+Set `moebius_version`, `moebius_commit` and `moebius_sha256` in the role's defaults to those values.
+
+### 3. Write the secrets
+
+Three values, none of them printed: `forge-deploy`'s token, minted straight from Forgejo, and the two service tokens, generated on PVE. The write token goes to the plugin and the read token to readers, so they must differ; the role refuses them otherwise.
+
+```bash
+./run/host-ssh 216 "su - git -c '/usr/local/bin/forgejo --config /etc/forgejo/app.ini \
+  admin user generate-access-token \
+  --username forge-deploy \
+  --token-name runner-moebius \
+  --scopes read:repository \
+  --raw'" \
+| ./run/pve-ssh 'read -r t && printf "export MOEBIUS_FORGE_TOKEN=%s\n" "$t" > /zpool/secrets/moebius.sh && chmod 0644 /zpool/secrets/moebius.sh'
+
+./run/pve-ssh 'for n in WRITE READ; do printf "export MOEBIUS_%s_TOKEN=%s\n" "$n" "$(openssl rand -hex 32)"; done >> /zpool/secrets/moebius.sh'
+
+./run/pve-ssh 'cut -d= -f1 /zpool/secrets/moebius.sh; stat -c %a /zpool/secrets/moebius.sh'
+# export MOEBIUS_FORGE_TOKEN
+# export MOEBIUS_WRITE_TOKEN
+# export MOEBIUS_READ_TOKEN
+# 644
+```
+
+Mode `0644`, as for every secret here: the runner is unprivileged. To rotate a service token, replace its line the same way (`sed -i '/^export MOEBIUS_WRITE_TOKEN=/d'` first), converge 220, and update its holder (step 6 for the write token).
+
+### 4. Apply
+
+Dispatch the `_lxc.yml` workflow for `220 - moebius`, then `_dns.yml` with `apply`, then `_lxc.yml` for `110` (the proxy's server block) and `210 - prometheus` (the scrape jobs). From a runner shell:
+
+```bash
+./run/execute_runner terraform_lxc 220 apply
+./run/execute_runner ansible_lxc 220
+./run/execute_runner terraform_dns apply
+./run/execute_runner ansible_lxc 110
+./run/execute_runner ansible_lxc 210
+```
+
+The converge ends by waiting for `/healthz` to report the pinned version.
+
+### 5. Confirm it
+
+From the laptop, through the proxy, with the tokens read from the secrets file and the plugin's example snapshot from a checkout of ffxiv:
+
+```bash
+W=$(./run/pve-ssh 'sed -n "s/^export MOEBIUS_WRITE_TOKEN=//p" /zpool/secrets/moebius.sh')
+R=$(./run/pve-ssh 'sed -n "s/^export MOEBIUS_READ_TOKEN=//p" /zpool/secrets/moebius.sh')
+u=https://moebius.homelab.matagoth.com
+gzip -c ../ffxiv/plugin/schema/examples/snapshot.json > /tmp/snapshot.json.gz
+post() { curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $1" -H 'Content-Encoding: gzip' --data-binary @"$2" "$u/v1/snapshots"; }
+
+post "$W" /tmp/snapshot.json.gz                 # 201 (200 if it was posted before)
+post "$W" /tmp/snapshot.json.gz                 # 200, a duplicate
+echo '{"snapshot_id":"x"}' | gzip > /tmp/bad.gz
+post "$W" /tmp/bad.gz                           # 400
+post "$R" /tmp/snapshot.json.gz                 # 401, the read token cannot write
+curl -s -H "Authorization: Bearer $R" "$u/v1/characters/$(jq -r .character.content_id ../ffxiv/plugin/schema/examples/snapshot.json)/latest" | jq -r .snapshot_id
+# the example's snapshot_id
+curl -s "$u/healthz"                            # {"status":"ok","version":"<pinned>"}
+curl -s -m 5 -o /dev/null -w '%{http_code}\n' http://10.20.1.220:8080/healthz   # 000: fenced
+curl -s -m 5 -o /dev/null -w '%{http_code}\n' http://10.20.1.220:9102/metrics   # 000: fenced
+unset W R
+```
+
+The example snapshot stays stored: retention keeps it as its day's newest. Prometheus's targets page should show `moebius` and `moebius_node` up.
+
+### 6. Point the plugin at it
+
+On the desktop, in the game: `/xlplugins`, the exporter's settings. Set the URL to `https://moebius.homelab.matagoth.com` (the plugin appends `/v1/snapshots`) and the token to the write token, then press **Send now**: the settings window's last send result should read 201. The token is stored in plain text in the plugin's configuration, which is why it is the write token alone.
+
+Readers take the URL and the read token from their own environment; see the reader's documentation in ffxiv.
 
 ## NetAlertX
 

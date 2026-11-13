@@ -1,0 +1,41 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+#
+# Inbound only. A table of its own, so a reload replaces just this one.
+
+table inet ingress
+delete table inet ingress
+
+{% set verdict = 'drop' if moebius_ingress_enforce else 'accept' %}
+table inet ingress {
+    # What was refused (or, in observation mode, would have been), by source.
+    set observed_input {
+        type ipv4_addr . inet_proto . inet_service
+        flags dynamic,timeout
+        timeout 7d
+        size 4096
+    }
+
+    chain input {
+        type filter hook input priority filter; policy accept;
+
+        iifname "lo" accept
+        ct state established,related accept
+        ct state invalid drop
+        meta l4proto { icmp, ipv6-icmp } accept
+{% for src in moebius_ssh_sources %}
+        # {{ src.comment }}
+        ip saddr {{ src.addr }} tcp dport 22 accept
+{% endfor %}
+        # The API, for the reverse proxy
+{% for src in moebius_api_sources %}
+        ip saddr {{ src }} tcp dport {{ moebius_api_port }} accept
+{% endfor %}
+        # moebius's metrics and node_exporter, for Prometheus
+{% for src in moebius_metrics_sources %}
+        ip saddr {{ src }} tcp dport { {{ moebius_metrics_port }}, {{ moebius_node_exporter_port }} } accept
+{% endfor %}
+        update @observed_input { ip saddr . meta l4proto . th dport }
+        counter {{ verdict }}
+    }
+}

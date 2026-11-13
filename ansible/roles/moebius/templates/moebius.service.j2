@@ -1,0 +1,31 @@
+# {{ ansible_managed }}
+
+[Unit]
+Description=moebius, the receiver for Dalamud character snapshots
+After=network-online.target ingress-firewall.service
+Wants=network-online.target
+Requires=ingress-firewall.service
+
+[Service]
+Type=simple
+User={{ moebius_user }}
+Group={{ moebius_user }}
+EnvironmentFile={{ moebius_env_file }}
+ExecStart={{ moebius_binary }}
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths={{ moebius_data_dir }}
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

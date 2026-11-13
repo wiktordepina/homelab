@@ -95,3 +95,10 @@ resource "dns_a_record_set" "ariel" {
   addresses = ["10.20.1.219"]
   ttl       = 500
 }
+
+resource "dns_a_record_set" "moebius" {
+  zone      = "home.matagoth.com."
+  name      = "moebius"
+  addresses = ["10.20.1.220"]
+  ttl       = 500
+}

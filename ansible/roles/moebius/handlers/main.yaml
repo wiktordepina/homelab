@@ -1,0 +1,12 @@
+---
+- name: Reload ingress firewall
+  ansible.builtin.systemd_service:
+    name: ingress-firewall
+    daemon_reload: true
+    state: reloaded
+
+- name: Restart moebius
+  ansible.builtin.systemd_service:
+    name: moebius
+    daemon_reload: true
+    state: restarted
