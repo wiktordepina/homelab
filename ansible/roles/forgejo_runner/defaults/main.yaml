@@ -85,4 +85,6 @@ forgejo_runner_egress_allowlist:
   # Package registries
   - files.pythonhosted.org
   - registry.npmjs.org
+  # Go modules: the proxy redirects module zips to Cloud Storage
   - proxy.golang.org
+  - storage.googleapis.com
