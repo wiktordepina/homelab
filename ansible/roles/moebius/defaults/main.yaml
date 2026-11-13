@@ -3,8 +3,8 @@
 # sha256, both from the release. A tag or binary that changed fails the
 # converge rather than changing the deploy.
 moebius_version: "0.1.0"
-moebius_commit: "0000000000000000000000000000000000000000"
-moebius_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+moebius_commit: "84ef04c3f54ca5b5aa5ab11b00970f5d765600c9"
+moebius_sha256: "31c5ec3f7141c95021b8d62a98aecbd81a0dd90e647e4bf72364db98a89f3d3a"
 
 # Fetched on the apply runner, not on this host, which never reaches the forge.
 # The token is forge-deploy's, minted for this role into /pve/secrets/moebius.sh;
