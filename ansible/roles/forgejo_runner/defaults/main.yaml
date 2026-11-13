@@ -85,3 +85,4 @@ forgejo_runner_egress_allowlist:
   # Package registries
   - files.pythonhosted.org
   - registry.npmjs.org
+  - proxy.golang.org
