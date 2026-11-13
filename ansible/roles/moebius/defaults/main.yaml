@@ -1,0 +1,43 @@
+---
+# The release to run, and what it must be: the tag's commit and the binary's
+# sha256, both from the release. A tag or binary that changed fails the
+# converge rather than changing the deploy.
+moebius_version: "0.1.0"
+moebius_commit: "0000000000000000000000000000000000000000"
+moebius_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+
+# Fetched on the apply runner, not on this host, which never reaches the forge.
+# The token is forge-deploy's, minted for this role into /pve/secrets/moebius.sh;
+# the deploy team needs the releases unit to download the asset.
+moebius_forge_url: http://forge.home.matagoth.com:3000
+moebius_repo: matagoth-zaibatsu/moebius
+moebius_forge_token: "{{ lookup('ansible.builtin.env', 'MOEBIUS_FORGE_TOKEN') }}"
+moebius_write_token: "{{ lookup('ansible.builtin.env', 'MOEBIUS_WRITE_TOKEN') }}"
+moebius_read_token: "{{ lookup('ansible.builtin.env', 'MOEBIUS_READ_TOKEN') }}"
+
+moebius_user: moebius
+# Fixed, because the data directory is a bind mount that outlives the
+# container: a rebuild that allocated another uid could not read its own files.
+moebius_uid: 950
+moebius_binary: /usr/local/bin/moebius
+moebius_data_dir: /var/lib/moebius
+moebius_env_file: /etc/moebius/env
+
+moebius_api_port: 8080
+moebius_metrics_port: 9102
+
+# Inbound. The API is reached only through the reverse proxy, which holds the
+# certificate and the catalogue's allow list.
+moebius_ingress_enforce: true
+moebius_api_sources:
+  - 10.20.1.10    # the reverse proxy
+moebius_metrics_sources:
+  - 10.20.1.210   # Prometheus
+moebius_node_exporter_port: 9100
+moebius_ssh_sources:
+  - { addr: 10.10.10.40, comment: laptop }
+  - { addr: 10.100.10.10, comment: desktop }
+  - { addr: 10.20.6.0/24, comment: apply runners (600-699) }
+  # run/host-key-push installs keys from PVE
+  - { addr: 192.168.200.100, comment: PVE }
+moebius_ingress_nft_file: /etc/nftables.d/ingress.nft

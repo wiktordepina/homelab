@@ -1,0 +1,24 @@
+---
+# moebius: keeps the character snapshots the ffxiv exporter plugin sends, and
+# serves them back to readers. One static binary under systemd, reached only
+# through the reverse proxy. See the moebius role README.
+terraform:
+  vmid: 220
+  hostname: moebius
+  ip_address: 10.20.1.220/16
+  nameserver: 10.20.0.1
+  cpu_core_count: 1
+  memory: 512
+  swap: 256
+  start_on_boot: true
+  rootfs_size: 8G
+
+# The snapshots outlive the container: a rebuild keeps the history.
+pve_extra:
+  - mp0: /zpool/moebius,mp=/var/lib/moebius,backup=0
+
+ansible:
+  roles:
+    - base
+    - moebius
+    - node_exporter

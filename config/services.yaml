@@ -57,6 +57,13 @@ categories:
       - name: agents
         title: Agents
 
+  - name: games
+    title: Games
+    description: What the homelab keeps from the games played on it
+    subcategories:
+      - name: ffxiv
+        title: FINAL FANTASY XIV
+
 services:
   # --- infrastructure ---------------------------------------------------
   - name: www
@@ -277,3 +284,18 @@ services:
     upstream: http://10.20.30.40:8080/
     description: Legacy agent gateway, superseded by Hermes
     icon: mdi-robot-outline
+
+  # --- games ------------------------------------------------------------
+  - name: moebius
+    title: moebius
+    category: games
+    subcategory: ffxiv
+    upstream: http://10.20.1.220:8080/
+    description: Character snapshots from the Dalamud exporter plugin
+    icon: mdi-history
+    # An API with no browser UI. The plugin on the desktop writes; readers on
+    # the laptop read.
+    listed: false
+    allow:
+      - 10.10.10.40
+      - 10.100.10.10
