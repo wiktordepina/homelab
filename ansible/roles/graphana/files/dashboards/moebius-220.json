@@ -1,0 +1,958 @@
+{
+  "uid": "moebius-220",
+  "title": "moebius (220)",
+  "tags": [
+    "moebius",
+    "ffxiv"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "description": "moebius: the ffxiv character snapshot receiver. Uploads, rejections, per-character freshness, retention, storage and the host.",
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Service",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "moebius",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "up{job=\"moebius\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "down"
+                },
+                "1": {
+                  "text": "up"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Whether Prometheus can scrape moebius's metrics port. Down with the host up means the service, not the LXC: journalctl -u moebius on 220."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Host",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 3,
+        "y": 1,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "up{job=\"moebius_node\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "down"
+                },
+                "1": {
+                  "text": "up"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Whether node_exporter on 220 answers."
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Version",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "moebius_build_info",
+          "legendFormat": "{{version}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "name"
+      },
+      "description": "The moebius release running on 220."
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Characters",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 9,
+        "y": 1,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "count(moebius_snapshot_last_captured_timestamp_seconds) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Characters with at least one stored snapshot."
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Newest snapshot",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "time() - max(moebius_snapshot_last_captured_timestamp_seconds)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 86400
+              },
+              {
+                "color": "red",
+                "value": 604800
+              }
+            ]
+          },
+          "unit": "s",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Time since the most recent captured_at across every character. It only grows while the game is closed, so a large value is expected between sessions."
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Stored, 24h",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 1,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "sum(increase(moebius_snapshots_received_total{result=\"stored\"}[24h])) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "New snapshots stored in the last day. Duplicates (a retried upload) are not counted."
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Rejected, 24h",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "sum(increase(moebius_snapshots_rejected_total[24h])) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Uploads refused in the last day. 400 and 413 are dropped by the plugin, 401 is a token problem, 500 is a storage fault the plugin retries. The breakdown is in the Rejected panel below."
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Data",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 1,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "node_filesystem_size_bytes{job=\"moebius_node\",mountpoint=\"/var/lib/moebius\"} - node_filesystem_avail_bytes{job=\"moebius_node\",mountpoint=\"/var/lib/moebius\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Space the snapshot store uses on zpool/moebius."
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Snapshots",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Received",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "sum by (result) (increase(moebius_snapshots_received_total[$__rate_interval]))",
+          "legendFormat": "{{result}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "drawStyle": "bars"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Accepted uploads: stored is new, duplicate is a snapshot_id already held (the plugin retrying after a lost reply)."
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Rejected",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 6,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "sum by (code) (increase(moebius_snapshots_rejected_total[$__rate_interval]))",
+          "legendFormat": "{{code}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "drawStyle": "bars"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Refused uploads by status code. Any 500 means the store on 220 failed a write."
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Snapshot age per character",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 6,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "time() - moebius_snapshot_last_captured_timestamp_seconds",
+          "legendFormat": "{{content_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "drawStyle": "line"
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Time since each character's newest captured_at. It drops back to near zero when that character uploads."
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Retention deletes",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "sum(increase(moebius_retention_deleted_total[1h]))",
+          "legendFormat": "deleted"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "drawStyle": "bars"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Snapshots pruned per hour. Pruning starts 30 days after the first upload; after that each character keeps its newest snapshot of every UTC day."
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Data on disk",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "node_filesystem_size_bytes{job=\"moebius_node\",mountpoint=\"/var/lib/moebius\"} - node_filesystem_avail_bytes{job=\"moebius_node\",mountpoint=\"/var/lib/moebius\"}",
+          "legendFormat": "used"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "drawStyle": "line"
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Space the snapshot store uses on zpool/moebius."
+    },
+    {
+      "id": 16,
+      "type": "row",
+      "title": "Host",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "CPU",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"moebius_node\",mode=\"idle\"}[$__rate_interval]))",
+          "legendFormat": "busy"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "drawStyle": "line"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "CPU busy across the container's cores."
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Memory",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 23,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "node_memory_MemTotal_bytes{job=\"moebius_node\"} - node_memory_MemAvailable_bytes{job=\"moebius_node\"}",
+          "legendFormat": "used"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "B",
+          "expr": "node_memory_MemTotal_bytes{job=\"moebius_node\"}",
+          "legendFormat": "total"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "C",
+          "expr": "process_resident_memory_bytes{job=\"moebius\"}",
+          "legendFormat": "moebius RSS"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "drawStyle": "line"
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Container memory, and how much of it the moebius process holds."
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Network",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bewhi3wyusoaoc"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 23,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "A",
+          "expr": "sum(rate(node_network_receive_bytes_total{job=\"moebius_node\",device=\"eth0\"}[$__rate_interval]))",
+          "legendFormat": "in"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bewhi3wyusoaoc"
+          },
+          "refId": "B",
+          "expr": "-sum(rate(node_network_transmit_bytes_total{job=\"moebius_node\",device=\"eth0\"}[$__rate_interval]))",
+          "legendFormat": "out"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "drawStyle": "line"
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Traffic on the LAN interface: uploads in, reads out."
+    }
+  ]
+}
