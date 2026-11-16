@@ -61,13 +61,6 @@ resource "dns_a_record_set" "netbox" {
   ttl       = 500
 }
 
-resource "dns_a_record_set" "mait" {
-  zone      = "home.matagoth.com."
-  name      = "mait"
-  addresses = ["10.20.30.40"]
-  ttl       = 500
-}
-
 resource "dns_a_record_set" "forge" {
   zone      = "home.matagoth.com."
   name      = "forge"
