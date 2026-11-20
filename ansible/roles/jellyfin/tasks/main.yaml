@@ -3,19 +3,19 @@
   ansible.builtin.apt:
     deb: "{{ jellyfin_ffmpeg_package_url }}"
   notify:
-    - Restart Jellyfin
+    - Start Jellyfin
 
 - name: Install jellyfin-server
   ansible.builtin.apt:
     deb: "{{ jellyfin_server_package_url }}"
   notify:
-    - Restart Jellyfin
+    - Start Jellyfin
 
 - name: Install jellyfin-web
   ansible.builtin.apt:
     deb: "{{ jellyfin_web_package_url }}"
   notify:
-    - Restart Jellyfin
+    - Start Jellyfin
 
 - name: Enable Jellyfin service
   ansible.builtin.service:

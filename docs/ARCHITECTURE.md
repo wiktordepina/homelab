@@ -97,5 +97,6 @@ Procedures. Read these to perform a specific operation.
 - [Create a runner](runbooks/create-runner.md) — provisioning an apply runner or a Forgejo Actions CI runner, and why the two are not the same machine.
 - [Rotate the wildcard SSL certificate](runbooks/rotate-wildcard-cert.md) — renewal of the LAN-side wildcard cert.
 - [Replace a disk in the ZFS pool](runbooks/replace-zfs-disk.md) — physical disk replacement and resilver.
+- [Upgrade Jellyfin across a major version](runbooks/upgrade-jellyfin.md) — backup, plugin removal and an uninterrupted first start around the converge.
 - [Post-deploy service setup](runbooks/post-deploy-setup.md) — manual steps that cannot be expressed in IaC.
 - [Troubleshooting](runbooks/troubleshooting.md) — common failure modes and where to look first.

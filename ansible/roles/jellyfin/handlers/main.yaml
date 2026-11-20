@@ -1,4 +1,7 @@
-- name: Restart Jellyfin
+# Started rather than restarted: the jellyfin-server postinst already restarts
+# the service on upgrade, and a second restart would interrupt the database
+# migrations a major upgrade runs on that first start.
+- name: Start Jellyfin
   ansible.builtin.service:
     name: jellyfin
-    state: restarted
+    state: started

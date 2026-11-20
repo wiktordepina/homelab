@@ -12,6 +12,10 @@ This role installs and configures Jellyfin, a free media server for streaming mo
 - Configures media library paths
 - Sets up hardware transcoding (with GPU support)
 
+## Upgrades
+
+Bump the three package URLs in `vars/main.yml` together. The server package restarts the service itself on upgrade, so the role's handler only makes sure it is running and never restarts it mid-migration. For a major version, follow [the upgrade runbook](../../../docs/runbooks/upgrade-jellyfin.md).
+
 ## Requirements
 
 - Debian-based OS
