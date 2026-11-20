@@ -10,6 +10,7 @@
     update_cache: true
     upgrade: "yes"
     clean: true
+    lock_timeout: "{{ base_apt_lock_timeout }}"
 
 # Superseded kernels are auto-installed dependencies of linux-image-amd64, so
 # autoremove is what drops them. apt 3.0 protects the booted kernel and the one
@@ -19,6 +20,50 @@
   ansible.builtin.apt:
     autoremove: true
     purge: true
+    lock_timeout: "{{ base_apt_lock_timeout }}"
+
+- name: Install unattended-upgrades
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+    lock_timeout: "{{ base_apt_lock_timeout }}"
+
+# The packaged 50unattended-upgrades also enables the main Debian archive, so
+# it would install point releases unattended as well. `#clear` drops those
+# entries and leaves only the security suite; point releases still arrive
+# through the upgrade above on each converge.
+- name: Restrict unattended-upgrades to the security suite
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/51homelab-unattended-upgrades
+    content: |
+      #clear Unattended-Upgrade::Origins-Pattern;
+      Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+      };
+      Unattended-Upgrade::Automatic-Reboot "false";
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable the periodic apt runs
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::CleanInterval "7";
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable the apt timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - apt-daily.timer
+    - apt-daily-upgrade.timer
 
 # journald's default ceiling is 10% of the filesystem, which on VM 214's 3.8G
 # root is more than the headroom an upgrade needs. A fixed cap bounds every
@@ -56,6 +101,7 @@
       ansible.builtin.apt:
         name: qemu-guest-agent
         state: present
+        lock_timeout: "{{ base_apt_lock_timeout }}"
     - name: Enable qemu-guest-agent service
       ansible.builtin.systemd:
         name: qemu-guest-agent
@@ -71,6 +117,7 @@
       ansible.builtin.apt:
         name: linux-image-amd64
         state: present
+        lock_timeout: "{{ base_apt_lock_timeout }}"
       register: full_kernel_install
     - name: Purge cloud kernel meta-package and image
       ansible.builtin.apt:
@@ -79,6 +126,7 @@
         state: absent
         purge: true
         autoremove: true
+        lock_timeout: "{{ base_apt_lock_timeout }}"
       register: cloud_kernel_purge
     - name: Reboot into the full kernel
       ansible.builtin.reboot:

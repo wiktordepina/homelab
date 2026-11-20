@@ -1,0 +1,5 @@
+---
+# Seconds this role's apt tasks wait for the dpkg lock. unattended-upgrades
+# holds it for the length of its daily run, and the module's 60s default would
+# turn a converge that lands mid-run into a failure.
+base_apt_lock_timeout: 900
