@@ -40,10 +40,13 @@
     - "{{ forgejo_data_dir }}/data/lfs"
     - "{{ forgejo_data_dir }}/custom"
 
+# The checksum is also what replaces the binary on a version bump: without it
+# get_url leaves an existing dest alone.
 - name: Download forgejo binary
   ansible.builtin.get_url:
     url: "https://codeberg.org/forgejo/forgejo/releases/download/v{{ forgejo_version }}/forgejo-{{ forgejo_version }}-linux-amd64"
     dest: "{{ forgejo_binary }}"
+    checksum: "sha256:{{ forgejo_binary_sha256 }}"
     owner: root
     group: root
     mode: '0755'

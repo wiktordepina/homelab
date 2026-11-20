@@ -98,4 +98,4 @@ Admins bypass all three, including when creating a repository inside an organisa
 
 ## Upgrading
 
-Bump `forgejo_version` in `defaults/main.yaml`. The role downloads the new binary in-place; the handler restarts the service. Forgejo's schema migrations run automatically on start. Check the upstream release notes for breaking changes before bumping across major versions.
+Bump `forgejo_version` and `forgejo_binary_sha256` together in `defaults/main.yaml`; the checksum is published next to each release binary as `forgejo-<version>-linux-amd64.sha256`. The checksum is also what makes the bump take effect: `get_url` leaves an existing binary alone unless its checksum differs. The role then downloads the new binary in place, and the handler restarts the service. Forgejo's schema migrations run automatically on start. Check the upstream release notes for breaking changes before bumping across major versions.

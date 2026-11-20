@@ -1,5 +1,7 @@
 ---
-forgejo_version: "15.0.1"
+forgejo_version: "15.0.12"
+# sha256 of the linux-amd64 release binary for forgejo_version. Bump both together.
+forgejo_binary_sha256: d10b861514736e29f43e9d8e70bcf8e57a0b26e9e212412952ee4fa987662ca5
 
 forgejo_user: git
 forgejo_group: git
